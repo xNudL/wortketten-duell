@@ -68,6 +68,10 @@
             </div>
         </div>
         
+        <nav class="flex items-center gap-1 p-1 rounded-xl bg-darker/70 border border-border">
+            <button id="tabChains" onclick="switchModeTab('chains')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
+            <button id="tabFun" onclick="switchModeTab('fun')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-burst mr-1"></i> Wort-Blitz</button>
+        </nav>
         <div class="flex items-center space-x-3">
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -205,6 +209,51 @@
                         </button>
                     </div>
                     <div id="friendListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WORT-BLITZ FUN MODE -->
+        <div id="screenFun" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80 text-center relative overflow-hidden">
+                <div class="absolute -right-16 -top-16 w-48 h-48 bg-fuchsia-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20 uppercase tracking-widest">Multiplayer-Mini-Modus</span>
+                <h2 class="text-2xl sm:text-3xl font-black mt-3">⚡ Wort-Blitz</h2>
+                <p class="text-xs sm:text-sm text-gray-400 mt-1">Sei schnell: Drücke, sobald das Wort in der richtigen Farbe erscheint!</p>
+
+                <div id="funLobbyView" class="mt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        <div class="glass rounded-2xl p-5 border border-fuchsia-500/30 bg-gradient-to-b from-fuchsia-950/20 to-transparent">
+                            <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-fuchsia-400 mr-2"></i>Lobby hosten</h3>
+                            <p class="text-xs text-gray-400 mt-1">Eine neue Wort-Blitz-Lobby erstellen.</p>
+                            <div class="mt-4">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Runden</label>
+                                <select id="funRounds" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="3">3 Runden</option><option value="5" selected>5 Runden</option><option value="10">10 Runden</option></select>
+                            </div>
+                            <button onclick="hostFunLobby()" class="mt-4 w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-server mr-1"></i> Wort-Blitz starten</button>
+                        </div>
+                        <div class="glass rounded-2xl p-5 border border-border">
+                            <h3 class="font-bold text-base text-white"><i class="fa-solid fa-bolt text-amber-400 mr-2"></i>Lobby beitreten</h3>
+                            <p class="text-xs text-gray-400 mt-1">Tritt der 4-stelligen ID eines Freundes bei.</p>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Raum-ID</label>
+                            <input id="funRoomCodeInput" maxlength="4" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
+                            <button onclick="joinFunLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-right-to-bracket mr-1"></i> Beitreten</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="funArenaView" class="hidden mt-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="text-left">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Raum</p>
+                            <p id="funRoomCode" class="text-xl font-mono font-black text-fuchsia-300">#----</p>
+                        </div>
+                        <button onclick="leaveLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    </div>
+                    <div id="funPlayerList" class="flex flex-wrap justify-center gap-2 mb-5"></div>
+                    <div id="funRoundStatus" class="text-xs font-bold text-gray-400 mb-3">Warte auf den Start…</div>
+                    <button id="funHitButton" onclick="hitFunButton()" class="hidden w-full max-w-md mx-auto aspect-[2/1] rounded-3xl border-4 border-white/20 bg-gradient-to-br from-amber-400 to-fuchsia-600 text-white text-5xl sm:text-7xl font-black shadow-2xl shadow-fuchsia-600/30 active:scale-95 transition">KLICK!</button>
+                    <button id="funStartButton" onclick="startFunRound()" class="hidden w-full max-w-md mx-auto bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Runde starten</button>
                 </div>
             </div>
         </div>
@@ -606,6 +655,13 @@
         let pendingFriendConn = null;
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
+        let activeMode = 'chains';
+        let funRound = 0;
+        let funRounds = 5;
+        let funRoundActive = false;
+        let funWinnerId = null;
+        let funReadyTimeout = null;
+        let funInLobby = false;
 
         window.addEventListener('DOMContentLoaded', () => {
             if (!myName || !myTag) {
@@ -837,6 +893,115 @@
             pendingLobbyHostId = null;
         }
 
+        function switchModeTab(mode) {
+            if (mode === 'fun') {
+                activeMode = 'fun';
+                document.getElementById('tabChains').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+                document.getElementById('tabFun').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-fuchsia-600 text-white transition';
+                if (activeMode === 'fun') switchScreen('screenFun');
+                if (funInLobby) {
+                    document.getElementById('funLobbyView').classList.add('hidden');
+                    document.getElementById('funArenaView').classList.remove('hidden');
+                    renderFunLobby();
+                }
+            } else {
+                activeMode = 'chains';
+                document.getElementById('tabChains').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
+                document.getElementById('tabFun').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+                switchScreen('screenSetup');
+            }
+        }
+
+        function hostFunLobby() {
+            ensurePeerReady(() => {
+                initPeerAndSetup();
+                activeMode = 'fun';
+                isHost = true;
+                funRounds = +document.getElementById('funRounds').value;
+                funRound = 0;
+                funRoundActive = false;
+                funWinnerId = null;
+                funInLobby = true;
+                players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true }];
+                document.getElementById('funLobbyView').classList.add('hidden');
+                document.getElementById('funArenaView').classList.remove('hidden');
+                document.getElementById('funRoomCode').innerText = '#' + myTag;
+                document.getElementById('funStartButton').classList.remove('hidden');
+                renderFunLobby();
+                switchScreen('screenFun');
+            });
+        }
+
+        function joinFunLobby() {
+            const code = document.getElementById('funRoomCodeInput').value.trim();
+            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+            ensurePeerReady(() => {
+                activeMode = 'fun';
+                isHost = false;
+                funInLobby = true;
+                conn = peer.connect('wd-user-' + code);
+                setupConnectionHandlers(conn);
+                conn.on('open', () => {
+                    conn.send({ type: 'FUN_JOIN', id: myId, name: `${myName} #${myTag}` });
+                    document.getElementById('funLobbyView').classList.add('hidden');
+                    document.getElementById('funArenaView').classList.remove('hidden');
+                    document.getElementById('funRoomCode').innerText = '#' + code;
+                    document.getElementById('funStartButton').classList.add('hidden');
+                    switchScreen('screenFun');
+                    showStatus('Wort-Blitz-Lobby verbunden', 'success');
+                });
+                conn.on('error', () => alert('Die Wort-Blitz-Lobby wurde nicht gefunden oder ist offline.'));
+            });
+        }
+
+        function renderFunLobby() {
+            document.getElementById('funPlayerList').innerHTML = players.map(p => `
+                <span class="px-3 py-1.5 rounded-xl ${p.isHost ? 'bg-fuchsia-600/30 border-fuchsia-500/40 text-fuchsia-200' : 'bg-darker/70 border-border text-gray-300'} border text-xs font-bold">
+                    ${p.name} ${p.isHost ? '👑' : ''} <span class="ml-1 font-mono text-amber-300">${p.score || 0} P</span>
+                </span>`).join('');
+        }
+
+        function startFunRound() {
+            if (!isHost || activeMode !== 'fun') return;
+            if (funRound >= funRounds) return;
+            funRound++;
+            funWinnerId = null;
+            funRoundActive = true;
+            document.getElementById('funStartButton').classList.add('hidden');
+            document.getElementById('funHitButton').classList.add('hidden');
+            document.getElementById('funRoundStatus').innerText = `Runde ${funRound}/${funRounds} – Achtung…`;
+            broadcast({ type: 'FUN_SYNC', players: pubPlayers(), funRound, funRounds });
+
+            const delay = 900 + Math.floor(Math.random() * 2400);
+            funReadyTimeout = setTimeout(() => {
+                funRoundActive = true;
+                broadcast({ type: 'FUN_GO', round: funRound });
+                document.getElementById('funHitButton').classList.remove('hidden');
+                document.getElementById('funRoundStatus').innerText = `Runde ${funRound}/${funRounds} – JETZT!`;
+            }, delay);
+        }
+
+        function hitFunButton() {
+            if (activeMode !== 'fun') return;
+            if (!funRoundActive) return;
+            if (isHost) {
+                funRoundActive = false;
+                funWinnerId = myId;
+                const winner = players.find(p => p.id === myId);
+                if (winner) winner.score = (winner.score || 0) + 1;
+                broadcast({ type: 'FUN_RESULT', winnerId: myId, winnerName: winner ? winner.name : myName, scores: pubPlayers() });
+                document.getElementById('funHitButton').classList.add('hidden');
+                document.getElementById('funRoundStatus').innerText = `🏆 ${winner ? winner.name : myName} hat gewonnen!`;
+                renderFunLobby();
+                if (funRound < funRounds) document.getElementById('funStartButton').classList.remove('hidden');
+            } else {
+                funRoundActive = false;
+                document.getElementById('funHitButton').classList.add('hidden');
+                broadcast({ type: 'FUN_HIT', playerId: myId });
+            }
+        }
+
         function hostGame() {
             initPeerAndSetup();
             isHost = true;
@@ -918,7 +1083,14 @@
 
             isHost = false;
             if (timerInterval) clearInterval(timerInterval);
-            switchScreen('screenSetup');
+            if (funReadyTimeout) clearTimeout(funReadyTimeout);
+            funRoundActive = false;
+            funInLobby = false;
+            switchScreen(activeMode === 'fun' ? 'screenFun' : 'screenSetup');
+            if (activeMode === 'fun') {
+                document.getElementById('funLobbyView').classList.remove('hidden');
+                document.getElementById('funArenaView').classList.add('hidden');
+            }
             showStatus('Lobby verlassen', 'success');
         }
 
@@ -952,6 +1124,55 @@
                     pendingLobbyHostId = data.hostTag;
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'FUN_JOIN':
+                    if (isHost && activeMode === 'fun') {
+                        if (!connections.includes(senderConn)) connections.push(senderConn);
+                        if (!players.some(p => p.id === data.id)) {
+                            players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, conn: senderConn });
+                        }
+                        senderConn.on('close', () => {
+                            players = players.filter(p => p.conn !== senderConn);
+                            connections = connections.filter(c => c !== senderConn);
+                            broadcast({ type: 'FUN_SYNC', players: pubPlayers(), funRound, funRounds });
+                            renderFunLobby();
+                        });
+                        broadcast({ type: 'FUN_SYNC', players: pubPlayers(), funRound, funRounds });
+                        renderFunLobby();
+                    }
+                    break;
+                case 'FUN_SYNC':
+                    players = data.players;
+                    funRound = data.funRound || 0;
+                    funRounds = data.funRounds || 5;
+                    renderFunLobby();
+                    break;
+                case 'FUN_GO':
+                    funRoundActive = true;
+                    funWinnerId = null;
+                    document.getElementById('funHitButton').classList.remove('hidden');
+                    document.getElementById('funStartButton').classList.add('hidden');
+                    document.getElementById('funRoundStatus').innerText = `Runde ${data.round}/${funRounds} – JETZT!`;
+                    break;
+                case 'FUN_HIT':
+                    if (isHost && activeMode === 'fun' && funRoundActive && !funWinnerId) {
+                        funWinnerId = data.playerId;
+                        funRoundActive = false;
+                        const winner = players.find(p => p.id === data.playerId);
+                        if (winner) winner.score = (winner.score || 0) + 1;
+                        broadcast({ type: 'FUN_RESULT', winnerId: data.playerId, winnerName: winner ? winner.name : 'Spieler', scores: pubPlayers() });
+                        renderFunResult(data.playerId, winner ? winner.name : 'Spieler');
+                    }
+                    break;
+                case 'FUN_RESULT':
+                    funRoundActive = false;
+                    players = data.scores || players;
+                    document.getElementById('funHitButton').classList.add('hidden');
+                    document.getElementById('funRoundStatus').innerText = `🏆 ${data.winnerName} hat gewonnen!`;
+                    renderFunLobby();
+                    if (isHost) {
+                        document.getElementById('funStartButton').classList.toggle('hidden', funRound >= funRounds);
+                    }
                     break;
                 case 'JOIN':
                     if (isHost) {
@@ -1034,7 +1255,14 @@
                     isHost = false;
                     players = [];
                     wordChain = [];
-                    switchScreen('screenSetup');
+                    funInLobby = false;
+                    if (activeMode === 'fun') {
+                        document.getElementById('funLobbyView').classList.remove('hidden');
+                        document.getElementById('funArenaView').classList.add('hidden');
+                        switchScreen('screenFun');
+                    } else {
+                        switchScreen('screenSetup');
+                    }
                     showStatus('Der Host hat die Lobby beendet.', 'warning');
                     break;
             }
@@ -1492,7 +1720,7 @@
         }
 
         function switchScreen(screenId) {
-            ['screenOnboarding', 'screenSetup', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+            ['screenOnboarding', 'screenSetup', 'screenFun', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
