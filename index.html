@@ -870,11 +870,17 @@
         }
 
         function leaveLobby() {
-            if (conn) {
+            if (isHost) {
+                broadcast({ type: 'HOST_CLOSED' });
+                const endedConnections = [...connections];
+                setTimeout(() => endedConnections.forEach(c => { if (c && c.open) c.close(); }), 250);
+                connections = [];
+                players = [];
+            } else if (conn) {
                 conn.close();
                 conn = null;
             }
-            connections = [];
+
             isHost = false;
             if (timerInterval) clearInterval(timerInterval);
             switchScreen('screenSetup');
@@ -982,6 +988,19 @@
                     break;
                 case 'FEEDBACK':
                     showFeedback(data.text, data.kind);
+                    break;
+                case 'HOST_CLOSED':
+                    clearInterval(timerInterval);
+                    if (conn) {
+                        conn.close();
+                        conn = null;
+                    }
+                    connections = [];
+                    isHost = false;
+                    players = [];
+                    wordChain = [];
+                    switchScreen('screenSetup');
+                    showStatus('Der Host hat die Lobby beendet.', 'warning');
                     break;
             }
         }
