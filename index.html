@@ -729,22 +729,36 @@
         function openAddFriendModal() { document.getElementById('addFriendModal').classList.remove('hidden'); }
         function closeAddFriendModal() { document.getElementById('addFriendModal').classList.add('hidden'); }
 
+        function ensurePeerReady(callback) {
+            if (!peer || peer.destroyed) {
+                peer = null;
+                initPeerAndSetup();
+            }
+            if (peer.open) callback();
+            else peer.once('open', callback);
+        }
+
         function sendFriendRequest() {
             const targetTag = document.getElementById('friendTagInput').value.trim();
             if (!targetTag || targetTag.length !== 4) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
 
-            const targetPeerId = 'wd-user-' + targetTag;
-            const c = peer.connect(targetPeerId, { reliable: true });
-            setupConnectionHandlers(c);
-            
-            c.on('open', () => {
-                c.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
-                alert('Freundschaftsanfrage gesendet!');
-                closeAddFriendModal();
-            });
-            c.on('error', () => {
-                alert('Spieler mit der ID #' + targetTag + ' wurde nicht gefunden oder ist offline.');
+            ensurePeerReady(() => {
+                const targetPeerId = 'wd-user-' + targetTag;
+                const c = peer.connect(targetPeerId, { reliable: true });
+                setupConnectionHandlers(c);
+
+                c.on('open', () => {
+                    c.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
+                    alert('Freundschaftsanfrage gesendet!');
+                    closeAddFriendModal();
+                });
+                c.on('error', (err) => {
+                    const unavailable = err && err.type === 'peer-unavailable';
+                    alert(unavailable
+                        ? 'Spieler mit der ID #' + targetTag + ' ist nicht erreichbar.'
+                        : 'Spieler mit der ID #' + targetTag + ' wurde nicht gefunden oder ist offline.');
+                });
             });
         }
 
@@ -754,9 +768,11 @@
                 if (pendingFriendConn.open) {
                     pendingFriendConn.send(acceptMsg);
                 } else {
-                    const backConn = peer.connect('wd-user-' + pendingFriendData.tag, { reliable: true });
-                    setupConnectionHandlers(backConn);
-                    backConn.on('open', () => backConn.send(acceptMsg));
+                    ensurePeerReady(() => {
+                        const backConn = peer.connect('wd-user-' + pendingFriendData.tag, { reliable: true });
+                        setupConnectionHandlers(backConn);
+                        backConn.on('open', () => backConn.send(acceptMsg));
+                    });
                 }
                 
                 if (!friends.some(f => f.tag === pendingFriendData.tag)) {
@@ -791,14 +807,16 @@
         }
 
         function inviteFriendToLobby(friendTag) {
-            const targetPeerId = 'wd-user-' + friendTag;
-            const c = peer.connect(targetPeerId);
-            c.on('open', () => {
-                c.send({ type: 'LOBBY_INVITE', hostName: myName, hostTag: myTag });
-                alert('Einladung gesendet!');
-            });
-            c.on('error', () => {
-                alert('Konnte Einladung nicht senden (Spieler offline).');
+            ensurePeerReady(() => {
+                const targetPeerId = 'wd-user-' + friendTag;
+                const c = peer.connect(targetPeerId);
+                c.on('open', () => {
+                    c.send({ type: 'LOBBY_INVITE', hostName: myName, hostTag: myTag });
+                    alert('Einladung gesendet!');
+                });
+                c.on('error', () => {
+                    alert('Konnte Einladung nicht senden (Spieler offline).');
+                });
             });
         }
 
@@ -848,11 +866,12 @@
             
             isHost = false;
             showStatus('Verbinde...', 'warning');
-            
-            const targetPeerId = 'wd-user-' + inputCode;
-            conn = peer.connect(targetPeerId);
-            
-            setupConnectionHandlers(conn);
+
+            ensurePeerReady(() => {
+                const targetPeerId = 'wd-user-' + inputCode;
+                conn = peer.connect(targetPeerId);
+
+                setupConnectionHandlers(conn);
             
             conn.on('open', () => {
                 conn.send({ type: 'JOIN', name: `${myName} #${myTag}`, id: myId, tag: myTag });
@@ -860,12 +879,13 @@
                 showStatus('Mit Lobby verbunden!', 'success');
             });
             
-            conn.on('error', (err) => {
-                const closed = err && err.type === 'peer-unavailable';
-                alert(closed
-                    ? 'Diese Lobby existiert nicht mehr. Der Host hat sie wahrscheinlich beendet.'
-                    : 'Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
-                showStatus(closed ? 'Lobby nicht verfügbar' : 'Verbindung fehlgeschlagen', 'error');
+                conn.on('error', (err) => {
+                    const closed = err && err.type === 'peer-unavailable';
+                    alert(closed
+                        ? 'Diese Lobby existiert nicht mehr. Der Host hat sie wahrscheinlich beendet.'
+                        : 'Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
+                    showStatus(closed ? 'Lobby nicht verfügbar' : 'Verbindung fehlgeschlagen', 'error');
+                });
             });
         }
 
