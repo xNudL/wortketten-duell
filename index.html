@@ -511,36 +511,72 @@
         extraDE.forEach(w => dictionaryDE.add(w));
         extraEN.forEach(w => dictionaryEN.add(w));
 
-        // ===== Online-Wörterbuch + dauerhaft gelernte Wörter =====
+        // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
         const LEARNED_KEY = 'wortketten_learned_v1';
         let learned = { de: [], en: [] };
         try { learned = Object.assign(learned, JSON.parse(localStorage.getItem(LEARNED_KEY) || '{}')); } catch (e) {}
-        learned.de.forEach(w => dictionaryDE.add(w));
-        learned.en.forEach(w => dictionaryEN.add(w));
+
         function learnWord(lang, w) {
             (lang === 'de' ? dictionaryDE : dictionaryEN).add(w);
             if (!learned[lang].includes(w)) learned[lang].push(w);
             try { localStorage.setItem(LEARNED_KEY, JSON.stringify(learned)); } catch (e) {}
         }
+
         async function jget(url) {
             const c = new AbortController(), t = setTimeout(() => c.abort(), 4500);
             try { const r = await fetch(url, { signal: c.signal }); return r.ok ? await r.json() : null; }
             catch (e) { return null; } finally { clearTimeout(t); }
         }
+
+        async function jpost(url, body) {
+            const c = new AbortController(), t = setTimeout(() => c.abort(), 4500);
+            try {
+                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: c.signal });
+                return r.ok ? await r.json() : null;
+            } catch (e) { return null; } finally { clearTimeout(t); }
+        }
+
+        function looksLikeWord(word) {
+            if (!/^[A-ZÄÖÜ]+$/.test(word) || word.length < 3 || word.length > 20) return false;
+            if (/(.)\1{2,}/.test(word)) return false;
+            if (word.length >= 5 && !/[AEIOUYÄÖÜ]/.test(word)) return false;
+            // Lange Folgen ohne Vokal sind bei normalen deutschen und englischen Worten sehr unwahrscheinlich.
+            if (/[BCDFGHJKLMNPQRSTVWXYZÄÖÜ]{5,}/.test(word)) return false;
+            return true;
+        }
+
         async function existsDE(w) {
             const l = w.toLowerCase(), c = l[0].toUpperCase() + l.slice(1);
-            const d = await jget('https://de.wiktionary.org/w/api.php?action=query&format=json&origin=*&titles=' + encodeURIComponent(c + '|' + l));
-            return !!(d && d.query && Object.values(d.query.pages).some(p => !('missing' in p) && !('invalid' in p)));
+            const d = await jget('https://de.wiktionary.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageprops&titles=' + encodeURIComponent(c + '|' + l));
+            const pages = d && d.query && d.query.pages ? Object.values(d.query.pages) : [];
+            const exact = pages.find(p => p.title && p.title.toLowerCase() === l && !('missing' in p));
+            if (!exact) return false;
+
+            const page = await jget('https://de.wiktionary.org/w/api.php?action=parse&format=json&origin=*&prop=wikitext&page=' + encodeURIComponent(exact.title));
+            const text = page && page.parse && page.parse.wikitext ? (page.parse.wikitext['*'] || '') : '';
+            if (!/(==+\s*Deutsch\s*==+|Wortart|Deutsch)/i.test(text)) return false;
+
+            const spelling = await jpost('https://languagetool.org/api/v2/check', { text: l, language: 'de-DE', enabledOnly: 'TYPOS' });
+            if (spelling && Array.isArray(spelling.matches) && spelling.matches.length) return false;
+            return true;
         }
+
         async function existsEN(w) {
             const l = w.toLowerCase();
-            const a = await jget('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(l));
-            if (Array.isArray(a) && a.length) return true;
-            const b = await jget('https://api.datamuse.com/words?max=1&sp=' + encodeURIComponent(l));
-            return Array.isArray(b) && b.length > 0 && b[0].word === l;
+            const dictionary = await jget('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(l));
+            if (Array.isArray(dictionary) && dictionary.some(entry => String(entry.word || '').toLowerCase() === l)) return true;
+
+            // Datamuse wird nur als Lexikon-Fallback verwendet: exakt und mit Wortart-/Definitionsdaten.
+            const datamuse = await jget('https://api.datamuse.com/words?max=10&sp=' + encodeURIComponent(l) + '&md=d');
+            return Array.isArray(datamuse) && datamuse.some(entry =>
+                entry.word === l &&
+                ((entry.tags && entry.tags.some(tag => /^(n|v|adj|adv)$/.test(tag))) ||
+                 (Array.isArray(entry.defs) && entry.defs.length > 0))
+            );
         }
+
         async function checkOnline(word) {
-            if (!/^[A-ZÄÖÜ]+$/.test(word)) return false;
+            if (!looksLikeWord(word)) return false;
             if (gameMode !== 'en' && await existsDE(word)) { learnWord('de', word); return true; }
             if (gameMode !== 'de' && await existsEN(word)) { learnWord('en', word); return true; }
             return false;
