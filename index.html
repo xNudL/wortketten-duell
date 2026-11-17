@@ -68,6 +68,10 @@
             </div>
         </div>
         
+        <nav class="flex items-center gap-1 p-1 rounded-xl bg-darker/70 border border-border">
+            <button id="tabWords" onclick="switchMainTab('words')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
+            <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
+        </nav>
         <div class="flex items-center space-x-3">
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -205,6 +209,57 @@
                         </button>
                     </div>
                     <div id="friendListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PONG MODE -->
+        <div id="screenPong" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-5 sm:p-8 shadow-2xl border border-border/80">
+                <div class="text-center max-w-lg mx-auto mb-5">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-widest">Reaktionsspiel</span>
+                    <h2 class="text-2xl sm:text-3xl font-black mt-3">🏓 PONG</h2>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Tritt in einem Duell oder Teamspiel gegen deine Freunde an.</p>
+                </div>
+
+                <div id="pongLobby" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass rounded-2xl p-5 border border-cyan-500/30 bg-gradient-to-b from-cyan-950/20 to-transparent">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-cyan-400 mr-2"></i>Lobby hosten</h3>
+                        <p class="text-xs text-gray-400 mt-2">Wähle, wie viele Spieler mitspielen dürfen.</p>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Spieler</label>
+                        <select id="pongPlayerCount" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="2">2 Spieler · 1 gegen 1</option>
+                            <option value="3">3 Spieler · Jeder gegen jeden</option>
+                            <option value="4">4 Spieler · 2 gegen 2</option>
+                        </select>
+                        <button onclick="hostPongLobby()" class="mt-4 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-server mr-1"></i> Pong-Lobby erstellen</button>
+                    </div>
+                    <div class="glass rounded-2xl p-5 border border-border">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Lobby beitreten</h3>
+                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Raum-ID des Hosts ein.</p>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Raum-ID</label>
+                        <input id="pongRoomCodeInput" maxlength="4" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
+                        <button onclick="joinPongLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-plug mr-1"></i> Lobby beitreten</button>
+                    </div>
+                </div>
+
+                <div id="pongArena" class="hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
+                        <div class="text-left">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Pong-Raum</p>
+                            <p id="pongRoomCode" class="text-xl font-mono font-black text-cyan-300">#----</p>
+                        </div>
+                        <div id="pongTeamLabel" class="text-xs font-bold text-gray-300"></div>
+                        <button onclick="leavePongLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    </div>
+                    <div id="pongPlayerList" class="flex flex-wrap justify-center gap-2 mb-3"></div>
+                    <div class="relative rounded-2xl overflow-hidden border border-cyan-500/30 bg-slate-950 shadow-2xl">
+                        <canvas id="pongCanvas" width="800" height="500" class="w-full block touch-none"></canvas>
+                    </div>
+                    <div class="mt-3 flex justify-center">
+                        <button id="pongStartButton" onclick="startPongGame()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Pong starten</button>
+                    </div>
+                    <p class="text-[11px] text-gray-400 text-center mt-3"><i class="fa-solid fa-keyboard mr-1"></i> Bewege deinen Schläger mit <b>W/S</b>, <b>↑/↓</b>, Maus oder Touch.</p>
                 </div>
             </div>
         </div>
@@ -606,12 +661,44 @@
         let pendingFriendConn = null;
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
+        let pongPlayers = [];
+        let pongMaxPlayers = 2;
+        let pongRunning = false;
+        let pongHostLoop = null;
+        let pongState = null;
+        let pongPlayerIndex = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
             if (!myName || !myTag) {
                 switchScreen('screenOnboarding');
             } else {
                 initPeerAndSetup();
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (!pongRunning) return;
+                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { e.preventDefault(); localPongMove(-1); }
+                if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { e.preventDefault(); localPongMove(1); }
+            });
+
+            const pongCanvas = document.getElementById('pongCanvas');
+            if (pongCanvas) {
+                const movePongFromPointer = (e) => {
+                    if (!pongRunning || !pongState) return;
+                    const rect = pongCanvas.getBoundingClientRect();
+                    const y = ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top) / rect.height * 500;
+                    const own = pongState.paddles.filter(p => p.index === pongPlayerIndex);
+                    own.forEach(p => {
+                        if (p.side === 'top') p.x = Math.max(0, Math.min(720, y * 1.44));
+                        else p.y = Math.max(0, Math.min(500 - p.h, y - p.h / 2));
+                    });
+                    if (!isHost && conn && conn.open) {
+                        const p = own[0];
+                        if (p) conn.send({ type: 'PONG_MOVE', playerId: myId, y: p.side === 'top' ? p.x / 720 : p.y / (500 - p.h) });
+                    }
+                };
+                pongCanvas.addEventListener('mousemove', movePongFromPointer);
+                pongCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); movePongFromPointer(e); }, { passive: false });
             }
 
             const wordInput = document.getElementById('wordInput');
@@ -837,6 +924,203 @@
             pendingLobbyHostId = null;
         }
 
+        function switchMainTab(tab) {
+            document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            if (tab === 'pong') {
+                document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white transition';
+                switchScreen('screenPong');
+            } else {
+                document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
+                switchScreen(pongRunning ? 'screenPong' : 'screenSetup');
+            }
+        }
+
+        function assignPongTeams() {
+            if (pongMaxPlayers === 4) {
+                pongPlayers.forEach((p, i) => p.team = i % 2 === 0 ? 'Blau' : 'Rot');
+            } else if (pongMaxPlayers === 2) {
+                pongPlayers.forEach((p, i) => p.team = i === 0 ? 'Links' : 'Rechts');
+            } else {
+                pongPlayers.forEach((p, i) => p.team = i === 0 ? 'Links' : (i === 1 ? 'Rechts' : 'Oben'));
+            }
+        }
+
+        function hostPongLobby() {
+            ensurePeerReady(() => {
+                initPeerAndSetup();
+                isHost = true;
+                pongMaxPlayers = +document.getElementById('pongPlayerCount').value;
+                pongRunning = false;
+                pongPlayerIndex = 0;
+                pongPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, team: null, conn: null }];
+                assignPongTeams();
+                document.getElementById('pongLobby').classList.add('hidden');
+                document.getElementById('pongArena').classList.remove('hidden');
+                document.getElementById('pongRoomCode').innerText = '#' + myTag;
+                document.getElementById('pongStartButton').classList.remove('hidden');
+                renderPongLobby();
+                switchScreen('screenPong');
+            });
+        }
+
+        function joinPongLobby() {
+            const code = document.getElementById('pongRoomCodeInput').value.trim();
+            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+            ensurePeerReady(() => {
+                isHost = false;
+                conn = peer.connect('wd-user-' + code);
+                setupConnectionHandlers(conn);
+                conn.on('open', () => {
+                    conn.send({ type: 'PONG_JOIN', id: myId, name: `${myName} #${myTag}` });
+                    document.getElementById('pongLobby').classList.add('hidden');
+                    document.getElementById('pongArena').classList.remove('hidden');
+                    document.getElementById('pongRoomCode').innerText = '#' + code;
+                    document.getElementById('pongStartButton').classList.add('hidden');
+                    switchScreen('screenPong');
+                    showStatus('Pong-Lobby verbunden', 'success');
+                });
+                conn.on('error', () => alert('Die Pong-Lobby wurde nicht gefunden oder ist offline.'));
+            });
+        }
+
+        function renderPongLobby() {
+            const ownIndex = pongPlayers.findIndex(p => p.id === myId);
+            pongPlayerIndex = ownIndex >= 0 ? ownIndex : 0;
+            document.getElementById('pongPlayerList').innerHTML = pongPlayers.map((p, i) => {
+                const color = pongMaxPlayers === 4 ? (p.team === 'Blau' ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-200' : 'border-red-500/40 bg-red-600/20 text-red-200') : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
+                return `<span class="px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.team ? ' · ' + p.team : ''} <span class="font-mono text-white ml-1">${p.score || 0} P</span></span>`;
+            }).join('');
+            document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
+                ? '2 gegen 2 · Blau vs. Rot'
+                : (pongMaxPlayers === 3 ? 'Jeder gegen jeden' : '1 gegen 1');
+        }
+
+        function createPongState() {
+            const paddles = [];
+            if (pongMaxPlayers === 2) {
+                paddles.push({ x: 25, y: 210, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 210, w: 16, h: 80, side: 'right', index: 1 });
+            } else if (pongMaxPlayers === 3) {
+                paddles.push({ x: 25, y: 210, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 210, w: 16, h: 80, side: 'right', index: 1 }, { x: 360, y: 25, w: 80, h: 16, side: 'top', index: 2 });
+            } else {
+                paddles.push({ x: 25, y: 120, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 120, w: 16, h: 80, side: 'right', index: 1 }, { x: 25, y: 300, w: 16, h: 80, side: 'left', index: 2 }, { x: 759, y: 300, w: 16, h: 80, side: 'right', index: 3 });
+            }
+            return { ball: { x: 400, y: 250, r: 11, vx: 5, vy: 3.2 }, paddles, blueScore: 0, redScore: 0, individualScore: [0, 0, 0, 0] };
+        }
+
+        function startPongGame() {
+            if (!isHost) return;
+            if (pongPlayers.length < 2) return alert('Für Pong brauchst du mindestens 2 Spieler.');
+            pongRunning = true;
+            pongState = createPongState();
+            broadcast({ type: 'PONG_START', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) });
+            document.getElementById('pongStartButton').classList.add('hidden');
+            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
+            pongHostLoop = requestAnimationFrame(pongHostTick);
+        }
+
+        function localPongMove(delta) {
+            if (!pongState) return;
+            const ownPaddles = pongState.paddles.filter(p => p.index === pongPlayerIndex);
+            ownPaddles.forEach(p => {
+                if (p.side === 'top') p.x = Math.max(0, Math.min(720, p.x + delta * 8));
+                else p.y = Math.max(0, Math.min(500 - p.h, p.y + delta * 8));
+            });
+            const normalized = ownPaddles.length ? (ownPaddles[0].side === 'top' ? ownPaddles[0].x / 720 : ownPaddles[0].y / (500 - ownPaddles[0].h)) : 0;
+            if (!isHost && conn && conn.open) conn.send({ type: 'PONG_MOVE', playerId: myId, y: normalized });
+        }
+
+        function updatePongRemotePaddle(player, normalized) {
+            const index = pongPlayers.findIndex(p => p.id === player.id);
+            if (!pongState) return;
+            pongState.paddles.filter(p => p.index === index).forEach((p) => {
+                if (p.side === 'top') p.x = Math.max(0, Math.min(720, normalized * 720));
+                else p.y = Math.max(0, Math.min(500 - p.h, normalized * (500 - p.h)));
+            });
+        }
+
+        function paddleHit(paddle, ball) {
+            return ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w && ball.y + ball.r > paddle.y && ball.y - ball.r < paddle.y + paddle.h;
+        }
+
+        function pongHostTick() {
+            if (!isHost || !pongRunning || !pongState) return;
+            const b = pongState.ball;
+            b.x += b.vx; b.y += b.vy;
+            if (b.y - b.r <= 0) { b.y = b.r; b.vy = Math.abs(b.vy); }
+            if (b.y + b.r >= 500) { b.y = 500 - b.r; b.vy = -Math.abs(b.vy); }
+
+            pongState.paddles.forEach(p => {
+                if (paddleHit(p, b)) {
+                    if (p.side === 'left') { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
+                    if (p.side === 'right') { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
+                    if (p.side === 'top') { b.y = p.y + p.h + b.r; b.vy = Math.abs(b.vy) * 1.03; }
+                }
+            });
+
+            if (b.x < -20 || b.x > 820) {
+                if (pongMaxPlayers === 4) {
+                    if (b.x < 0) pongState.redScore++; else pongState.blueScore++;
+                    const red = pongState.redScore, blue = pongState.blueScore;
+                    pongPlayers.filter(p => p.team === 'Blau').forEach(p => p.score = blue);
+                    pongPlayers.filter(p => p.team === 'Rot').forEach(p => p.score = red);
+                } else {
+                    const scorer = b.x < 0 ? (pongMaxPlayers === 2 ? 1 : 1) : 0;
+                    pongState.individualScore[scorer]++;
+                    if (pongPlayers[scorer]) pongPlayers[scorer].score = pongState.individualScore[scorer];
+                }
+                b.x = 400; b.y = 250; b.vx = (Math.random() > .5 ? 5 : -5); b.vy = (Math.random() > .5 ? 3.2 : -3.2);
+            }
+
+            broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) });
+            drawPong();
+            pongHostLoop = requestAnimationFrame(pongHostTick);
+        }
+
+        function drawPong() {
+            const canvas = document.getElementById('pongCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 800, 500);
+            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 800, 500);
+            ctx.strokeStyle = 'rgba(148,163,184,.25)'; ctx.setLineDash([10, 12]); ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke(); ctx.setLineDash([]);
+
+            if (!pongState) { pongState = createPongState(); }
+            pongState.paddles.forEach(p => {
+                ctx.fillStyle = p.side === 'right' ? '#f87171' : (pongMaxPlayers === 4 && p.side === 'left' ? '#22d3ee' : '#60a5fa');
+                ctx.shadowBlur = 18; ctx.shadowColor = ctx.fillStyle;
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+            });
+            ctx.shadowBlur = 0;
+            const b = pongState.ball;
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px Plus Jakarta Sans'; ctx.textAlign = 'center';
+            ctx.fillText(pongMaxPlayers === 4 ? `${pongState.blueScore}  ·  ${pongState.redScore}` : `${pongState.individualScore[0] || 0}  ·  ${pongState.individualScore[1] || 0}`, 400, 55);
+        }
+
+        function leavePongLobby() {
+            pongRunning = false;
+            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
+            if (isHost) {
+                broadcast({ type: 'PONG_CLOSED' });
+                const ended = [...connections];
+                setTimeout(() => ended.forEach(c => { if (c && c.open) c.close(); }), 250);
+                connections = [];
+                if (peer) { peer.destroy(); peer = null; myId = ''; }
+            } else if (conn) {
+                conn.close(); conn = null;
+            }
+            pongPlayers = [];
+            isHost = false;
+            pongState = null;
+            document.getElementById('pongLobby').classList.remove('hidden');
+            document.getElementById('pongArena').classList.add('hidden');
+            switchScreen('screenPong');
+            showStatus('Pong-Lobby verlassen', 'success');
+        }
+
         function hostGame() {
             initPeerAndSetup();
             isHost = true;
@@ -900,6 +1184,7 @@
         function leaveLobby() {
             if (isHost) {
                 broadcast({ type: 'HOST_CLOSED' });
+                if (pongPlayers.length) broadcast({ type: 'PONG_CLOSED' });
                 const endedConnections = [...connections];
                 setTimeout(() => {
                     endedConnections.forEach(c => { if (c && c.open) c.close(); });
@@ -952,6 +1237,67 @@
                     pendingLobbyHostId = data.hostTag;
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'PONG_JOIN':
+                    if (isHost && pongPlayers.length < pongMaxPlayers) {
+                        if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, conn: senderConn });
+                        assignPongTeams();
+                        senderConn.on('close', () => {
+                            pongPlayers = pongPlayers.filter(p => p.conn !== senderConn);
+                            connections = connections.filter(c => c !== senderConn);
+                            assignPongTeams();
+                            broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, running: pongRunning });
+                            renderPongLobby();
+                        });
+                        broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, running: pongRunning });
+                        renderPongLobby();
+                    } else {
+                        senderConn.send({ type: 'PONG_FULL' });
+                    }
+                    break;
+                case 'PONG_SYNC':
+                    pongPlayers = data.players || pongPlayers;
+                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
+                    pongRunning = data.running || false;
+                    if (!pongRunning) document.getElementById('pongArena').classList.remove('hidden');
+                    renderPongLobby();
+                    break;
+                case 'PONG_FULL':
+                    alert('Diese Pong-Lobby ist bereits voll.');
+                    if (conn) conn.close();
+                    conn = null;
+                    break;
+                case 'PONG_START':
+                    pongPlayers = data.players || pongPlayers;
+                    pongRunning = true;
+                    pongState = createPongState();
+                    document.getElementById('pongLobby').classList.add('hidden');
+                    document.getElementById('pongArena').classList.remove('hidden');
+                    renderPongLobby();
+                    drawPong();
+                    break;
+                case 'PONG_STATE':
+                    pongState = data.state;
+                    pongPlayers = data.players || pongPlayers;
+                    pongRunning = true;
+                    drawPong();
+                    renderPongLobby();
+                    break;
+                case 'PONG_MOVE':
+                    if (isHost && pongRunning) {
+                        const player = pongPlayers.find(p => p.id === data.playerId);
+                        if (player) updatePongRemotePaddle(player, data.y);
+                    }
+                    break;
+                case 'PONG_CLOSED':
+                    stopPongGame();
+                    if (conn) { conn.close(); conn = null; }
+                    pongPlayers = [];
+                    isHost = false;
+                    document.getElementById('pongLobby').classList.remove('hidden');
+                    document.getElementById('pongArena').classList.add('hidden');
+                    switchScreen('screenPong');
+                    showStatus('Der Host hat die Pong-Lobby beendet.', 'warning');
                     break;
                 case 'JOIN':
                     if (isHost) {
@@ -1492,7 +1838,7 @@
         }
 
         function switchScreen(screenId) {
-            ['screenOnboarding', 'screenSetup', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
