@@ -663,7 +663,7 @@
                         peer.destroy();
                         peer = null;
                         initPeerAndSetup();
-                    } else {
+                    } else if (err.type !== 'peer-unavailable') {
                         showStatus('Verbindungsfehler: ' + err.type, 'error');
                     }
                 });
@@ -816,6 +816,7 @@
         }
 
         function hostGame() {
+            initPeerAndSetup();
             isHost = true;
             gameMode = document.getElementById('gameLangMode').value;
             settings = { rounds: +document.getElementById('gameRounds').value, diff: document.getElementById('gameDiff').value, inf: document.getElementById('gameDiff').value === 'inf', keep: document.getElementById('gameLock').value === 'keep' };
@@ -860,8 +861,11 @@
             });
             
             conn.on('error', (err) => {
-                alert('Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
-                showStatus('Verbindung fehlgeschlagen', 'error');
+                const closed = err && err.type === 'peer-unavailable';
+                alert(closed
+                    ? 'Diese Lobby existiert nicht mehr. Der Host hat sie wahrscheinlich beendet.'
+                    : 'Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
+                showStatus(closed ? 'Lobby nicht verfügbar' : 'Verbindung fehlgeschlagen', 'error');
             });
         }
 
@@ -873,7 +877,14 @@
             if (isHost) {
                 broadcast({ type: 'HOST_CLOSED' });
                 const endedConnections = [...connections];
-                setTimeout(() => endedConnections.forEach(c => { if (c && c.open) c.close(); }), 250);
+                setTimeout(() => {
+                    endedConnections.forEach(c => { if (c && c.open) c.close(); });
+                    if (peer) {
+                        peer.destroy();
+                        peer = null;
+                        myId = '';
+                    }
+                }, 250);
                 connections = [];
                 players = [];
             } else if (conn) {
