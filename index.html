@@ -253,6 +253,10 @@
                         <button onclick="leavePongLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
                     </div>
                     <div id="pongPlayerList" class="flex flex-wrap justify-center gap-2 mb-3"></div>
+                    <div id="pongFriendInviteSection" class="mb-4 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-300 mb-3">Freunde in diese Pong-Lobby einladen</h3>
+                        <div id="pongFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                    </div>
                     <div class="relative rounded-2xl overflow-hidden border border-cyan-500/30 bg-slate-950 shadow-2xl">
                         <canvas id="pongCanvas" width="800" height="500" class="w-full block touch-none"></canvas>
                     </div>
@@ -661,6 +665,7 @@
         let pendingFriendConn = null;
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
+        let pendingInviteMode = 'words';
         let pongPlayers = [];
         let pongMaxPlayers = 2;
         let pongRunning = false;
@@ -911,17 +916,38 @@
             });
         }
 
+        function inviteFriendToPong(friendTag) {
+            ensurePeerReady(() => {
+                const c = peer.connect('wd-user-' + friendTag);
+                c.on('open', () => {
+                    c.send({ type: 'PONG_LOBBY_INVITE', hostName: myName, hostTag: myTag });
+                    alert('Pong-Einladung gesendet!');
+                });
+                c.on('error', () => alert('Pong-Einladung konnte nicht gesendet werden (Spieler offline).'));
+            });
+        }
+
         function acceptLobbyInvite() {
             if (pendingLobbyHostId) {
-                document.getElementById('roomCodeInput').value = pendingLobbyHostId;
+                const mode = pendingInviteMode;
+                const hostTag = pendingLobbyHostId;
                 document.getElementById('lobbyInviteModal').classList.add('hidden');
-                joinGame();
+                pendingLobbyHostId = null;
+                pendingInviteMode = 'words';
+                if (mode === 'pong') {
+                    switchMainTab('pong');
+                    joinPongLobby(hostTag);
+                } else {
+                    document.getElementById('roomCodeInput').value = hostTag;
+                    joinGame();
+                }
             }
         }
 
         function rejectLobbyInvite() {
             document.getElementById('lobbyInviteModal').classList.add('hidden');
             pendingLobbyHostId = null;
+            pendingInviteMode = 'words';
         }
 
         function switchMainTab(tab) {
@@ -964,8 +990,8 @@
             });
         }
 
-        function joinPongLobby() {
-            const code = document.getElementById('pongRoomCodeInput').value.trim();
+        function joinPongLobby(overrideCode = null) {
+            const code = (overrideCode || document.getElementById('pongRoomCodeInput').value).trim();
             if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
             ensurePeerReady(() => {
@@ -995,6 +1021,31 @@
             document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
                 : (pongMaxPlayers === 3 ? 'Jeder gegen jeden' : '1 gegen 1');
+            const inviteSection = document.getElementById('pongFriendInviteSection');
+            if (inviteSection) inviteSection.classList.toggle('hidden', !isHost || pongRunning);
+            renderPongFriendInvites();
+        }
+
+        function renderPongFriendInvites() {
+            const inviteList = document.getElementById('pongFriendInviteList');
+            if (!inviteList) return;
+            if (pongPlayers.length >= pongMaxPlayers) {
+                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Lobby ist bereits voll.</p>`;
+                return;
+            }
+            if (friends.length === 0) {
+                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Keine Freunde zum Einladen verfügbar.</p>`;
+                return;
+            }
+            const available = friends.filter(f => !pongPlayers.some(p => p.name && p.name.includes('#' + f.tag)));
+            if (available.length === 0) {
+                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Alle Freunde sind bereits in der Lobby.</p>`;
+                return;
+            }
+            inviteList.innerHTML = available.map(f => `
+                <button onclick="inviteFriendToPong('${f.tag}')" class="bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${f.name}</span>
+                </button>`).join('');
         }
 
         function createPongState() {
@@ -1235,7 +1286,14 @@
                     break;
                 case 'LOBBY_INVITE':
                     pendingLobbyHostId = data.hostTag;
+                    pendingInviteMode = 'words';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
+                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'PONG_LOBBY_INVITE':
+                    pendingLobbyHostId = data.hostTag;
+                    pendingInviteMode = 'pong';
+                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Pong-Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
                     break;
                 case 'PONG_JOIN':
