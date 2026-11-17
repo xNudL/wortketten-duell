@@ -148,8 +148,12 @@
                                 <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Schwierigkeit</label>
                                 <select id="gameDiff" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="easy">🟢 Leicht (40s)</option><option value="medium" selected>🟡 Mittel (30s)</option><option value="hard">🔴 Schwer (20s)</option><option value="inf">♾️ Unendlich (keine Zeit)</option></select></div>
                             </div>
-                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Regel für gefundene Buchstaben</label>
-                            <select id="gameLock" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="free" selected>Original (nur markieren, frei änderbar)</option><option value="keep">Gefundene Buchstaben müssen bleiben</option></select></div>
+                            <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Wortlänge</label>
+                            <select id="gameWordLength" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="0" selected>Alle Längen</option><option value="3">3 Buchstaben</option><option value="4">4 Buchstaben</option><option value="5">5 Buchstaben</option><option value="6">6 Buchstaben</option><option value="7">7 Buchstaben</option><option value="8">8+ Buchstaben</option></select></div>
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Gefundene Buchstaben</label>
+                            <select id="gameLock" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="free" selected>Frei änderbar</option><option value="keep">Müssen bleiben</option></select></div>
+                            </div>
                             <button onclick="hostGame()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
                                 <i class="fa-solid fa-server"></i>
                                 <span>Online-Lobby erstellen</span>
@@ -837,7 +841,7 @@
             initPeerAndSetup();
             isHost = true;
             gameMode = document.getElementById('gameLangMode').value;
-            settings = { rounds: +document.getElementById('gameRounds').value, diff: document.getElementById('gameDiff').value, inf: document.getElementById('gameDiff').value === 'inf', keep: document.getElementById('gameLock').value === 'keep' };
+            settings = { rounds: +document.getElementById('gameRounds').value, diff: document.getElementById('gameDiff').value, inf: document.getElementById('gameDiff').value === 'inf', keep: document.getElementById('gameLock').value === 'keep', wordLength: +document.getElementById('gameWordLength').value };
             document.getElementById('displayRoomCode').innerText = myTag;
             
             const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
@@ -1061,14 +1065,20 @@
             hard: {min:6,max:10,time:20,label:'Schwer'},
             inf: {min:4,max:5,time:0,label:'Unendlich ♾️'}
         };
-        let settings = { rounds: 3, diff: 'medium', inf: false, keep: false };
+        let settings = { rounds: 3, diff: 'medium', inf: false, keep: false, wordLength: 0 };
         let round = 1, lastRejected = null;
         const pubPlayers = () => players.map(p => ({ id: p.id, name: p.name, score: p.score, streak: p.streak || 0, isHost: p.isHost }));
 
         function wordPool() {
-            if (gameMode === 'de') return [...dictionaryDE];
-            if (gameMode === 'en') return [...dictionaryEN];
-            return [...new Set([...dictionaryDE, ...dictionaryEN])];
+            let words;
+            if (gameMode === 'de') words = [...dictionaryDE];
+            else if (gameMode === 'en') words = [...dictionaryEN];
+            else words = [...new Set([...dictionaryDE, ...dictionaryEN])];
+
+            const selectedLength = settings.wordLength || 0;
+            if (selectedLength === 8) words = words.filter(w => w.length >= 8);
+            else if (selectedLength > 0) words = words.filter(w => w.length === selectedLength);
+            return words;
         }
 
         // Berechnet kürzeste Schrittanzahl im Wörterbuch zwischen zwei Wörtern (für Fortschritts-Punkte)
@@ -1107,7 +1117,16 @@
                 for (const [w, k] of dist) if (k >= d.min && k <= d.max) cands.push([s, w, k]);
                 if (cands.length > 30) break;
             }
-            return cands.length ? cands[Math.floor(Math.random() * cands.length)] : ['HAUS', 'MAUS', 1];
+            if (cands.length) return cands[Math.floor(Math.random() * cands.length)];
+
+            const fallbackWords = settings.wordLength === 8
+                ? words.filter(w => w.length >= 8)
+                : (settings.wordLength > 0 ? words.filter(w => w.length === settings.wordLength) : words);
+            for (const start of fallbackWords) {
+                const other = fallbackWords.find(w => w !== start && checkWordDifference(start, w));
+                if (other) return [start, other, 1];
+            }
+            return ['HAUS', 'MAUS', 1];
         }
 
         function startOnlineGame(newMatch = true) {
@@ -1197,6 +1216,10 @@
             word = String(word).toUpperCase().trim();
             if (word.length < 3) return say('❌ Mindestens 3 Buchstaben.', 'error');
             const prevWord = wordChain[wordChain.length - 1];
+            if (settings.wordLength > 0 && word.length !== settings.wordLength && !(settings.wordLength === 8 && word.length >= 8)) {
+                const wanted = settings.wordLength === 8 ? 'mindestens 8' : String(settings.wordLength);
+                return say(`❌ Das Wort muss ${wanted} Buchstaben haben!`, 'error');
+            }
             if (!checkWordDifference(prevWord, word)) return say('❌ Das Wort muss sich um exakt einen Buchstaben unterscheiden!', 'error');
             const lockC = lockViolation(wordChain, targetWord, word);
             if (lockC) return say(`🔒 Der gefundene Buchstabe „${lockC}“ muss im Wort bleiben!`, 'error');
@@ -1477,7 +1500,8 @@
 
         function updateLobbyUI() {
             const mt = gameMode === 'de' ? '🇩🇪 Deutsch' : (gameMode === 'en' ? '🇬🇧 Englisch' : '🌍 Alle Wörter');
-            document.getElementById('lobbyModeBadgeText').innerText = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'}`;
+            const lengthText = !settings.wordLength ? 'Alle Längen' : (settings.wordLength === 8 ? '8+ Buchstaben' : settings.wordLength + ' Buchstaben');
+            document.getElementById('lobbyModeBadgeText').innerText = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'} · ${lengthText}`;
             document.getElementById('lobbyPlayerCount').innerText = players.length;
             const list = document.getElementById('lobbyPlayerList');
             list.innerHTML = players.map(p => `
