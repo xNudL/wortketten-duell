@@ -229,8 +229,7 @@
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Spieler</label>
                         <select id="pongPlayerCount" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
                             <option value="2">2 Spieler · 1 gegen 1</option>
-                            <option value="3">3 Spieler · Jeder gegen jeden</option>
-                            <option value="4">4 Spieler · 2 gegen 2</option>
+                            <option value="4">4 Spieler · 2 gegen 2 (fehlende Spieler werden Bots)</option>
                         </select>
                         <button onclick="hostPongLobby()" class="mt-4 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-server mr-1"></i> Pong-Lobby erstellen</button>
                     </div>
@@ -672,6 +671,9 @@
         let pongHostLoop = null;
         let pongState = null;
         let pongPlayerIndex = 0;
+        let pongLastNetworkAt = 0;
+        let pongLastDrawAt = 0;
+        let pongLastTickAt = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
             if (!myName || !myTag) {
@@ -1016,11 +1018,11 @@
             pongPlayerIndex = ownIndex >= 0 ? ownIndex : 0;
             document.getElementById('pongPlayerList').innerHTML = pongPlayers.map((p, i) => {
                 const color = pongMaxPlayers === 4 ? (p.team === 'Blau' ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-200' : 'border-red-500/40 bg-red-600/20 text-red-200') : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
-                return `<span class="px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.team ? ' · ' + p.team : ''} <span class="font-mono text-white ml-1">${p.score || 0} P</span></span>`;
+                return `<span class="px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="font-mono text-white ml-1">${p.score || 0} P</span></span>`;
             }).join('');
             document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
-                : (pongMaxPlayers === 3 ? 'Jeder gegen jeden' : '1 gegen 1');
+                : '1 gegen 1';
             const inviteSection = document.getElementById('pongFriendInviteSection');
             if (inviteSection) inviteSection.classList.toggle('hidden', !isHost || pongRunning);
             renderPongFriendInvites();
@@ -1052,8 +1054,6 @@
             const paddles = [];
             if (pongMaxPlayers === 2) {
                 paddles.push({ x: 25, y: 210, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 210, w: 16, h: 80, side: 'right', index: 1 });
-            } else if (pongMaxPlayers === 3) {
-                paddles.push({ x: 25, y: 210, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 210, w: 16, h: 80, side: 'right', index: 1 }, { x: 360, y: 25, w: 80, h: 16, side: 'top', index: 2 });
             } else {
                 paddles.push({ x: 25, y: 120, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 120, w: 16, h: 80, side: 'right', index: 1 }, { x: 25, y: 300, w: 16, h: 80, side: 'left', index: 2 }, { x: 759, y: 300, w: 16, h: 80, side: 'right', index: 3 });
             }
@@ -1063,6 +1063,21 @@
         function startPongGame() {
             if (!isHost) return;
             if (pongPlayers.length < 2) return alert('Für Pong brauchst du mindestens 2 Spieler.');
+            if (pongMaxPlayers === 4) {
+                while (pongPlayers.length < 4) {
+                    const index = pongPlayers.length;
+                    pongPlayers.push({
+                        id: `pong-bot-${index}`,
+                        name: `Bot ${index + 1}`,
+                        score: 0,
+                        team: null,
+                        isBot: true,
+                        conn: null
+                    });
+                }
+                assignPongTeams();
+                renderPongLobby();
+            }
             pongRunning = true;
             pongState = createPongState();
             broadcast({
@@ -1072,6 +1087,9 @@
                 state: pongState
             });
             document.getElementById('pongStartButton').classList.add('hidden');
+            pongLastNetworkAt = 0;
+            pongLastDrawAt = 0;
+            pongLastTickAt = 0;
             if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
             pongHostLoop = requestAnimationFrame(pongHostTick);
         }
@@ -1100,18 +1118,28 @@
             return ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w && ball.y + ball.r > paddle.y && ball.y - ball.r < paddle.y + paddle.h;
         }
 
-        function pongHostTick() {
+        function pongHostTick(timestamp) {
             if (!isHost || !pongRunning || !pongState) return;
+            const elapsed = Math.min(timestamp - (pongLastTickAt || timestamp), 32);
+            const frameScale = elapsed / (1000 / 60);
+            pongLastTickAt = timestamp;
             const b = pongState.ball;
-            b.x += b.vx; b.y += b.vy;
+            b.x += b.vx * frameScale; b.y += b.vy * frameScale;
             if (b.y - b.r <= 0) { b.y = b.r; b.vy = Math.abs(b.vy); }
             if (b.y + b.r >= 500) { b.y = 500 - b.r; b.vy = -Math.abs(b.vy); }
 
             pongState.paddles.forEach(p => {
+                const player = pongPlayers[p.index];
+                if (!player || !player.isBot) return;
+                const targetY = Math.max(0, Math.min(500 - p.h, b.y - p.h / 2));
+                const maxStep = 4.2 * frameScale;
+                p.y += Math.max(-maxStep, Math.min(maxStep, targetY - p.y));
+            });
+
+            pongState.paddles.forEach(p => {
                 if (paddleHit(p, b)) {
-                    if (p.side === 'left') { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
-                    if (p.side === 'right') { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
-                    if (p.side === 'top') { b.y = p.y + p.h + b.r; b.vy = Math.abs(b.vy) * 1.03; }
+                    if (p.side === 'left' && b.vx < 0) { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
+                    if (p.side === 'right' && b.vx > 0) { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
                 }
             });
 
@@ -1122,15 +1150,21 @@
                     pongPlayers.filter(p => p.team === 'Blau').forEach(p => p.score = blue);
                     pongPlayers.filter(p => p.team === 'Rot').forEach(p => p.score = red);
                 } else {
-                    const scorer = b.x < 0 ? (pongMaxPlayers === 2 ? 1 : 1) : 0;
+                    const scorer = b.x < 0 ? 1 : 0;
                     pongState.individualScore[scorer]++;
                     if (pongPlayers[scorer]) pongPlayers[scorer].score = pongState.individualScore[scorer];
                 }
                 b.x = 400; b.y = 250; b.vx = (Math.random() > .5 ? 5 : -5); b.vy = (Math.random() > .5 ? 3.2 : -3.2);
             }
 
-            broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) });
-            drawPong();
+            if (timestamp - pongLastNetworkAt >= 50) {
+                pongLastNetworkAt = timestamp;
+                broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot })) });
+            }
+            if (timestamp - pongLastDrawAt >= 33) {
+                pongLastDrawAt = timestamp;
+                drawPong();
+            }
             pongHostLoop = requestAnimationFrame(pongHostTick);
         }
 
@@ -1346,7 +1380,6 @@
                     pongPlayers = data.players || pongPlayers;
                     pongRunning = true;
                     drawPong();
-                    renderPongLobby();
                     break;
                 case 'PONG_MOVE':
                     if (isHost && pongRunning) {
