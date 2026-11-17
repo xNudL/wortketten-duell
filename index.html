@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Wortketten-Duell | P2P Online & Stream Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darker: '#0b0f19',
+                        dark: '#111827',
+                        card: '#1f2937',
+                        border: '#374151'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- PeerJS CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
+        @media (min-width: 1024px) { html { font-size: 18px; } }
+        @media (min-width: 1536px) { html { font-size: 21px; } }
+        #wordInput { font-size: 1.15rem; letter-spacing: .15em; text-transform: uppercase; }
+        .glass { background: rgba(31, 41, 55, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .tile-in { animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-160px) scale(1.4); opacity: 0; }
+        }
+        .floating-emote {
+            position: absolute;
+            animation: floatUp 1.8s ease-out forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-darker text-gray-100 min-h-[100dvh] flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white pb-6">
+
+    <!-- Header -->
+    <header class="w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 flex justify-between items-center shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid fa-link text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">WORTKETTEN DUELL</h1>
+                <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">P2P Stream & Multiplayer Edition</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="connectionStatusText">Verbunden</span>
+            </div>
+            <div id="userProfileBadge" class="hidden items-center space-x-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-bold text-indigo-300">
+                <i class="fa-solid fa-user"></i>
+                <span id="displayMyName">---</span>
+                <span id="displayMyTag" class="text-indigo-400 font-mono text-[10px]">#----</span>
+                <button onclick="changeMyName()" class="text-gray-400 hover:text-white ml-1.5 cursor-pointer" title="Namen ändern"><i class="fa-solid fa-pen text-[10px]"></i></button>
+            </div>
+            <button onclick="openRulesModal()" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
+                <i class="fa-solid fa-question text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-4 flex-grow flex flex-col justify-center relative">
+
+        <!-- ONBOARDING SCREEN -->
+        <div id="screenOnboarding" class="space-y-5 animate-fade-in z-20">
+            <div class="glass rounded-3xl p-6 sm:p-10 shadow-2xl border border-border/80 text-center max-w-md mx-auto relative overflow-hidden">
+                <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto mb-4 text-xl border border-indigo-500/30">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-black tracking-tight">Wie heißt du?</h2>
+                <p class="text-xs sm:text-sm text-gray-400 mt-2 mb-6">Du erhältst automatisch deine persönliche 4-stellige ID.</p>
+
+                <form id="onboardingForm" onsubmit="event.preventDefault(); saveProfileName();" class="space-y-4 text-left">
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Dein Spielername</label>
+                        <input type="text" id="onboardingNameInput" placeholder="Z.B. Paolo" maxlength="15" autocomplete="nickname" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-indigo-500 transition">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition text-sm cursor-pointer flex items-center justify-center space-x-2">
+                        <span>Loslegen</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- START SCREEN / LOBBY SETUP -->
+        <div id="screenSetup" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80 relative overflow-hidden">
+                <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="text-center max-w-lg mx-auto mb-6">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Online & Stream Ready</span>
+                    <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">Wähle deinen Modus</h2>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt der 4-stelligen ID eines Freundes bei.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <!-- Host Card -->
+                    <div class="glass rounded-2xl p-5 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 to-transparent flex flex-col justify-between">
+                        <div>
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-3">
+                                <i class="fa-solid fa-crown"></i>
+                            </div>
+                            <h3 class="font-bold text-base text-white">Lobby hosten</h3>
+                            <p class="text-xs text-gray-400 mt-1">Öffne einen Raum. Deine Freunde können deine ID zum Beitreten nutzen.</p>
+                        </div>
+                        <div class="mt-5 space-y-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Wörterbuch-Modus</label>
+                                <select id="gameLangMode" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                    <option value="all">🌍 Alle Wörter (Deutsch & Englisch)</option>
+                                    <option value="de">🇩🇪 Nur Deutsche Wörter</option>
+                                    <option value="en">🇬🇧 Nur Englische Wörter</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Runden</label>
+                                <select id="gameRounds" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option><option value="7">7</option><option value="10">10</option></select></div>
+                                <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Schwierigkeit</label>
+                                <select id="gameDiff" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="easy">🟢 Leicht (40s)</option><option value="medium" selected>🟡 Mittel (30s)</option><option value="hard">🔴 Schwer (20s)</option><option value="inf">♾️ Unendlich (keine Zeit)</option></select></div>
+                            </div>
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Regel für gefundene Buchstaben</label>
+                            <select id="gameLock" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2 text-xs text-white"><option value="free" selected>Original (nur markieren, frei änderbar)</option><option value="keep">Gefundene Buchstaben müssen bleiben</option></select></div>
+                            <button onclick="hostGame()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+                                <i class="fa-solid fa-server"></i>
+                                <span>Online-Lobby erstellen</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Join Card -->
+                    <div class="glass rounded-2xl p-5 border border-border flex flex-col justify-between">
+                        <div>
+                            <div class="w-10 h-10 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center mb-3">
+                                <i class="fa-solid fa-right-to-bracket"></i>
+                            </div>
+                            <h3 class="font-bold text-base text-white">Lobby beitreten</h3>
+                            <p class="text-xs text-gray-400 mt-1">Gib die 4-stellige ID des Hosts ein, um in seine Lobby zu springen.</p>
+                        </div>
+                        <div class="mt-5 space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">4-stellige Host-ID</label>
+                                <input type="text" id="roomCodeInput" placeholder="Z.B. 4819" maxlength="4" class="w-full bg-darker/80 border border-border rounded-xl px-3.5 py-2.5 text-base font-mono uppercase text-white tracking-widest focus:outline-none focus:border-violet-500 transition">
+                            </div>
+                            <button onclick="joinGame()" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-violet-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+                                <i class="fa-solid fa-plug"></i>
+                                <span>Raum betreten</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FREUNDESLISTE -->
+                <div class="glass rounded-2xl p-5 border border-border bg-dark/40">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-user-group text-indigo-400"></i>
+                            <h3 class="font-bold text-sm text-white">Deine Freundesliste</h3>
+                        </div>
+                        <button onclick="openAddFriendModal()" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/20">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Freund hinzufügen</span>
+                        </button>
+                    </div>
+                    <div class="mb-4 p-3 rounded-xl bg-darker/80 border border-border flex justify-between items-center">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Deine 4-stellige ID zum Weitergeben</p>
+                            <p id="myTagDisplay" class="text-sm font-mono font-black text-indigo-300">#----</p>
+                        </div>
+                        <button onclick="copyMyTag()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+                            <i class="fa-solid fa-copy mr-1"></i> ID kopieren
+                        </button>
+                    </div>
+                    <div id="friendListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOBBY WAITING SCREEN -->
+        <div id="screenLobby" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80 text-center">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Warteraum</span>
+                    <button onclick="leaveLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer">
+                        <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Lobby verlassen
+                    </button>
+                </div>
+                
+                <h2 class="text-2xl font-black mt-3">Lobby aktiv</h2>
+                <p id="lobbyModeBadgeText" class="text-xs text-indigo-400 font-semibold mt-1">Modus: Alle Wörter</p>
+                
+                <div class="my-6 p-4 rounded-2xl bg-darker/60 border border-border inline-flex items-center space-x-4">
+                    <div>
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold text-left">Raum-ID</p>
+                        <p id="displayRoomCode" class="text-2xl font-mono font-black text-indigo-400 tracking-wider">---</p>
+                    </div>
+                    <button onclick="copyInviteLink()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center space-x-2 transition cursor-pointer shadow-lg shadow-indigo-600/30">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>ID kopieren</span>
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Mitspieler in der Lobby (<span id="lobbyPlayerCount">1</span>)</h3>
+                    <div id="lobbyPlayerList" class="flex flex-wrap justify-center gap-2"></div>
+                </div>
+
+                <div id="hostFriendInviteSection" class="hidden mb-6 p-4 rounded-2xl bg-dark/50 border border-border">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Freunde in Lobby einladen</h3>
+                    <div id="lobbyFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                </div>
+
+                <div id="hostControls" class="hidden">
+                    <button onclick="startOnlineGame()" class="w-full max-w-md mx-auto bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3.5 rounded-xl shadow-xl shadow-emerald-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Spiel starten</span>
+                    </button>
+                </div>
+                <div id="guestWaitingMessage" class="text-sm text-gray-400 italic">
+                    Warte darauf, dass der Host das Spiel startet...
+                </div>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="screenGame" class="hidden space-y-4 animate-fade-in">
+            <div class="glass rounded-2xl p-3 sm:p-4 border border-border flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div id="playerScoresBar" class="flex flex-wrap items-center gap-2"></div>
+                <div class="flex items-center space-x-3">
+                    <div class="text-right">
+                        <p id="roundLabel" class="text-[10px] text-gray-400 uppercase font-bold">Wort-Ziel</p>
+                        <p class="text-xs font-mono font-bold text-indigo-400"><span id="lblStartWord">---</span> ➔ <span id="lblTargetWord">---</span></p>
+                    </div>
+                    <div id="timerDisplay" class="w-11 h-11 rounded-xl bg-darker border border-border flex items-center justify-center font-mono font-black text-base text-violet-400 shadow-inner">
+                        30
+                    </div>
+                    <button onclick="leaveLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2.5 rounded-xl transition cursor-pointer" title="Spiel beenden">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass rounded-3xl p-6 shadow-2xl border border-border/80 relative overflow-hidden flex flex-col items-center">
+                <div id="floatingEmotesArea" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+                <!-- Live Score Breakdown Banner -->
+                <div id="lastScoreLog" class="hidden mb-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-300 text-center animate-fade-in"></div>
+
+                <div id="wordChainContainer" class="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3 my-4"></div>
+
+                <div id="liveTypingBox" class="hidden w-full max-w-md my-3 p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/40 shadow-lg animate-pulse">
+                    <div class="flex justify-between items-center mb-2">
+                        <span id="liveTypingUser" class="text-xs font-bold text-indigo-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-pen-nib animate-bounce"></i>
+                            <span>Spieler tippt...</span>
+                        </span>
+                        <span id="liveRuleBadge" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">Entwurf</span>
+                    </div>
+                    <div id="liveTilesContainer" class="flex justify-center gap-1.5 py-1"></div>
+                </div>
+
+                <div id="turnBanner" class="mt-4 px-4 py-2 rounded-xl bg-darker/60 border border-border text-center text-xs font-semibold">
+                    <span>Am Zug: </span><span id="currentTurnName" class="text-indigo-400 font-bold">---</span>
+                </div>
+
+                <div id="activePlayerControls" class="w-full max-w-md mt-5 space-y-3">
+                    <div class="flex space-x-2">
+                        <input type="text" id="wordInput" placeholder="Nächstes Wort eingeben..." maxlength="15" autocomplete="off" spellcheck="false" class="flex-grow bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm uppercase text-white font-bold tracking-widest focus:outline-none focus:border-indigo-500 transition">
+                        <button onclick="submitWord()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+                            <span>Senden</span>
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <button onclick="passTurn()" class="w-full bg-gray-700/50 hover:bg-gray-600/60 text-gray-200 border border-border font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-forward"></i><span>Abgeben (-15 Pkt & Combo-Reset)</span>
+                    </button>
+                    <div id="gameFeedback" class="text-xs font-medium text-center min-h-[18px] text-red-400"></div>
+                    
+                    <div id="hostJokerBox" class="hidden text-center pt-2">
+                        <button onclick="hostForceAccept()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3.5 py-1.5 rounded-lg transition cursor-pointer">
+                            <i class="fa-solid fa-crown mr-1"></i> Trotzdem zählen (Host-Joker)
+                        </button>
+                    </div>
+                </div>
+
+                <button id="btnBackLobby" onclick="hostBackToLobby()" class="hidden mt-5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Lobby neustarten (alle bleiben verbunden)
+                </button>
+
+                <div class="mt-6 pt-4 border-t border-border/50 w-full flex justify-center items-center space-x-3">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase">Reaktionen:</span>
+                    <button onclick="sendEmote('🔥')" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-base transition cursor-pointer shadow">🔥</button>
+                    <button onclick="sendEmote('🧠')" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-base transition cursor-pointer shadow">🧠</button>
+                    <button onclick="sendEmote('😱')" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-base transition cursor-pointer shadow">😱</button>
+                    <button onclick="sendEmote('😂')" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-base transition cursor-pointer shadow">😂</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="screenGameOver" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-8 shadow-2xl border border-border/80 text-center max-w-lg mx-auto">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30 text-2xl">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h2 id="roundOverTitle" class="text-3xl font-black">Ziel erreicht! 🎉</h2>
+                <p id="gameOverStats" class="text-sm text-gray-400 mt-2">Die Wortkette wurde erfolgreich gelöst.</p>
+                
+                <div class="my-6 p-4 rounded-2xl bg-darker/60 border border-border">
+                    <h3 class="text-xs font-bold uppercase text-gray-400 mb-2">Endergebnis</h3>
+                    <div id="finalScoresList" class="space-y-1.5"></div>
+                </div>
+
+                <div id="roundOverActions" class="space-y-2"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: FREUNDSCHAFTSANFRAGE -->
+    <div id="friendRequestModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto text-lg border border-indigo-500/30">
+                <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <h3 class="font-extrabold text-base text-white">Neue Freundschaftsanfrage</h3>
+            <p id="friendRequestText" class="text-xs text-gray-300"><b>Spieler</b> möchte dich als Freund hinzufügen.</p>
+            <div class="flex space-x-2 pt-2">
+                <button onclick="rejectFriendRequest()" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Ablehnen</button>
+                <button onclick="acceptFriendRequest()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-emerald-600/30">Akzeptieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: LOBBY EINLADUNG -->
+    <div id="lobbyInviteModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-violet-600/20 text-violet-400 flex items-center justify-center mx-auto text-lg border border-violet-500/30">
+                <i class="fa-solid fa-envelope-open-text"></i>
+            </div>
+            <h3 class="font-extrabold text-base text-white">Lobby-Einladung</h3>
+            <p id="lobbyInviteText" class="text-xs text-gray-300"><b>Host</b> lädt dich in seine Lobby ein!</p>
+            <div class="flex space-x-2 pt-2">
+                <button onclick="rejectLobbyInvite()" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Ablehnen</button>
+                <button onclick="acceptLobbyInvite()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-emerald-600/30">Beitreten</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RULES -->
+    <div id="rulesModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-extrabold text-lg text-white">Spielregeln & Punktesystem</h3>
+                <button onclick="closeRulesModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-2.5 text-xs text-gray-300 leading-relaxed">
+                <p><b>1. Ziel:</b> Verwandle das Startwort durch Ändern, Hinzufügen oder Entfernen von <b>1 Buchstaben</b> pro Zug ins Zielwort.</p>
+                <p><b>2. Fortschritts-Punkte:</b><br>
+                   • <b>+25 Pkt</b> wenn dein Wort den Weg zum Ziel verkürzt<br>
+                   • <b>-10 Pkt</b> bei Umwegen / Rückschritten (min. +5 Basis)<br>
+                   • <b>+15 Pkt</b> pro neuem grünen Ziel-Buchstaben</p>
+                <p><b>3. Combo & Tempo:</b><br>
+                   • Mehrere Treffer in Folge steigern deinen Multiplikator (bis <b>2.0x</b>)<br>
+                   • Bis zu <b>+15 Pkt</b> Tempo-Bonus<br>
+                   • Passen / Zeitablauf: <b>-15 Pkt</b> & Combo-Reset</p>
+                <p><b>4. Ziel-Bonus:</b> <b>+60 Pkt</b> fürs Zielwort + <b>+30 Pkt</b> Effizienz-Bonus bei optimaler Schrittzahl!</p>
+            </div>
+            <button onclick="closeRulesModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Verstanden</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD FRIEND -->
+    <div id="addFriendModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-extrabold text-lg text-white">Freund hinzufügen</h3>
+                <button onclick="closeAddFriendModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">4-stellige ID des Freundes</label>
+                    <input type="text" id="friendTagInput" placeholder="Z.B. 4819" maxlength="4" class="w-full bg-darker border border-border rounded-xl px-3.5 py-2.5 text-base font-mono tracking-widest text-white focus:outline-none focus:border-indigo-500 transition">
+                </div>
+                <button onclick="sendFriendRequest()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/30">Anfrage senden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Game & P2P Logic -->
+    <script>
+        const dictionaryDE = new Set("BAD BAHN BALD BALL BAND BART BASE BAUM BEIN BETT BIER BILD BLAU BLUT BRAND BRAU BUND DEIN DOSE FALL FAST FEIN FELL FLUG GALL GLAS GRAB GRAD GRAS GRAU GUT HAAR HALL HALT HAND HART HASE HAT HAUS HAUT HEIL HEIM HELL HOSE HUND HUT JAHR KALT KEIN KIND KLAN KLAR KLUG KOST KRAS LAG LAND LAST LAUS LAUT LEER LIED LOSE MAST MAUS MEER MEIN MILD MUND MUT NASE NETT NOT PAAR PLAN POST RAD RAT RAUM RAUS REIM REIN RIND ROSE ROST ROT RUND SAG SAND SEIL SEIN SIEB SPIEL STAND STAUB TAG TEIL TIER TOR TOT TRAUM VASE VIEL VIER WAHR WALD WALL WAND WART WEIN WELL WETT WILD WIND WUT ZAHN ZART ZIEL".split(" "));
+        const dictionaryEN = new Set("BAG BALE BALL BAND BAT BEAR BED BEG BELL BEST BET BIG BILL BOIL BOOK BOW BOWL BOWS BOYS BULL BUNT CALL CAP CAST CAT CATS CELL COOK COOL COST CUP CUT DEAR DIG DOG DOT DULL FADE FAIL FALL FAST FAT FEAR FED FELL FILE FIND FINE FIRE FOIL FOOD FULL GALE GEAR GET GILL GIRL GOOD HALL HAND HAT HELL HIP HIRE HIT HOLE HOOD HOOK HOP HOT HUNT HURT JADE JET KIND LAND LED LET LINE LOOK MADE MALE MALL MAP MAT MET MILE MIND MINE MOLE MOOD NEST NET NINE NUT PALE PANS PANT PAST PAT PEAR PEST PET PILE PINE PINS PLANT POLE POND POOL POST PULL PUNT PUP PUT RAT RED REST ROLE ROOK SALE SAND SAT SELL SET SOLE TALE TALL TELL TEST TILE TIP TIRE TOOL TOP WADE WALL WAND WED WELL WEST WET WIND WINE WIRE WOOD WOOL".split(" "));
+
+        const extraDE = [
+            "ABEND", "ACHT", "ALLE", "ALT", "AMT", "ANGST", "ARM", "ART", "ARZT", "AST", "AUGE", "AUTO",
+            "BACH", "BANK", "BAR", "BAUCH", "BEET", "BERG", "BLATT", "BLEI", "BLICK", "BLITZ", "BLUME",
+            "BOCK", "BODEN", "BOOT", "BOTE", "BRAUN", "BRIEF", "BROT", "BRUST", "BUCH", "BUS", "DACH",
+            "DAME", "DANK", "DARM", "DECKE", "DICK", "DIEB", "DORF", "DORN", "DREI", "DUFT", "EIS",
+            "ELF", "ENDE", "ENTE", "ERDE", "ESEL", "FACH", "FAHRT", "FARBE", "FASS", "FAUST", "FELD",
+            "FELS", "FERN", "FEST", "FETT", "FEUER", "FILM", "FINK", "FISCH", "FLACH", "FLOH", "FLUR",
+            "FLUSS", "FORM", "FUCHS", "FUND", "FUSS", "GANS", "GARN", "GAST", "GELB", "GELD", "GIFT",
+            "GLUT", "GOLD", "GRUND", "GURT", "HAFEN", "HAHN", "HAI", "HALS", "HASE", "HAUS", "HAUT",
+            "HEFT", "HELD", "HELL", "HELM", "HERD", "HERZ", "HEU", "HIRN", "HOF", "HOLZ", "HORN",
+            "HOSE", "HUHN", "HUND", "HUT", "IGEL", "INSEL", "JAGD", "JAHR", "KAHN", "KALT", "KAMM",
+            "KARTE", "KASSE", "KATZE", "KERN", "KIND", "KINN", "KLANG", "KLEE", "KLEID", "KNIE", "KOCH",
+            "KOHL", "KOPF", "KORB", "KRAFT", "KRAN", "KUH", "KUR", "KURS", "LACH", "LAND", "LANG",
+            "LAST", "LAUB", "LAUF", "LAUS", "LAUT", "LEBEN", "LEER", "LICHT", "LIED", "LIST", "LOCH",
+            "LOHN", "LUFT", "LUST", "MACHT", "MAHL", "MAL", "MANN", "MAST", "MAUL", "MAUS", "MEER",
+            "MEHL", "MILCH", "MOND", "MOOS", "MORD", "MUND", "MUT", "NACHT", "NADEL", "NAGEL", "NAHT",
+            "NAME", "NASE", "NASS", "NEBEL", "NEST", "NETZ", "NEU", "NOT", "OFEN", "OHR", "OST",
+            "PAAR", "PACK", "PFAD", "PFLUG", "POST", "RAD", "RAND", "RANG", "RAT", "RAUCH", "RAUM",
+            "RAUS", "REGEN", "REIH", "REIS", "RIND", "RING", "ROCK", "ROSE", "ROT", "RUHE", "RUND",
+            "SAAL", "SACK", "SAFT", "SAND", "SATZ", "SAU", "SCHAF", "SEE", "SEIL", "SEIN", "SOHN",
+            "SORT", "SPAT", "STAB", "STADT", "STAHL", "STEIN", "STERN", "STIER", "STROM", "STUHL",
+            "TAG", "TAL", "TANK", "TANZ", "TASSE", "TEE", "TEIL", "TIER", "TISCH", "TON", "TOR",
+            "TRAUM", "TUCH", "TURM", "UHR", "VOLK", "WAGEN", "WAHL", "WALD", "WAND", "WARM", "WEG",
+            "WELT", "WERK", "WIND", "WIRT", "WORT", "WURM", "ZAHL", "ZAHN", "ZAUN", "ZEIT", "ZELT",
+            "ZOLL", "ZUG", "KAUF", "TAUB", "RAUB", "MAUER", "KRIEG", "KREIS", "KRUG", "KUGEL", "KUSS",
+            "LAMM", "LAMPE", "LEIB", "LEIM", "LEIN", "LIPPE", "LOCK", "LOSE", "MEHR", "MIETE", "MIST",
+            "MODE", "MOHN", "MOTOR", "MUSIK", "NEID", "NEIN", "NORD", "OBST", "ONKEL", "ORT", "PARK",
+            "PASS", "PELZ", "PERLE", "PILZ", "PLAN", "PREIS", "PUNKT", "RACHE", "RATTE", "REH", "REIF",
+            "REITER", "RISS", "ROHR", "RUDER", "RUF", "SAHNE", "SALZ", "SAMT", "SARG", "SCHAL", "SCHUH",
+            "SEGEL", "SEIDE", "SENF", "SIEB", "SILBER", "SINN", "SITZ", "SOCKE", "SONNE", "SPIEL", "SPUR",
+            "STAUB", "STILL", "STIRN", "STOCK", "STORCH", "STURM", "SUPPE", "TAFEL", "TANNE", "TASCHE",
+            "TEICH", "TIGER", "TINTE", "TORTE", "TRAUBE", "TREPPE", "TUNNEL", "UFER", "VATER", "VOGEL",
+            "WACHS", "WANGE", "WASSER", "WEBER", "WEIN", "WIESE", "WITZ", "WOLF", "WOLKE", "WUNDE", "WUT",
+            "ZANGE", "ZIEL", "ZIMT", "ZINN", "ZIRKUS", "ZWEI", "ROST", "RAST", "RASE", "HASS", "HAST",
+            "HALM", "HANG", "HEIM", "HEIL", "HEIZ", "HOCH", "HOLD", "HUPE", "KOHLE", "LIEB", "LIEF",
+            "LEHM", "LEIH", "MARK", "MARS", "MASS", "MATT", "MIET", "MILD", "MINE", "NAHE", "NAHM",
+            "NICK", "NOCH", "NULL", "OBEN", "OPER", "PEST", "PFAHL", "PFOTE", "PIER", "PIPE", "POL",
+            "PUMPE", "PUPPE", "RABE", "REBE", "RENN", "RINNE", "RIPPE", "ROLL", "SAGE", "SALBE", "SAUM",
+            "SCHON", "SICH", "SIEG", "SOLL", "SPANN", "STAAT", "SUCHE", "TEER", "THEMA", "TIEF", "TIPP",
+            "TRAB", "TROG", "TROST", "TRUG", "TUBE", "VIEL", "VIER", "VOLL", "WACH", "WAHR", "WAL",
+            "WARF", "WART", "WEIT", "WENN", "WILD", "WILL", "WINK", "WOHL", "ZART", "ZEHN", "ZOPF"
+        ];
+
+        const extraEN = [
+            "BACK", "BAKE", "BALD", "BARK", "BARN", "BASE", "BATH", "BEAD", "BEAM", "BEAN", "BEAT",
+            "BEER", "BELT", "BEND", "BIKE", "BIRD", "BITE", "BLOW", "BLUE", "BOAT", "BODY", "BOLD",
+            "BOLT", "BOMB", "BONE", "BORN", "BOSS", "BOTH", "BURN", "BUSY", "CAGE", "CAKE", "CALM",
+            "CAME", "CAMP", "CARD", "CARE", "CART", "CASE", "CASH", "CITY", "CLAY", "CLUB", "COAL",
+            "COAT", "CODE", "COIN", "COLD", "COME", "CORD", "CORE", "CORN", "CREW", "CROP", "DARK",
+            "DATA", "DATE", "DAWN", "DEAD", "DEAL", "DECK", "DEEP", "DEER", "DESK", "DIME", "DINE",
+            "DIRT", "DISH", "DOOR", "DOWN", "DRAW", "DROP", "DRUM", "DUCK", "DUST", "DUTY", "EACH",
+            "EARN", "EASE", "EAST", "EASY", "EDGE", "ELSE", "EVEN", "EVER", "FACE", "FACT", "FAIL",
+            "FAIR", "FALL", "FARM", "FAST", "FATE", "FEAR", "FEED", "FEEL", "FEET", "FELL", "FELT",
+            "FILE", "FILL", "FILM", "FIND", "FINE", "FIRE", "FIRM", "FISH", "FIVE", "FLAG", "FLAT",
+            "FLOW", "FOLD", "FOOD", "FOOT", "FORK", "FORM", "FORT", "FOUR", "FREE", "FROG", "FUEL",
+            "FULL", "GAIN", "GAME", "GATE", "GIFT", "GIRL", "GIVE", "GLAD", "GOAT", "GOLD", "GOLF",
+            "GONE", "GOOD", "GRAB", "GRAY", "GRIP", "HAIR", "HALF", "HALL", "HAND", "HANG", "HARD",
+            "HARM", "HATE", "HAVE", "HEAD", "HEAL", "HEAR", "HEAT", "HELD", "HELP", "HERB", "HERE",
+            "HIDE", "HIGH", "HILL", "HIRE", "HOLD", "HOLE", "HOME", "HOPE", "HORN", "HOST", "HOUR",
+            "HUGE", "HUNT", "HURT", "IDEA", "INCH", "IRON", "ITEM", "JUMP", "JUST", "KEEP", "KICK",
+            "KIND", "KING", "KISS", "KNEE", "KNOT", "LACE", "LACK", "LAKE", "LAMB", "LAMP", "LAND",
+            "LANE", "LAST", "LATE", "LAWN", "LAZY", "LEAD", "LEAF", "LEAN", "LEFT", "LEND", "LESS",
+            "LIFE", "LIFT", "LIKE", "LIME", "LINE", "LINK", "LION", "LIST", "LIVE", "LOAD", "LOAN",
+            "LOCK", "LONE", "LONG", "LOOK", "LOOM", "LOOP", "LOOSE", "LORD", "LORE", "LOSE", "LOSS",
+            "LOST", "LOUD", "LOVE", "LUCK", "MADE", "MAIL", "MAIN", "MAKE", "MALE", "MALL", "MANY",
+            "MARK", "MASK", "MASS", "MEAL", "MEAN", "MEAT", "MEET", "MELT", "MILD", "MILE", "MILK",
+            "MILL", "MIND", "MINE", "MISS", "MOON", "MORE", "MOST", "MOVE", "MUCH", "NAIL", "NAME",
+            "NEAR", "NECK", "NEED", "NEST", "NEWS", "NICE", "NINE", "NOSE", "NOTE", "OPEN", "PACE",
+            "PACK", "PAGE", "PAID", "PAIN", "PAIR", "PALE", "PARK", "PART", "PAST", "PATH", "PEAK",
+            "PICK", "PINE", "PINK", "PIPE", "PLAN", "PLAY", "PLOT", "PLUG", "PLUS", "POEM", "POLE",
+            "POND", "POOL", "POOR", "PORT", "POST", "PULL", "PURE", "PUSH", "RACE", "RAIL", "RAIN",
+            "RARE", "RATE", "READ", "REAL", "RENT", "REST", "RICE", "RICH", "RIDE", "RING", "RISE",
+            "RISK", "ROAD", "ROCK", "ROLE", "ROLL", "ROOF", "ROOM", "ROOT", "ROPE", "RULE", "RUSH",
+            "SAIL", "SALT", "SAME", "SAND", "SAVE", "SEAL", "SEAT", "SEED", "SEEK", "SEEM", "SELF",
+            "SELL", "SEND", "SHIP", "SHOE", "SHOP", "SHOT", "SHOW", "SICK", "SIDE", "SIGN", "SILK",
+            "SING", "SINK", "SIZE", "SKIN", "SLIP", "SLOW", "SNOW", "SOFT", "SOIL", "SOLD", "SOLE",
+            "SOME", "SONG", "SOON", "SORT", "SOUL", "SOUP", "SPIN", "SPOT", "STAR", "STAY", "STEM",
+            "STEP", "STOP", "SUIT", "SURE", "SWIM", "TAIL", "TAKE", "TALE", "TALK", "TALL", "TANK",
+            "TAPE", "TASK", "TEAM", "TEAR", "TELL", "TENT", "TERM", "TEST", "TEXT", "THEN", "THIN",
+            "TIDE", "TILE", "TIME", "TINY", "TIRE", "TOLD", "TOLL", "TONE", "TOOK", "TOOL", "TOWN",
+            "TRAP", "TREE", "TRIP", "TRUE", "TUBE", "TUNE", "TURN", "TWIN", "TYPE", "UNIT", "UPON",
+            "VAST", "VERY", "VIEW", "VOTE", "WAGE", "WAIT", "WAKE", "WALK", "WALL", "WANT", "WARM",
+            "WASH", "WAVE", "WEAK", "WEAR", "WEEK", "WELL", "WENT", "WEST", "WHAT", "WHEN", "WIDE",
+            "WIFE", "WILD", "WILL", "WIND", "WINE", "WING", "WIRE", "WISE", "WISH", "WOOD", "WOOL",
+            "WORD", "WORE", "WORK", "WORM", "YARD", "YEAR", "ZERO", "ZONE"
+        ];
+
+        extraDE.forEach(w => dictionaryDE.add(w));
+        extraEN.forEach(w => dictionaryEN.add(w));
+
+        // ===== Online-Wörterbuch + dauerhaft gelernte Wörter =====
+        const LEARNED_KEY = 'wortketten_learned_v1';
+        let learned = { de: [], en: [] };
+        try { learned = Object.assign(learned, JSON.parse(localStorage.getItem(LEARNED_KEY) || '{}')); } catch (e) {}
+        learned.de.forEach(w => dictionaryDE.add(w));
+        learned.en.forEach(w => dictionaryEN.add(w));
+        function learnWord(lang, w) {
+            (lang === 'de' ? dictionaryDE : dictionaryEN).add(w);
+            if (!learned[lang].includes(w)) learned[lang].push(w);
+            try { localStorage.setItem(LEARNED_KEY, JSON.stringify(learned)); } catch (e) {}
+        }
+        async function jget(url) {
+            const c = new AbortController(), t = setTimeout(() => c.abort(), 4500);
+            try { const r = await fetch(url, { signal: c.signal }); return r.ok ? await r.json() : null; }
+            catch (e) { return null; } finally { clearTimeout(t); }
+        }
+        async function existsDE(w) {
+            const l = w.toLowerCase(), c = l[0].toUpperCase() + l.slice(1);
+            const d = await jget('https://de.wiktionary.org/w/api.php?action=query&format=json&origin=*&titles=' + encodeURIComponent(c + '|' + l));
+            return !!(d && d.query && Object.values(d.query.pages).some(p => !('missing' in p) && !('invalid' in p)));
+        }
+        async function existsEN(w) {
+            const l = w.toLowerCase();
+            const a = await jget('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(l));
+            if (Array.isArray(a) && a.length) return true;
+            const b = await jget('https://api.datamuse.com/words?max=1&sp=' + encodeURIComponent(l));
+            return Array.isArray(b) && b.length > 0 && b[0].word === l;
+        }
+        async function checkOnline(word) {
+            if (!/^[A-ZÄÖÜ]+$/.test(word)) return false;
+            if (gameMode !== 'en' && await existsDE(word)) { learnWord('de', word); return true; }
+            if (gameMode !== 'de' && await existsEN(word)) { learnWord('en', word); return true; }
+            return false;
+        }
+
+        let peer = null;
+        let conn = null;
+        let connections = [];
+        let isHost = false;
+        let myId = '';
+        let myName = localStorage.getItem('wortketten_my_name') || '';
+        let myTag = localStorage.getItem('wortketten_my_tag') || '';
+        let players = [];
+        let currentTurnIndex = 0;
+        let wordChain = ["BOYS"];
+        let targetWord = "GIRL";
+        let optimalSteps = 3;
+        let lastScoreSummary = "";
+        let timerInterval = null;
+        let timeLeft = 30;
+        let gameMode = 'all';
+        let friends = JSON.parse(localStorage.getItem('wortketten_friends') || '[]');
+        let pendingFriendConn = null;
+        let pendingFriendData = null;
+        let pendingLobbyHostId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!myName || !myTag) {
+                switchScreen('screenOnboarding');
+            } else {
+                initPeerAndSetup();
+            }
+
+            const wordInput = document.getElementById('wordInput');
+            if (wordInput) {
+                wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitWord(); });
+                wordInput.addEventListener('input', (e) => {
+                    const val = e.target.value.toUpperCase();
+                    updateLiveTypingPreviewLocally(val);
+                    broadcastLiveTyping(val);
+                });
+            }
+        });
+
+        function saveProfileName() {
+            const input = document.getElementById('onboardingNameInput').value.trim();
+            if (!input) {
+                alert('Bitte gib einen gültigen Namen ein.');
+                return;
+            }
+            myName = input;
+            myTag = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            localStorage.setItem('wortketten_my_name', myName);
+            localStorage.setItem('wortketten_my_tag', myTag);
+            initPeerAndSetup();
+        }
+
+        function changeMyName() {
+            const newName = prompt('Deinen Namen ändern:', myName);
+            if (newName && newName.trim()) {
+                myName = newName.trim();
+                localStorage.setItem('wortketten_my_name', myName);
+                document.getElementById('displayMyName').innerText = myName;
+            }
+        }
+
+        function initPeerAndSetup() {
+            if (!peer) {
+                const customId = 'wd-user-' + myTag;
+                peer = new Peer(customId);
+                
+                peer.on('open', (id) => {
+                    myId = id;
+                    const tagDisplay = document.getElementById('myTagDisplay');
+                    if (tagDisplay) tagDisplay.innerText = '#' + myTag;
+                    showStatus('Verbunden', 'success');
+                });
+
+                peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        myTag = Math.floor(1000 + Math.random() * 9000).toString();
+                        localStorage.setItem('wortketten_my_tag', myTag);
+                        peer.destroy();
+                        peer = null;
+                        initPeerAndSetup();
+                    } else {
+                        showStatus('Verbindungsfehler: ' + err.type, 'error');
+                    }
+                });
+
+                peer.on('connection', (c) => {
+                    setupConnectionHandlers(c);
+                });
+            }
+
+            document.getElementById('displayMyName').innerText = myName;
+            document.getElementById('displayMyTag').innerText = '#' + myTag;
+            document.getElementById('userProfileBadge').classList.remove('hidden');
+            document.getElementById('userProfileBadge').classList.add('flex');
+            renderFriendList();
+            switchScreen('screenSetup');
+        }
+
+        function renderFriendList() {
+            const container = document.getElementById('friendListContainer');
+            if (!container) return;
+            if (friends.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 italic text-center py-2">Noch keine Freunde in der Liste.</p>`;
+                return;
+            }
+            container.innerHTML = friends.map((f, idx) => `
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-darker/60 border border-border/60">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                            ${f.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-white">${f.name} <span class="text-[10px] text-indigo-400 font-mono">#${f.tag}</span></p>
+                            <p class="text-[10px] text-gray-400">Status: Verbunden</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="joinFriendRoom('${f.tag}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer" title="Lobby beitreten">
+                            <i class="fa-solid fa-plug"></i>
+                        </button>
+                        <button onclick="removeFriend(${idx})" class="text-gray-500 hover:text-red-400 p-1.5 transition cursor-pointer">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderLobbyFriendInvites() {
+            const inviteList = document.getElementById('lobbyFriendInviteList');
+            if (!inviteList) return;
+            if (friends.length === 0) {
+                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Keine Freunde zum Einladen verfügbar.</p>`;
+                return;
+            }
+            inviteList.innerHTML = friends.map(f => `
+                <button onclick="inviteFriendToLobby('${f.tag}')" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                    <span>${f.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function openAddFriendModal() { document.getElementById('addFriendModal').classList.remove('hidden'); }
+        function closeAddFriendModal() { document.getElementById('addFriendModal').classList.add('hidden'); }
+
+        function sendFriendRequest() {
+            const targetTag = document.getElementById('friendTagInput').value.trim();
+            if (!targetTag || targetTag.length !== 4) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
+
+            const targetPeerId = 'wd-user-' + targetTag;
+            const c = peer.connect(targetPeerId, { reliable: true });
+            setupConnectionHandlers(c);
+            
+            c.on('open', () => {
+                c.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
+                alert('Freundschaftsanfrage gesendet!');
+                closeAddFriendModal();
+            });
+            c.on('error', () => {
+                alert('Spieler mit der ID #' + targetTag + ' wurde nicht gefunden oder ist offline.');
+            });
+        }
+
+        function acceptFriendRequest() {
+            if (pendingFriendConn && pendingFriendData) {
+                const acceptMsg = { type: 'FRIEND_ACCEPT', name: myName, tag: myTag, id: myId };
+                if (pendingFriendConn.open) {
+                    pendingFriendConn.send(acceptMsg);
+                } else {
+                    const backConn = peer.connect('wd-user-' + pendingFriendData.tag, { reliable: true });
+                    setupConnectionHandlers(backConn);
+                    backConn.on('open', () => backConn.send(acceptMsg));
+                }
+                
+                if (!friends.some(f => f.tag === pendingFriendData.tag)) {
+                    friends.push({ name: pendingFriendData.name, tag: pendingFriendData.tag, peerId: pendingFriendData.id });
+                    localStorage.setItem('wortketten_friends', JSON.stringify(friends));
+                    renderFriendList();
+                }
+            }
+            document.getElementById('friendRequestModal').classList.add('hidden');
+            pendingFriendConn = null;
+            pendingFriendData = null;
+        }
+
+        function rejectFriendRequest() {
+            if (pendingFriendConn) {
+                pendingFriendConn.send({ type: 'FRIEND_REJECT' });
+            }
+            document.getElementById('friendRequestModal').classList.add('hidden');
+            pendingFriendConn = null;
+            pendingFriendData = null;
+        }
+
+        function removeFriend(idx) {
+            friends.splice(idx, 1);
+            localStorage.setItem('wortketten_friends', JSON.stringify(friends));
+            renderFriendList();
+        }
+
+        function copyMyTag() {
+            navigator.clipboard.writeText(myTag);
+            alert('Deine 4-stellige ID #' + myTag + ' wurde kopiert!');
+        }
+
+        function inviteFriendToLobby(friendTag) {
+            const targetPeerId = 'wd-user-' + friendTag;
+            const c = peer.connect(targetPeerId);
+            c.on('open', () => {
+                c.send({ type: 'LOBBY_INVITE', hostName: myName, hostTag: myTag });
+                alert('Einladung gesendet!');
+            });
+            c.on('error', () => {
+                alert('Konnte Einladung nicht senden (Spieler offline).');
+            });
+        }
+
+        function acceptLobbyInvite() {
+            if (pendingLobbyHostId) {
+                document.getElementById('roomCodeInput').value = pendingLobbyHostId;
+                document.getElementById('lobbyInviteModal').classList.add('hidden');
+                joinGame();
+            }
+        }
+
+        function rejectLobbyInvite() {
+            document.getElementById('lobbyInviteModal').classList.add('hidden');
+            pendingLobbyHostId = null;
+        }
+
+        function hostGame() {
+            isHost = true;
+            gameMode = document.getElementById('gameLangMode').value;
+            settings = { rounds: +document.getElementById('gameRounds').value, diff: document.getElementById('gameDiff').value, inf: document.getElementById('gameDiff').value === 'inf', keep: document.getElementById('gameLock').value === 'keep' };
+            document.getElementById('displayRoomCode').innerText = myTag;
+            
+            const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
+            document.getElementById('lobbyModeBadgeText').innerText = 'Modus: ' + modeText;
+            
+            players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true }];
+            updateLobbyUI();
+            
+            document.getElementById('hostFriendInviteSection').classList.remove('hidden');
+            renderLobbyFriendInvites();
+            
+            switchScreen('screenLobby');
+            showStatus('Lobby erstellt', 'success');
+        }
+
+        function joinGame(overrideTag = null) {
+            const inputCode = overrideTag || document.getElementById('roomCodeInput').value.trim().toUpperCase();
+            if (!inputCode || inputCode.length !== 4) {
+                alert('Bitte gib eine gültige 4-stellige ID ein.');
+                return;
+            }
+            if (inputCode === myTag) {
+                alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+                return;
+            }
+            
+            isHost = false;
+            showStatus('Verbinde...', 'warning');
+            
+            const targetPeerId = 'wd-user-' + inputCode;
+            conn = peer.connect(targetPeerId);
+            
+            setupConnectionHandlers(conn);
+            
+            conn.on('open', () => {
+                conn.send({ type: 'JOIN', name: `${myName} #${myTag}`, id: myId, tag: myTag });
+                switchScreen('screenLobby');
+                showStatus('Mit Lobby verbunden!', 'success');
+            });
+            
+            conn.on('error', (err) => {
+                alert('Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
+                showStatus('Verbindung fehlgeschlagen', 'error');
+            });
+        }
+
+        function joinFriendRoom(tag) {
+            joinGame(tag);
+        }
+
+        function leaveLobby() {
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+            connections = [];
+            isHost = false;
+            if (timerInterval) clearInterval(timerInterval);
+            switchScreen('screenSetup');
+            showStatus('Lobby verlassen', 'success');
+        }
+
+        function setupConnectionHandlers(c) {
+            c.on('data', (data) => {
+                handleNetworkData(data, c);
+            });
+            c.on('error', (err) => {
+                console.error("Connection error:", err);
+            });
+        }
+
+        function handleNetworkData(data, senderConn) {
+            switch(data.type) {
+                case 'FRIEND_REQUEST':
+                    pendingFriendConn = senderConn;
+                    pendingFriendData = data;
+                    document.getElementById('friendRequestText').innerHTML = `<b>${data.name} #${data.tag}</b> möchte dich als Freund hinzufügen.`;
+                    document.getElementById('friendRequestModal').classList.remove('hidden');
+                    break;
+                case 'FRIEND_ACCEPT':
+                    if (!friends.some(f => f.tag === data.tag)) {
+                        friends.push({ name: data.name, tag: data.tag, peerId: data.id });
+                        localStorage.setItem('wortketten_friends', JSON.stringify(friends));
+                        renderFriendList();
+                    }
+                    break;
+                case 'FRIEND_REJECT':
+                    break;
+                case 'LOBBY_INVITE':
+                    pendingLobbyHostId = data.hostTag;
+                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
+                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'JOIN':
+                    if (isHost) {
+                        if (!connections.includes(senderConn)) connections.push(senderConn);
+                        if (!players.some(p => p.id === data.id)) {
+                            players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, conn: senderConn });
+                        }
+                        senderConn.on('close', () => {
+                            players = players.filter(p => p.conn !== senderConn);
+                            connections = connections.filter(c => c !== senderConn);
+                            if (currentTurnIndex >= players.length) currentTurnIndex = 0;
+                            broadcast({ type: 'SYNC_PLAYERS', players: pubPlayers(), gameMode, settings });
+                            updateLobbyUI();
+                        });
+                        broadcast({ type: 'SYNC_PLAYERS', players: pubPlayers(), gameMode, settings });
+                        updateLobbyUI();
+                    }
+                    break;
+                case 'SYNC_PLAYERS':
+                    players = data.players;
+                    settings = data.settings || settings;
+                    gameMode = data.gameMode || 'all';
+                    updateLobbyUI();
+                    break;
+                case 'START_GAME':
+                    wordChain = data.wordChain;
+                    settings = data.settings || settings;
+                    round = data.round || 1;
+                    targetWord = data.targetWord;
+                    optimalSteps = data.optimalSteps || 3;
+                    lastScoreSummary = "";
+                    currentTurnIndex = data.currentTurnIndex;
+                    players = data.players;
+                    gameMode = data.gameMode || 'all';
+                    startGameUI();
+                    break;
+                case 'SUBMIT_WORD':
+                    if (isHost) {
+                        processWordSubmission(data.word, data.playerId, senderConn);
+                    }
+                    break;
+                case 'BACK_TO_LOBBY':
+                    clearInterval(timerInterval);
+                    players = data.players;
+                    settings = data.settings || settings;
+                    gameMode = data.gameMode || gameMode;
+                    wordChain = []; round = 1; lastScoreSummary = "";
+                    switchScreen('screenLobby');
+                    updateLobbyUI();
+                    break;
+                case 'PASS_TURN':
+                    if (isHost) doPass(data.playerId);
+                    break;
+                case 'SYNC_GAME_STATE':
+                    wordChain = data.wordChain;
+                    currentTurnIndex = data.currentTurnIndex;
+                    players = data.players;
+                    lastScoreSummary = data.lastScoreSummary || "";
+                    renderGame();
+                    break;
+                case 'LIVE_TYPING':
+                    showLiveTypingRemote(data.name, data.text);
+                    break;
+                case 'EMOTE':
+                    triggerFloatingEmote(data.emote);
+                    break;
+                case 'ROUND_OVER':
+                    showRoundOver(data);
+                    break;
+                case 'FEEDBACK':
+                    showFeedback(data.text, data.kind);
+                    break;
+            }
+        }
+
+        function broadcast(msg) {
+            if (isHost) {
+                connections.forEach(c => { if (c && c.open) c.send(msg); });
+            } else if (conn && conn.open) {
+                conn.send(msg);
+            }
+        }
+
+        function broadcastLiveTyping(text) {
+            const msg = { type: 'LIVE_TYPING', name: `${myName} #${myTag}`, text: text };
+            broadcast(msg);
+        }
+
+        function sendEmote(emote) {
+            triggerFloatingEmote(emote);
+            const msg = { type: 'EMOTE', emote: emote };
+            broadcast(msg);
+        }
+
+        const DIFF = {
+            easy: {min:2,max:3,time:40,label:'Leicht'},
+            medium: {min:4,max:5,time:30,label:'Mittel'},
+            hard: {min:6,max:10,time:20,label:'Schwer'},
+            inf: {min:4,max:5,time:0,label:'Unendlich ♾️'}
+        };
+        let settings = { rounds: 3, diff: 'medium', inf: false, keep: false };
+        let round = 1, lastRejected = null;
+        const pubPlayers = () => players.map(p => ({ id: p.id, name: p.name, score: p.score, streak: p.streak || 0, isHost: p.isHost }));
+
+        function wordPool() {
+            if (gameMode === 'de') return [...dictionaryDE];
+            if (gameMode === 'en') return [...dictionaryEN];
+            return [...new Set([...dictionaryDE, ...dictionaryEN])];
+        }
+
+        // Berechnet kürzeste Schrittanzahl im Wörterbuch zwischen zwei Wörtern (für Fortschritts-Punkte)
+        function calcDistance(fromWord, toWord) {
+            if (fromWord === toWord) return 0;
+            const pool = wordPool();
+            if (!pool.includes(fromWord)) pool.push(fromWord);
+            if (!pool.includes(toWord)) pool.push(toWord);
+
+            const visited = new Set([fromWord]);
+            let queue = [[fromWord, 0]];
+            while (queue.length > 0) {
+                const [curr, dist] = queue.shift();
+                if (dist >= 12) return 99;
+                for (let i = 0; i < pool.length; i++) {
+                    const next = pool[i];
+                    if (!visited.has(next) && checkWordDifference(curr, next)) {
+                        if (next === toWord) return dist + 1;
+                        visited.add(next);
+                        queue.push([next, dist + 1]);
+                    }
+                }
+            }
+            // Fallback: Levenshtein-Distanz falls Wort nur online bekannt war
+            return Math.abs(fromWord.length - toWord.length) + [...fromWord].filter((c, idx) => toWord[idx] !== c).length;
+        }
+
+        function pickPair() {
+            const d = DIFF[settings.diff], words = wordPool(), adj = new Map(words.map(w => [w, []]));
+            for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++)
+                if (checkWordDifference(words[i], words[j])) { adj.get(words[i]).push(words[j]); adj.get(words[j]).push(words[i]); }
+            const cands = [];
+            for (const s of words.slice().sort(() => Math.random() - 0.5).slice(0, 60)) {
+                const dist = new Map([[s, 0]]), q = [s];
+                while (q.length) { const x = q.shift(); for (const y of adj.get(x)) if (!dist.has(y)) { dist.set(y, dist.get(x) + 1); q.push(y); } }
+                for (const [w, k] of dist) if (k >= d.min && k <= d.max) cands.push([s, w, k]);
+                if (cands.length > 30) break;
+            }
+            return cands.length ? cands[Math.floor(Math.random() * cands.length)] : ['HAUS', 'MAUS', 1];
+        }
+
+        function startOnlineGame(newMatch = true) {
+            if (!isHost) return;
+            if (newMatch) {
+                round = 1;
+                players.forEach(p => { p.score = 0; p.streak = 0; });
+            }
+            const [s, t, opt] = pickPair();
+            wordChain = [s];
+            targetWord = t;
+            optimalSteps = opt || calcDistance(s, t);
+            lastScoreSummary = "";
+            currentTurnIndex = (round - 1) % players.length;
+            broadcast({ type: 'START_GAME', wordChain, targetWord, optimalSteps, currentTurnIndex, gameMode, settings, round, players: pubPlayers() });
+            startGameUI();
+        }
+
+        function nextRound() { round++; startOnlineGame(false); }
+
+        function startGameUI() { switchScreen('screenGame'); renderGame(); }
+
+        function renderGame() {
+            document.getElementById('playerScoresBar').innerHTML = players.map((p, idx) => `
+                <div class="px-3 py-1.5 rounded-xl border ${idx === currentTurnIndex ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-darker/60 border-border text-gray-400'} flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full ${idx === currentTurnIndex ? 'bg-indigo-400 animate-pulse' : 'bg-gray-600'}"></span>
+                    <span class="text-xs font-bold">${p.name}</span>
+                    ${(p.streak && p.streak >= 2) ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">🔥 x${getMultiplier(p.streak).toFixed(1)}</span>` : ''}
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-darker font-mono font-bold text-indigo-300">${p.score} P</span>
+                </div>`).join('');
+
+            document.getElementById('lblStartWord').innerText = wordChain[0];
+            document.getElementById('lblTargetWord').innerHTML = paintTarget();
+            document.getElementById('roundLabel').innerText = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
+
+            const logEl = document.getElementById('lastScoreLog');
+            if (lastScoreSummary) {
+                logEl.innerText = lastScoreSummary;
+                logEl.classList.remove('hidden');
+            } else {
+                logEl.classList.add('hidden');
+            }
+
+            document.getElementById('wordChainContainer').innerHTML = wordChain.map((w, i) => `
+                <div class="flex items-center space-x-1.5 tile-in">
+                    <div class="px-3 py-2 lg:px-5 lg:py-3 rounded-xl ${i === wordChain.length - 1 ? 'bg-indigo-600 border-indigo-400' : 'bg-card border-border'} border font-mono font-black text-sm sm:text-base lg:text-2xl text-white tracking-widest shadow-lg">${paintWord(w)}</div>
+                    <i class="fa-solid fa-arrow-right text-xs text-indigo-400"></i>
+                </div>`).join('') + `<div class="px-3 py-2 lg:px-5 lg:py-3 rounded-xl border-2 border-dashed border-emerald-500/60 text-emerald-400 font-mono font-black text-sm sm:text-base lg:text-2xl tracking-widest">${paintTarget()}</div>`;
+
+            document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost);
+            const active = players[currentTurnIndex];
+            const myTurn = active && active.id === myId;
+            document.getElementById('currentTurnName').innerText = active ? active.name : '---';
+            document.getElementById('gameFeedback').innerText = '';
+            document.getElementById('liveTypingBox').classList.add('hidden');
+            document.getElementById('hostJokerBox').classList.add('hidden');
+            const controls = document.getElementById('activePlayerControls');
+            controls.style.opacity = myTurn ? '1' : '0.4';
+            controls.style.pointerEvents = myTurn ? 'auto' : 'none';
+            if (myTurn) document.getElementById('wordInput').focus();
+            startTimer();
+        }
+
+        function getMultiplier(streak) {
+            if (streak <= 1) return 1.0;
+            if (streak === 2) return 1.2;
+            if (streak === 3) return 1.5;
+            if (streak === 4) return 1.8;
+            return 2.0;
+        }
+
+        function submitWord() {
+            const input = document.getElementById('wordInput');
+            const word = input.value.trim().toUpperCase();
+            if (!word) return;
+            if (isHost) processWordSubmission(word, myId);
+            else if (conn && conn.open) conn.send({ type: 'SUBMIT_WORD', word, playerId: myId });
+            input.value = '';
+            broadcastLiveTyping('');
+        }
+
+        function processWordSubmission(word, playerId, reply = null, force = false, checked = false) {
+            document.getElementById('hostJokerBox').classList.add('hidden');
+            const say = (t, k) => reply ? (reply.open && reply.send({ type: 'FEEDBACK', text: t, kind: k })) : showFeedback(t, k);
+            const active = players[currentTurnIndex];
+            if (!active || active.id !== playerId) return say('Du bist nicht am Zug.', 'error');
+            word = String(word).toUpperCase().trim();
+            if (word.length < 3) return say('❌ Mindestens 3 Buchstaben.', 'error');
+            const prevWord = wordChain[wordChain.length - 1];
+            if (!checkWordDifference(prevWord, word)) return say('❌ Das Wort muss sich um exakt einen Buchstaben unterscheiden!', 'error');
+            const lockC = lockViolation(wordChain, targetWord, word);
+            if (lockC) return say(`🔒 Der gefundene Buchstabe „${lockC}“ muss im Wort bleiben!`, 'error');
+            if (wordChain.includes(word)) return say('♻️ Dieses Wort wurde schon benutzt.', 'error');
+
+            if (!force && word !== targetWord && !wordPool().includes(word)) {
+                if (!checked) {
+                    say('🔎 Prüfe Wort im Online-Wörterbuch …', 'warning');
+                    checkOnline(word).then(ok => processWordSubmission(word, playerId, reply, ok, true));
+                    return;
+                }
+                lastRejected = { word, playerId };
+                if (isHost) document.getElementById('hostJokerBox').classList.remove('hidden');
+                return say(`⚠️ "${word}" ist nicht im gewählten Wörterbuch.`, 'warning');
+            }
+
+            // ===== NEUES KOMPETITIVES PUNKTESYSTEM =====
+            const distBefore = calcDistance(prevWord, targetWord);
+            const distAfter = calcDistance(word, targetWord);
+            const foundBefore = foundTargetIdx(wordChain, targetWord);
+            const foundAfter = foundTargetIdx([...wordChain, word], targetWord);
+            const newHits = [...foundAfter].filter(i => !foundBefore.has(i)).length;
+
+            let rawPts = 10; // Basis für gültiges Wort
+            const reasons = [];
+
+            if (word === targetWord) {
+                rawPts += 60;
+                reasons.push('Ziel +60');
+                if (wordChain.length <= optimalSteps) {
+                    rawPts += 30;
+                    reasons.push('Perfekter Weg +30');
+                }
+            } else if (distAfter < distBefore) {
+                rawPts += 25;
+                reasons.push('Näher ans Ziel +25');
+            } else if (distAfter > distBefore) {
+                rawPts -= 10;
+                reasons.push('Umweg -10');
+            } else {
+                reasons.push('Seitenschritt +10');
+            }
+
+            if (newHits > 0 && word !== targetWord) {
+                const hitPts = newHits * 15;
+                rawPts += hitPts;
+                reasons.push(`${newHits}x Treffer +${hitPts}`);
+            }
+
+            const speedPts = settings.inf ? 5 : Math.min(15, Math.round((Math.max(0, timeLeft) / DIFF[settings.diff].time) * 15));
+            if (speedPts > 0) {
+                rawPts += speedPts;
+                reasons.push(`Tempo +${speedPts}`);
+            }
+
+            rawPts = Math.max(5, rawPts);
+            active.streak = (active.streak || 0) + 1;
+            const mult = getMultiplier(active.streak);
+            const earned = Math.round(rawPts * mult);
+            active.score += earned;
+
+            const multLabel = mult > 1 ? ` · 🔥 x${mult.toFixed(1)}` : '';
+            lastScoreSummary = `${active.name}: +${earned} Pkt (${reasons.join(' · ')}${multLabel})`;
+
+            wordChain.push(word);
+            if (word === targetWord) {
+                return finishRound(active, earned);
+            }
+            currentTurnIndex = (currentTurnIndex + 1) % players.length;
+            broadcast({ type: 'SYNC_GAME_STATE', wordChain, currentTurnIndex, players: pubPlayers(), lastScoreSummary });
+            renderGame();
+        }
+
+        function finishRound(winner, lastEarned = 0) {
+            const data = {
+                type: 'ROUND_OVER',
+                winner: winner.name,
+                lastEarned,
+                lastScoreSummary,
+                target: targetWord,
+                round,
+                total: settings.rounds,
+                final: round >= settings.rounds,
+                chain: wordChain,
+                players: pubPlayers()
+            };
+            broadcast(data);
+            showRoundOver(data);
+        }
+
+        function hostForceAccept() {
+            if (!lastRejected) return;
+            if (!confirm(`"${lastRejected.word}" trotzdem zählen?`)) return;
+            processWordSubmission(lastRejected.word, lastRejected.playerId, null, true);
+        }
+
+        function foundIdx(w, t) {
+            const wi = new Set(), ti = new Set(), n = Math.min(w.length, t.length);
+            for (let i = 0; i < n; i++) if (w[i] === t[i]) { wi.add(i); ti.add(i); }
+            for (let k = 0; k < n; k++) if (w[w.length - 1 - k] === t[t.length - 1 - k]) { wi.add(w.length - 1 - k); ti.add(t.length - 1 - k); }
+            return { wi, ti };
+        }
+        function foundTargetIdx(chain, t) {
+            const all = new Set();
+            chain.slice(1).forEach(w => foundIdx(w, t).ti.forEach(i => all.add(i)));
+            return all;
+        }
+        function foundCounts(chain, t) {
+            const max = {};
+            chain.slice(1).forEach(w => {
+                const cnt = {};
+                foundIdx(w, t).wi.forEach(i => cnt[w[i]] = (cnt[w[i]] || 0) + 1);
+                for (const c in cnt) max[c] = Math.max(max[c] || 0, cnt[c]);
+            });
+            return max;
+        }
+        function lockViolation(chain, t, word) {
+            if (!settings.keep) return '';
+            const need = foundCounts(chain, t);
+            for (const c in need) if (word.split(c).length - 1 < need[c]) return c;
+            return '';
+        }
+        function paintWord(w) {
+            const wi = foundIdx(w, targetWord).wi;
+            const on = () => wordChain.indexOf(w) > 0;
+            return w.split('').map((c, i) => on() && wi.has(i)
+                ? `<span class="text-emerald-400 underline decoration-2 underline-offset-4">${c}</span>` : c).join('');
+        }
+        function paintTarget() {
+            const L = foundTargetIdx(wordChain, targetWord);
+            return targetWord.split('').map((c, i) => L.has(i)
+                ? `<span class="bg-emerald-500 text-white rounded px-0.5">${c}</span>` : `<span class="opacity-40">${c}</span>`).join('');
+        }
+
+        function hostBackToLobby(skipConfirm = false) {
+            if (!isHost) return;
+            if (!skipConfirm && !confirm('Spiel abbrechen und alle zurück in die Lobby holen?')) return;
+            clearInterval(timerInterval);
+            players.forEach(p => { p.score = 0; p.streak = 0; });
+            round = 1; wordChain = []; lastScoreSummary = "";
+            broadcast({ type: 'BACK_TO_LOBBY', players: pubPlayers(), settings, gameMode });
+            switchScreen('screenLobby');
+            updateLobbyUI();
+        }
+
+        function passTurn() {
+            document.getElementById('wordInput').value = '';
+            broadcastLiveTyping('');
+            if (isHost) doPass(myId);
+            else if (conn && conn.open) conn.send({ type: 'PASS_TURN', playerId: myId });
+        }
+        function doPass(pid, isTimeout = false) {
+            const a = players[currentTurnIndex];
+            if (!a || a.id !== pid) return;
+            a.score = Math.max(0, a.score - 15);
+            a.streak = 0;
+            lastScoreSummary = `${a.name}: -15 Pkt (${isTimeout ? 'Zeit abgelaufen' : 'Gepasst'} · Combo weg)`;
+            currentTurnIndex = (currentTurnIndex + 1) % players.length;
+            broadcast({ type: 'SYNC_GAME_STATE', wordChain, currentTurnIndex, players: pubPlayers(), lastScoreSummary });
+            renderGame();
+        }
+
+        function checkWordDifference(w1, w2) {
+            if (Math.abs(w1.length - w2.length) > 1) return false;
+            let diffs = 0;
+            let i = 0, j = 0;
+            while (i < w1.length && j < w2.length) {
+                if (w1[i] !== w2[j]) {
+                    diffs++;
+                    if (w1.length > w2.length) i++;
+                    else if (w1.length < w2.length) j++;
+                    else { i++; j++; }
+                } else {
+                    i++; j++;
+                }
+            }
+            diffs += (w1.length - i) + (w2.length - j);
+            return diffs === 1;
+        }
+
+        function updateLiveTypingPreviewLocally(text) {
+            const lastWord = wordChain[wordChain.length - 1];
+            const stepOk = checkWordDifference(lastWord, text);
+            const lockBad = stepOk && lockViolation(wordChain, targetWord, text) !== '';
+            const isValid = stepOk && !lockBad;
+            const badge = document.getElementById('liveRuleBadge');
+            if (isValid) {
+                badge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                badge.innerText = '✓ 1-Buchstaben-Regel erfüllt';
+            } else {
+                badge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30';
+                badge.innerText = lockBad ? '🔒 Gefundener Buchstabe muss bleiben' : 'Ungültiger Schritt';
+            }
+        }
+
+        function showLiveTypingRemote(name, text) {
+            const box = document.getElementById('liveTypingBox');
+            if (!text) {
+                box.classList.add('hidden');
+                return;
+            }
+            box.classList.remove('hidden');
+            document.getElementById('liveTypingUser').innerHTML = `<i class="fa-solid fa-pen-nib animate-bounce"></i> <span>${name} tippt: <b>${text}</b></span>`;
+            
+            const tilesContainer = document.getElementById('liveTilesContainer');
+            tilesContainer.innerHTML = text.split('').map(char => `
+                <div class="w-8 h-8 rounded-lg bg-indigo-900/60 border border-indigo-500/50 flex items-center justify-center font-mono font-bold text-sm text-white">${char}</div>
+            `).join('');
+        }
+
+        function triggerFloatingEmote(emote) {
+            const area = document.getElementById('floatingEmotesArea');
+            if (!area) return;
+            const el = document.createElement('div');
+            el.className = 'floating-emote text-2xl';
+            el.innerText = emote;
+            el.style.left = Math.random() * 80 + 10 + '%';
+            el.style.bottom = '10px';
+            area.appendChild(el);
+            setTimeout(() => el.remove(), 1800);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            const disp = document.getElementById('timerDisplay');
+            if (settings.inf) {
+                timeLeft = 0;
+                disp.innerText = '∞';
+                disp.classList.remove('text-red-400'); disp.classList.add('text-violet-400');
+                return;
+            }
+            timeLeft = DIFF[settings.diff].time;
+            const paint = () => {
+                disp.innerText = timeLeft;
+                disp.classList.toggle('text-red-400', timeLeft <= 5);
+                disp.classList.toggle('text-violet-400', timeLeft > 5);
+            };
+            paint();
+            timerInterval = setInterval(() => {
+                timeLeft--; paint();
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    if (isHost && players[currentTurnIndex]) {
+                        doPass(players[currentTurnIndex].id, true);
+                    }
+                }
+            }, 1000);
+        }
+
+        function showRoundOver(d) {
+            clearInterval(timerInterval);
+            players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
+            round = d.round;
+            switchScreen('screenGameOver');
+            const ranking = players.slice().sort((a, b) => b.score - a.score);
+            document.getElementById('roundOverTitle').innerText = d.final ? `🏆 ${ranking[0].name} gewinnt das Spiel!` : `Runde ${d.round}/${d.total} geschafft 🎉`;
+            document.getElementById('gameOverStats').innerText = `${d.lastScoreSummary || d.winner + ' hat "' + d.target + '" erreicht'} (${d.chain.length - 1} Schritte): ${d.chain.join(' → ')}`;
+            document.getElementById('finalScoresList').innerHTML = ranking.map((p, i) => `
+                <div class="flex justify-between items-center px-3 py-2 lg:px-4 lg:py-3 rounded-xl bg-darker border border-border text-xs">
+                    <span class="font-bold text-white">${['🥇','🥈','🥉'][i] || '▫️'} ${p.name}</span>
+                    <span class="font-mono text-indigo-400 font-bold">${p.score} Punkte</span>
+                </div>`).join('');
+            const btn = (fn, txt, cls) => `<button onclick="${fn}" class="w-full ${cls} text-white font-bold py-3.5 rounded-xl transition text-sm cursor-pointer">${txt}</button>`;
+            let html = '';
+            if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
+            else html += '<p class="text-xs text-gray-400 italic">Warte auf den Host...</p>';
+            if (isHost) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
+            html += btn('leaveLobby()', 'Zurück zum Menü', 'bg-indigo-600 hover:bg-indigo-500');
+            document.getElementById('roundOverActions').innerHTML = html;
+        }
+
+        function switchScreen(screenId) {
+            ['screenOnboarding', 'screenSetup', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        function updateLobbyUI() {
+            const mt = gameMode === 'de' ? '🇩🇪 Deutsch' : (gameMode === 'en' ? '🇬🇧 Englisch' : '🌍 Alle Wörter');
+            document.getElementById('lobbyModeBadgeText').innerText = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'}`;
+            document.getElementById('lobbyPlayerCount').innerText = players.length;
+            const list = document.getElementById('lobbyPlayerList');
+            list.innerHTML = players.map(p => `
+                <span class="px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">
+                    ${p.name} ${p.isHost ? '👑' : ''}
+                </span>
+            `).join('');
+
+            if (isHost) {
+                document.getElementById('hostControls').classList.remove('hidden');
+                document.getElementById('guestWaitingMessage').classList.add('hidden');
+            } else {
+                document.getElementById('hostControls').classList.add('hidden');
+                document.getElementById('guestWaitingMessage').classList.remove('hidden');
+            }
+        }
+
+        function copyInviteLink() {
+            navigator.clipboard.writeText(myTag);
+            alert('Deine Raum-ID #' + myTag + ' wurde kopiert!');
+        }
+
+        function showStatus(text, type) {
+            const badge = document.getElementById('connectionStatusText');
+            if (badge) badge.innerText = text;
+        }
+
+        function showFeedback(text, type) {
+            const fb = document.getElementById('gameFeedback');
+            if (fb) {
+                fb.innerText = text;
+                fb.className = `text-xs font-medium text-center min-h-[18px] ${type === 'error' ? 'text-red-400' : 'text-amber-400'}`;
+            }
+        }
+
+        function openRulesModal() { document.getElementById('rulesModal').classList.remove('hidden'); }
+        function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
