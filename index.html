@@ -1065,7 +1065,12 @@
             if (pongPlayers.length < 2) return alert('Für Pong brauchst du mindestens 2 Spieler.');
             pongRunning = true;
             pongState = createPongState();
-            broadcast({ type: 'PONG_START', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })) });
+            broadcast({
+                type: 'PONG_START',
+                players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })),
+                maxPlayers: pongMaxPlayers,
+                state: pongState
+            });
             document.getElementById('pongStartButton').classList.add('hidden');
             if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
             pongHostLoop = requestAnimationFrame(pongHostTick);
@@ -1298,6 +1303,7 @@
                     break;
                 case 'PONG_JOIN':
                     if (isHost && pongPlayers.length < pongMaxPlayers) {
+                        if (!connections.includes(senderConn)) connections.push(senderConn);
                         if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, conn: senderConn });
                         assignPongTeams();
                         senderConn.on('close', () => {
@@ -1327,8 +1333,9 @@
                     break;
                 case 'PONG_START':
                     pongPlayers = data.players || pongPlayers;
+                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
                     pongRunning = true;
-                    pongState = createPongState();
+                    pongState = data.state || createPongState();
                     document.getElementById('pongLobby').classList.add('hidden');
                     document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
