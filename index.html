@@ -231,6 +231,15 @@
                             <option value="2">2 Spieler · 1 gegen 1</option>
                             <option value="4">4 Spieler · 2 gegen 2 (fehlende Spieler werden Bots)</option>
                         </select>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Punkte zum Sieg</label>
+                        <select id="pongWinScore" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="5">5 Punkte</option>
+                            <option value="10" selected>10 Punkte</option>
+                            <option value="20">20 Punkte</option>
+                            <option value="30">30 Punkte</option>
+                            <option value="40">40 Punkte</option>
+                            <option value="50">50 Punkte</option>
+                        </select>
                         <button onclick="hostPongLobby()" class="mt-4 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-server mr-1"></i> Pong-Lobby erstellen</button>
                     </div>
                     <div class="glass rounded-2xl p-5 border border-border">
@@ -667,6 +676,7 @@
         let pendingInviteMode = 'words';
         let pongPlayers = [];
         let pongMaxPlayers = 2;
+        let pongWinScore = 10;
         let pongRunning = false;
         let pongHostLoop = null;
         let pongState = null;
@@ -674,6 +684,13 @@
         let pongLastNetworkAt = 0;
         let pongLastDrawAt = 0;
         let pongLastTickAt = 0;
+        let pongRenderLoop = null;
+        let pongPreviousSnapshot = null;
+        let pongCurrentSnapshot = null;
+        let pongSnapshotReceivedAt = 0;
+        let pongCountdown = 0;
+        let pongCountdownTimer = null;
+        let pongWinnerText = '';
 
         window.addEventListener('DOMContentLoaded', () => {
             if (!myName || !myTag) {
@@ -979,7 +996,9 @@
                 initPeerAndSetup();
                 isHost = true;
                 pongMaxPlayers = +document.getElementById('pongPlayerCount').value;
+                pongWinScore = +document.getElementById('pongWinScore').value;
                 pongRunning = false;
+                pongWinnerText = '';
                 pongPlayerIndex = 0;
                 pongPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, team: null, conn: null }];
                 assignPongTeams();
@@ -1017,12 +1036,18 @@
             const ownIndex = pongPlayers.findIndex(p => p.id === myId);
             pongPlayerIndex = ownIndex >= 0 ? ownIndex : 0;
             document.getElementById('pongPlayerList').innerHTML = pongPlayers.map((p, i) => {
-                const color = pongMaxPlayers === 4 ? (p.team === 'Blau' ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-200' : 'border-red-500/40 bg-red-600/20 text-red-200') : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
+                const color = pongMaxPlayers === 4
+                    ? (i === 0 ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
+                        : i === 2 ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
+                        : i === 1 ? 'border-rose-400/50 bg-rose-500/20 text-rose-200'
+                        : 'border-amber-400/50 bg-amber-500/20 text-amber-200')
+                    : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
                 return `<span class="px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="font-mono text-white ml-1">${p.score || 0} P</span></span>`;
             }).join('');
             document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
                 : '1 gegen 1';
+            document.getElementById('pongTeamLabel').innerText += ` · Sieg bei ${pongWinScore} Punkten`;
             const inviteSection = document.getElementById('pongFriendInviteSection');
             if (inviteSection) inviteSection.classList.toggle('hidden', !isHost || pongRunning);
             renderPongFriendInvites();
@@ -1055,7 +1080,12 @@
             if (pongMaxPlayers === 2) {
                 paddles.push({ x: 25, y: 210, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 210, w: 16, h: 80, side: 'right', index: 1 });
             } else {
-                paddles.push({ x: 25, y: 120, w: 16, h: 80, side: 'left', index: 0 }, { x: 759, y: 120, w: 16, h: 80, side: 'right', index: 1 }, { x: 25, y: 300, w: 16, h: 80, side: 'left', index: 2 }, { x: 759, y: 300, w: 16, h: 80, side: 'right', index: 3 });
+                paddles.push(
+                    { x: 25, y: 120, w: 16, h: 80, side: 'left', index: 0, botAimY: null, botThinkAt: 0 },
+                    { x: 759, y: 120, w: 16, h: 80, side: 'right', index: 1, botAimY: null, botThinkAt: 0 },
+                    { x: 25, y: 300, w: 16, h: 80, side: 'left', index: 2, botAimY: null, botThinkAt: 0 },
+                    { x: 759, y: 300, w: 16, h: 80, side: 'right', index: 3, botAimY: null, botThinkAt: 0 }
+                );
             }
             return { ball: { x: 400, y: 250, r: 11, vx: 5, vy: 3.2 }, paddles, blueScore: 0, redScore: 0, individualScore: [0, 0, 0, 0] };
         }
@@ -1078,20 +1108,39 @@
                 assignPongTeams();
                 renderPongLobby();
             }
-            pongRunning = true;
+            pongRunning = false;
             pongState = createPongState();
+            pongWinnerText = '';
+            pongCountdown = 3;
+            document.getElementById('pongStartButton').classList.add('hidden');
             broadcast({
                 type: 'PONG_START',
-                players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })),
+                players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot })),
                 maxPlayers: pongMaxPlayers,
-                state: pongState
+                winScore: pongWinScore,
+                state: pongState,
+                countdown: pongCountdown
             });
-            document.getElementById('pongStartButton').classList.add('hidden');
             pongLastNetworkAt = 0;
             pongLastDrawAt = 0;
             pongLastTickAt = 0;
             if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
-            pongHostLoop = requestAnimationFrame(pongHostTick);
+            if (pongCountdownTimer) clearInterval(pongCountdownTimer);
+            drawPong();
+            pongCountdownTimer = setInterval(() => {
+                pongCountdown--;
+                if (pongCountdown > 0) {
+                    broadcast({ type: 'PONG_COUNTDOWN', count: pongCountdown });
+                    drawPong();
+                    return;
+                }
+                clearInterval(pongCountdownTimer);
+                pongCountdownTimer = null;
+                pongCountdown = 0;
+                pongRunning = true;
+                broadcast({ type: 'PONG_COUNTDOWN', count: 0 });
+                pongHostLoop = requestAnimationFrame(pongHostTick);
+            }, 1000);
         }
 
         function localPongMove(delta) {
@@ -1131,9 +1180,14 @@
             pongState.paddles.forEach(p => {
                 const player = pongPlayers[p.index];
                 if (!player || !player.isBot) return;
-                const targetY = Math.max(0, Math.min(500 - p.h, b.y - p.h / 2));
-                const maxStep = 4.2 * frameScale;
-                p.y += Math.max(-maxStep, Math.min(maxStep, targetY - p.y));
+                if (!p.botThinkAt || timestamp >= p.botThinkAt) {
+                    const trackingBall = p.side === 'left' ? b.vx < 0 : b.vx > 0;
+                    const desiredY = trackingBall ? b.y - p.h / 2 : 250 - p.h / 2;
+                    p.botAimY = Math.max(0, Math.min(500 - p.h, desiredY + (Math.random() - 0.5) * 170));
+                    p.botThinkAt = timestamp + 650 + Math.random() * 550;
+                }
+                const maxStep = 1.65 * frameScale;
+                p.y += Math.max(-maxStep, Math.min(maxStep, p.botAimY - p.y));
             });
 
             pongState.paddles.forEach(p => {
@@ -1144,15 +1198,33 @@
             });
 
             if (b.x < -20 || b.x > 820) {
+                let winnerText = '';
                 if (pongMaxPlayers === 4) {
                     if (b.x < 0) pongState.redScore++; else pongState.blueScore++;
                     const red = pongState.redScore, blue = pongState.blueScore;
                     pongPlayers.filter(p => p.team === 'Blau').forEach(p => p.score = blue);
                     pongPlayers.filter(p => p.team === 'Rot').forEach(p => p.score = red);
+                    if (blue >= pongWinScore) winnerText = 'Blau gewinnt!';
+                    else if (red >= pongWinScore) winnerText = 'Rot gewinnt!';
                 } else {
                     const scorer = b.x < 0 ? 1 : 0;
                     pongState.individualScore[scorer]++;
                     if (pongPlayers[scorer]) pongPlayers[scorer].score = pongState.individualScore[scorer];
+                    if (pongState.individualScore[scorer] >= pongWinScore) {
+                        winnerText = `${pongPlayers[scorer] ? pongPlayers[scorer].name : 'Spieler'} gewinnt!`;
+                    }
+                }
+                if (winnerText) {
+                    pongWinnerText = winnerText;
+                    pongRunning = false;
+                    broadcast({
+                        type: 'PONG_WIN',
+                        winnerText,
+                        state: pongState,
+                        players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot }))
+                    });
+                    drawPong();
+                    return;
                 }
                 b.x = 400; b.y = 250; b.vx = (Math.random() > .5 ? 5 : -5); b.vy = (Math.random() > .5 ? 3.2 : -3.2);
             }
@@ -1161,14 +1233,43 @@
                 pongLastNetworkAt = timestamp;
                 broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot })) });
             }
-            if (timestamp - pongLastDrawAt >= 33) {
+            if (timestamp - pongLastDrawAt >= 16) {
                 pongLastDrawAt = timestamp;
                 drawPong();
             }
             pongHostLoop = requestAnimationFrame(pongHostTick);
         }
 
-        function drawPong() {
+        function interpolatePongState() {
+            if (!pongCurrentSnapshot) return pongState;
+            if (!pongPreviousSnapshot) return pongCurrentSnapshot;
+            const alpha = Math.min(1, (performance.now() - pongSnapshotReceivedAt) / 50);
+            const previous = pongPreviousSnapshot;
+            const current = pongCurrentSnapshot;
+            return {
+                ...current,
+                ball: {
+                    ...current.ball,
+                    x: previous.ball.x + (current.ball.x - previous.ball.x) * alpha,
+                    y: previous.ball.y + (current.ball.y - previous.ball.y) * alpha
+                },
+                paddles: current.paddles.map((p, i) => {
+                    const old = previous.paddles[i] || p;
+                    return { ...p, x: old.x + (p.x - old.x) * alpha, y: old.y + (p.y - old.y) * alpha };
+                })
+            };
+        }
+
+        function pongGuestRenderTick() {
+            if (isHost || (!pongRunning && pongCountdown <= 0)) {
+                pongRenderLoop = null;
+                return;
+            }
+            drawPong(interpolatePongState());
+            pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
+        }
+
+        function drawPong(stateOverride = null) {
             const canvas = document.getElementById('pongCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
@@ -1176,23 +1277,37 @@
             ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 800, 500);
             ctx.strokeStyle = 'rgba(148,163,184,.25)'; ctx.setLineDash([10, 12]); ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke(); ctx.setLineDash([]);
 
-            if (!pongState) { pongState = createPongState(); }
-            pongState.paddles.forEach(p => {
-                ctx.fillStyle = p.side === 'right' ? '#f87171' : (pongMaxPlayers === 4 && p.side === 'left' ? '#22d3ee' : '#60a5fa');
+            const state = stateOverride || pongState || createPongState();
+            state.paddles.forEach(p => {
+                const paddleColors = ['#22d3ee', '#fb7185', '#818cf8', '#fbbf24'];
+                ctx.fillStyle = pongMaxPlayers === 4 ? paddleColors[p.index] : (p.side === 'right' ? '#f87171' : '#60a5fa');
                 ctx.shadowBlur = 18; ctx.shadowColor = ctx.fillStyle;
                 ctx.fillRect(p.x, p.y, p.w, p.h);
             });
             ctx.shadowBlur = 0;
-            const b = pongState.ball;
+            const b = state.ball;
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
 
             ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px Plus Jakarta Sans'; ctx.textAlign = 'center';
-            ctx.fillText(pongMaxPlayers === 4 ? `${pongState.blueScore}  ·  ${pongState.redScore}` : `${pongState.individualScore[0] || 0}  ·  ${pongState.individualScore[1] || 0}`, 400, 55);
+            ctx.fillText(pongMaxPlayers === 4 ? `${state.blueScore}  ·  ${state.redScore}` : `${state.individualScore[0] || 0}  ·  ${state.individualScore[1] || 0}`, 400, 55);
+            if (pongWinnerText) {
+                ctx.fillStyle = 'rgba(2, 6, 23, .72)';
+                ctx.fillRect(0, 0, 800, 500);
+                ctx.fillStyle = '#fff';
+                ctx.font = '900 48px Plus Jakarta Sans';
+                ctx.fillText(pongWinnerText, 400, 270);
+            }
+            if (pongCountdown > 0) {
+                ctx.fillStyle = 'rgba(2, 6, 23, .62)';
+                ctx.fillRect(0, 0, 800, 500);
+                ctx.fillStyle = '#fff';
+                ctx.font = '900 110px Plus Jakarta Sans';
+                ctx.fillText(String(pongCountdown), 400, 285);
+            }
         }
 
         function leavePongLobby() {
-            pongRunning = false;
-            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
+            stopPongGame();
             if (isHost) {
                 broadcast({ type: 'PONG_CLOSED' });
                 const ended = [...connections];
@@ -1209,6 +1324,19 @@
             document.getElementById('pongArena').classList.add('hidden');
             switchScreen('screenPong');
             showStatus('Pong-Lobby verlassen', 'success');
+        }
+
+        function stopPongGame() {
+            pongRunning = false;
+            pongCountdown = 0;
+            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
+            if (pongRenderLoop) cancelAnimationFrame(pongRenderLoop);
+            if (pongCountdownTimer) clearInterval(pongCountdownTimer);
+            pongHostLoop = null;
+            pongRenderLoop = null;
+            pongCountdownTimer = null;
+            pongPreviousSnapshot = null;
+            pongCurrentSnapshot = null;
         }
 
         function hostGame() {
@@ -1344,10 +1472,10 @@
                             pongPlayers = pongPlayers.filter(p => p.conn !== senderConn);
                             connections = connections.filter(c => c !== senderConn);
                             assignPongTeams();
-                            broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, running: pongRunning });
+                            broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
                             renderPongLobby();
                         });
-                        broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, running: pongRunning });
+                        broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
                         renderPongLobby();
                     } else {
                         senderConn.send({ type: 'PONG_FULL' });
@@ -1356,6 +1484,7 @@
                 case 'PONG_SYNC':
                     pongPlayers = data.players || pongPlayers;
                     pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
+                    pongWinScore = data.winScore || pongWinScore;
                     pongRunning = data.running || false;
                     if (!pongRunning) document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
@@ -1368,18 +1497,40 @@
                 case 'PONG_START':
                     pongPlayers = data.players || pongPlayers;
                     pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
-                    pongRunning = true;
+                    pongWinScore = data.winScore || pongWinScore;
+                    pongRunning = false;
+                    pongWinnerText = '';
                     pongState = data.state || createPongState();
+                    pongPreviousSnapshot = pongState;
+                    pongCurrentSnapshot = pongState;
+                    pongSnapshotReceivedAt = performance.now();
+                    pongCountdown = data.countdown || 3;
                     document.getElementById('pongLobby').classList.add('hidden');
                     document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
+                    drawPong(pongState);
+                    if (pongRenderLoop) cancelAnimationFrame(pongRenderLoop);
+                    pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
+                    break;
+                case 'PONG_WIN':
+                    pongState = data.state;
+                    pongPlayers = data.players || pongPlayers;
+                    pongWinnerText = data.winnerText;
+                    pongRunning = false;
                     drawPong();
                     break;
+                case 'PONG_COUNTDOWN':
+                    pongCountdown = data.count;
+                    if (pongCountdown === 0) pongRunning = true;
+                    drawPong(interpolatePongState());
+                    break;
                 case 'PONG_STATE':
+                    pongPreviousSnapshot = pongCurrentSnapshot || data.state;
+                    pongCurrentSnapshot = data.state;
+                    pongSnapshotReceivedAt = performance.now();
                     pongState = data.state;
                     pongPlayers = data.players || pongPlayers;
                     pongRunning = true;
-                    drawPong();
                     break;
                 case 'PONG_MOVE':
                     if (isHost && pongRunning) {
