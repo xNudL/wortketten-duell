@@ -29,7 +29,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        html, body { height: 100dvh; overflow: hidden; }
         body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
+        body { min-height: 0; padding-bottom: 0; }
+        #mainContent { flex: 1 1 0%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
         body, body * { -webkit-user-select: none; user-select: none; }
         input, textarea { -webkit-user-select: text; user-select: text; }
         @media (min-width: 1024px) { html { font-size: 18px; } }
@@ -458,6 +461,34 @@
         #screenBlackjack.blackjack-round-active #blackjackMessage {
             margin-bottom: .75rem;
         }
+        #screenBlackjack.blackjack-round-active #blackjackFelt {
+            padding: .65rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackPlayersList {
+            gap: .55rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact {
+            padding: .55rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact .blackjack-hand-zone {
+            min-height: 0;
+            margin-top: .35rem;
+            padding: .4rem;
+        }
+        @media (max-height: 760px) {
+            #screenBlackjack.blackjack-round-active > .glass {
+                padding-top: .5rem;
+                padding-bottom: .5rem;
+            }
+            #screenBlackjack.blackjack-round-active #blackjackMessage {
+                margin-bottom: .4rem;
+            }
+            #screenBlackjack.blackjack-round-active .blackjack-hand-zone {
+                min-height: 0;
+                margin-top: .45rem;
+                padding: .5rem;
+            }
+        }
         #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
             opacity: .78;
             transform: scale(.97);
@@ -544,7 +575,7 @@
         }
     </style>
 </head>
-<body class="bg-darker text-gray-100 min-h-[100dvh] flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white pb-6">
+<body class="bg-darker text-gray-100 h-[100dvh] flex flex-col justify-between overflow-hidden selection:bg-indigo-500 selection:text-white">
     <canvas id="ambientParticles" aria-hidden="true"></canvas>
     <div id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
     <div id="customCursor" aria-hidden="true"></div>
@@ -1001,7 +1032,7 @@
                         <div id="blackjackFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
                     </div>
 
-                    <div class="relative overflow-hidden rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
+                    <div id="blackjackFelt" class="relative overflow-hidden rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
                         <div class="pointer-events-none absolute inset-3 rounded-[1.6rem] border border-amber-100/10"></div>
                         <p id="blackjackMessage" class="relative mx-auto mb-5 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
                         <div id="blackjackPlayersList" class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
