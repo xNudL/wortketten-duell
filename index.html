@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wortketten-Duell | P2P Multiplayer Edition</title>
+    <title>MINIGAMES | Arcade-Spiele</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -418,6 +418,56 @@
             from { opacity: 0; transform: translate3d(34px,-24px,0) rotate(9deg) scale(.78); }
             to { opacity: 1; transform: translate3d(0,0,0) rotate(0) scale(1); }
         }
+        .blackjack-player-box {
+            position: relative;
+            min-width: 0;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 1.4rem;
+            background: linear-gradient(150deg, rgba(7,18,28,.76), rgba(2,12,22,.58));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 14px 28px rgba(0,0,0,.2);
+            backdrop-filter: blur(12px);
+            transition: opacity .25s ease, transform .25s ease, border-color .25s ease, box-shadow .25s ease, filter .25s ease;
+        }
+        .blackjack-player-box.is-active {
+            z-index: 1;
+            transform: scale(1.025);
+            border-color: rgba(110,231,183,.72);
+            background: linear-gradient(150deg, rgba(6,54,44,.84), rgba(2,20,29,.76));
+            box-shadow: 0 0 0 1px rgba(110,231,183,.16), 0 0 30px rgba(16,185,129,.2), 0 20px 34px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
+        }
+        #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
+            opacity: .7;
+            transform: scale(.985);
+            filter: saturate(.72);
+        }
+        .blackjack-player-avatar {
+            display: grid;
+            width: 2.75rem;
+            height: 2.75rem;
+            flex: 0 0 auto;
+            place-items: center;
+            border: 1px solid var(--player-color);
+            border-radius: 1rem;
+            background: color-mix(in srgb, var(--player-color) 20%, rgba(3,10,20,.8));
+            box-shadow: 0 0 18px color-mix(in srgb, var(--player-color) 24%, transparent);
+            color: white;
+            font-size: 1.15rem;
+            font-weight: 900;
+        }
+        .blackjack-hand-zone {
+            min-height: 9.5rem;
+            margin-top: 1rem;
+            padding: .8rem;
+            border: 1px solid rgba(251,191,36,.12);
+            border-radius: 1rem;
+            background: rgba(0,0,0,.2);
+        }
+        .blackjack-context-actions {
+            min-height: 2.75rem;
+            margin-top: .8rem;
+            padding-top: .75rem;
+            border-top: 1px solid rgba(255,255,255,.08);
+        }
         #lastScoreLog:not(.hidden) {
             position: relative;
             z-index: 2;
@@ -441,6 +491,8 @@
             .blackjack-card-scene.is-new { animation: none; }
             .blackjack-card-inner { transition: none; }
             .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
+            .blackjack-player-box { transition: none; }
+            .blackjack-player-box.is-active, #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) { transform: none; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
@@ -467,8 +519,8 @@
                 <i class="fa-solid fa-link text-white text-sm"></i>
             </div>
             <div>
-                <h1 class="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">WORTKETTEN DUELL</h1>
-                <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">P2P Multiplayer Edition</p>
+                <h1 class="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">MINIGAMES</h1>
+                <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Dein Arcade-Portal</p>
             </div>
         </div>
         
@@ -476,12 +528,12 @@
             <button id="tabWords" onclick="switchMainTab('words')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
             <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
-            <button id="tabBlackjack" onclick="switchMainTab('blackjack')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-spade mr-1"></i> Blackjack</button>
+            <button id="tabBlackjack" onclick="switchMainTab('blackjack')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-diamond mr-1"></i> Blackjack</button>
         </nav>
         <div class="flex items-center space-x-3">
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="connectionStatusText">Verbunden</span>
+                <span id="connectionStatusText">Online</span>
             </div>
             <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
                 <i class="fa-solid fa-volume-high text-sm"></i>
@@ -553,9 +605,9 @@
                 <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
                 
                 <div class="text-center max-w-lg mx-auto mb-6">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">P2P Multiplayer Edition</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Spielesammlung</span>
                     <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">Wähle deinen Modus</h2>
-                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt der 4-stelligen ID eines Freundes bei.</p>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt mit einem vierstelligen Spielcode bei.</p>
                 </div>
 
                 <div id="statsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6" aria-label="Deine ewigen Statistiken">
@@ -583,8 +635,8 @@
                             <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-3">
                                 <i class="fa-solid fa-crown"></i>
                             </div>
-                            <h3 class="font-bold text-base text-white">Lobby hosten</h3>
-                            <p class="text-xs text-gray-400 mt-1">Öffne einen Raum. Deine Freunde können deine ID zum Beitreten nutzen.</p>
+                            <h3 class="font-bold text-base text-white">Lobby erstellen</h3>
+                            <p class="text-xs text-gray-400 mt-1">Öffne einen Raum und teile den Spielcode mit deinen Freunden.</p>
                         </div>
                         <div class="mt-5 space-y-3">
                             <div>
@@ -621,11 +673,11 @@
                                 <i class="fa-solid fa-right-to-bracket"></i>
                             </div>
                             <h3 class="font-bold text-base text-white">Lobby beitreten</h3>
-                            <p class="text-xs text-gray-400 mt-1">Gib die 4-stellige ID des Hosts ein, um in seine Lobby zu springen.</p>
+                            <p class="text-xs text-gray-400 mt-1">Gib den vierstelligen Spielcode ein, um einer Lobby beizutreten.</p>
                         </div>
                         <div class="mt-5 space-y-3">
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">4-stellige Host-ID</label>
+                                <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Vierstelliger Spielcode</label>
                                 <input type="text" id="roomCodeInput" placeholder="Z.B. 4819" maxlength="4" class="w-full bg-darker/80 border border-border rounded-xl px-3.5 py-2.5 text-base font-mono uppercase text-white tracking-widest focus:outline-none focus:border-violet-500 transition">
                             </div>
                             <button onclick="joinGame()" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-violet-600/30 transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
@@ -650,7 +702,7 @@
 
                 <div id="pongLobby" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="glass rounded-2xl p-5 border border-cyan-500/30 bg-gradient-to-b from-cyan-950/20 to-transparent">
-                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-cyan-400 mr-2"></i>Lobby hosten</h3>
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-cyan-400 mr-2"></i>Lobby erstellen</h3>
                         <p class="text-xs text-gray-400 mt-2">Wähle, wie viele Spieler mitspielen dürfen.</p>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Spieler</label>
                         <select id="pongPlayerCount" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
@@ -670,7 +722,7 @@
                     </div>
                     <div class="glass rounded-2xl p-5 border border-border">
                         <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Lobby beitreten</h3>
-                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Raum-ID des Hosts ein.</p>
+                        <p class="text-xs text-gray-400 mt-2">Gib den vierstelligen Raumcode ein.</p>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Raum-ID</label>
                         <input id="pongRoomCodeInput" maxlength="4" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
                         <button onclick="joinPongLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-plug mr-1"></i> Lobby beitreten</button>
@@ -708,12 +760,12 @@
                 <div class="text-center max-w-lg mx-auto mb-5">
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase tracking-widest">Wort-Ratespiel</span>
                     <h2 class="text-2xl sm:text-3xl font-black mt-3">Hangman</h2>
-                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erratet das geheime Wort gemeinsam im P2P-Duell.</p>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erratet gemeinsam das geheime Wort.</p>
                 </div>
 
                 <div id="hangmanSetup" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="glass rounded-2xl p-5 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 to-transparent">
-                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-indigo-400 mr-2"></i>Lobby hosten</h3>
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-indigo-400 mr-2"></i>Lobby erstellen</h3>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Spielmodus</label>
                         <select id="hangmanModeSelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
                             <option value="custom">Eigenes Wort (Wortgeber wechselt)</option>
@@ -738,7 +790,7 @@
                     </div>
                     <div class="glass rounded-2xl p-5 border border-border">
                         <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Lobby beitreten</h3>
-                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Raum-ID des Hosts ein.</p>
+                        <p class="text-xs text-gray-400 mt-2">Gib den vierstelligen Raumcode ein.</p>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Raum-ID</label>
                         <input id="hangmanRoomCodeInput" maxlength="4" inputmode="numeric" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
                         <button onclick="joinHangmanLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-plug mr-1"></i> Lobby beitreten</button>
@@ -759,7 +811,7 @@
                     <div class="flex justify-center">
                         <button id="hangmanStartButton" onclick="startHangmanGame()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Hangman starten</button>
                     </div>
-                    <p id="hangmanWaitingMessage" class="text-xs text-gray-400 text-center mt-3">Warte darauf, dass der Host das Spiel startet...</p>
+                    <p id="hangmanWaitingMessage" class="text-xs text-gray-400 text-center mt-3">Warte darauf, dass die Spielleitung das Spiel startet...</p>
                 </div>
 
                 <div id="hangmanGame" class="hidden">
@@ -835,21 +887,21 @@
                 <div class="text-center max-w-lg mx-auto mb-5">
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-widest">Kartenspiel</span>
                     <h2 class="text-2xl sm:text-3xl font-black mt-3">♠ Blackjack</h2>
-                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Spielt reihum gegen den Dealer. Die Karten und der Tisch werden vom Host synchronisiert.</p>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Spiele gegen die Bank oder fordere einen Mitspieler in der Dealer-Rolle heraus.</p>
                 </div>
 
                 <div id="blackjackSetup" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="glass rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 to-transparent">
                         <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-emerald-400 mr-2"></i>Tisch eröffnen</h3>
-                        <p class="text-xs text-gray-400 mt-2">Öffne einen P2P-Tisch für bis zu sechs Spieler. Der Host verwaltet das Deck und den Dealer.</p>
+                        <p class="text-xs text-gray-400 mt-2">Erstelle einen Tisch für bis zu sechs Mitspieler und bestimme die Dealer-Rolle.</p>
                         <button onclick="hostBlackjackLobby()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-emerald-600/20">
                             <i class="fa-solid fa-clone mr-1"></i> Blackjack-Tisch eröffnen
                         </button>
                     </div>
                     <div class="glass rounded-2xl p-5 border border-border">
                         <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Tisch beitreten</h3>
-                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Host-ID ein, um einem Blackjack-Tisch beizutreten.</p>
-                        <label for="blackjackRoomCodeInput" class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Host-ID</label>
+                        <p class="text-xs text-gray-400 mt-2">Gib den vierstelligen Tischcode ein, um einer Runde beizutreten.</p>
+                        <label for="blackjackRoomCodeInput" class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Tischcode</label>
                         <input id="blackjackRoomCodeInput" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
                         <button onclick="joinBlackjackLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold py-3 rounded-xl transition-all duration-200">
                             <i class="fa-solid fa-plug mr-1"></i> Tisch betreten
@@ -869,7 +921,6 @@
                         </button>
                     </div>
 
-                    <div id="blackjackPlayersList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
                     <div id="blackjackDealerRolePanel" class="mb-4 rounded-2xl border border-amber-300/20 bg-amber-950/10 p-4">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -877,7 +928,7 @@
                                 <p id="blackjackDealerRoleText" class="mt-1 text-xs text-gray-300">Dealer: Bank / KI</p>
                             </div>
                             <label id="blackjackDealerRoleChoice" class="hidden min-w-56 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                Host: Dealer bestimmen
+                                Dealer-Rolle auswählen
                                 <select id="blackjackDealerSelect" onchange="setBlackjackDealer(this.value)" class="mt-1 w-full rounded-xl border border-amber-300/20 bg-slate-950 px-3 py-2 text-sm normal-case text-white focus:border-amber-300/60 focus:outline-none">
                                     <option value="bank">Bank / KI</option>
                                 </select>
@@ -891,24 +942,9 @@
 
                     <div class="relative overflow-hidden rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
                         <div class="pointer-events-none absolute inset-3 rounded-[1.6rem] border border-amber-100/10"></div>
-                        <div class="relative mx-auto max-w-3xl rounded-2xl border border-amber-100/15 bg-slate-950/20 p-4 text-center shadow-inner shadow-black/30 sm:p-6">
-                            <p class="text-[10px] uppercase tracking-[.25em] font-bold text-amber-100/80">Dealer-Hand</p>
-                            <div id="blackjackDealerCards" class="mt-3 flex min-h-28 flex-wrap justify-center gap-2"></div>
-                            <p id="blackjackDealerTotal" class="mt-2 text-xs font-bold text-gray-300"></p>
-                        </div>
-                        <p id="blackjackMessage" class="relative mx-auto my-4 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
-                        <div id="blackjackDealerControls" class="relative mx-auto mb-4 hidden max-w-xl rounded-2xl border border-amber-200/25 bg-black/25 p-4 text-center">
-                            <p id="blackjackDealerPrompt" class="mb-3 text-xs font-semibold text-amber-100"></p>
-                            <div class="flex flex-wrap justify-center gap-2">
-                                <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" class="hidden rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
-                                <button id="blackjackDealerHitButton" onclick="blackjackDealerAction('hit')" class="hidden rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Dealer zieht</button>
-                                <button id="blackjackDealerStandButton" onclick="blackjackDealerAction('stand')" class="hidden rounded-xl border border-amber-200/30 bg-amber-950/40 px-5 py-2.5 text-sm font-extrabold text-amber-100 transition-all duration-200 hover:bg-amber-900/50 active:scale-95">Dealer hält</button>
-                            </div>
-                        </div>
-                        <div class="relative flex flex-wrap justify-center gap-2">
-                            <button id="blackjackHitButton" onclick="blackjackPlayerAction('hit')" class="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-600/20 transition-all duration-200 hover:bg-cyan-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Karte ziehen</button>
-                            <button id="blackjackStandButton" onclick="blackjackPlayerAction('stand')" class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:bg-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Halten</button>
-                            <button id="blackjackDoubleButton" onclick="blackjackPlayerAction('double')" class="rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-amber-600/20 transition-all duration-200 hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
+                        <p id="blackjackMessage" class="relative mx-auto mb-5 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
+                        <div id="blackjackPlayersList" class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        <div class="relative mt-5 flex flex-wrap justify-center gap-2">
                             <button id="blackjackStartButton" onclick="startBlackjackRound()" class="hidden rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 transition-all duration-200 hover:bg-emerald-500 active:scale-95">Runde starten</button>
                         </div>
                     </div>
@@ -957,7 +993,7 @@
                     </button>
                 </div>
                 <div id="guestWaitingMessage" class="text-sm text-gray-400 italic">
-                    Warte darauf, dass der Host das Spiel startet...
+                    Warte darauf, dass die Spielleitung das Spiel startet...
                 </div>
             </div>
         </div>
@@ -1018,13 +1054,13 @@
                     
                     <div id="hostJokerBox" class="hidden text-center pt-2">
                         <button onclick="hostForceAccept()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3.5 py-1.5 rounded-lg transition cursor-pointer">
-                            <i class="fa-solid fa-crown mr-1"></i> Trotzdem zählen (Host-Joker)
+                            <i class="fa-solid fa-crown mr-1"></i> Trotzdem zählen (Spielleiter-Joker)
                         </button>
                     </div>
                 </div>
 
                 <button id="btnBackLobby" onclick="hostBackToLobby()" class="hidden mt-5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer">
-                    <i class="fa-solid fa-rotate-left mr-1"></i> Lobby neustarten (alle bleiben verbunden)
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Lobby neustarten (alle bleiben dabei)
                 </button>
 
                 <div class="mt-6 pt-4 border-t border-border/50 w-full flex justify-center items-center space-x-3">
@@ -1081,7 +1117,7 @@
                 <h3 class="font-extrabold text-base text-white">Lobby-Einladung</h3>
                 <button type="button" class="modal-close" onclick="rejectLobbyInvite()" aria-label="Einladung schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p id="lobbyInviteText" class="text-xs text-gray-300"><b>Host</b> lädt dich in seine Lobby ein!</p>
+            <p id="lobbyInviteText" class="text-xs text-gray-300"><b>Spielleitung</b> lädt dich in die Lobby ein!</p>
             <div class="flex space-x-2 pt-2">
                 <button onclick="rejectLobbyInvite()" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Ablehnen</button>
                 <button onclick="acceptLobbyInvite()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-emerald-600/30">Beitreten</button>
@@ -1158,7 +1194,7 @@
         </div>
     </div>
 
-    <!-- JavaScript Game & P2P Logic -->
+    <!-- JavaScript Game Logic -->
     <script>
         const dictionaryDE = new Set("BAD BAHN BALD BALL BAND BART BASE BAUM BEIN BETT BIER BILD BLAU BLUT BRAND BRAU BUND DEIN DOSE FALL FAST FEIN FELL FLUG GALL GLAS GRAB GRAD GRAS GRAU GUT HAAR HALL HALT HAND HART HASE HAT HAUS HAUT HEIL HEIM HELL HOSE HUND HUT JAHR KALT KEIN KIND KLAN KLAR KLUG KOST KRAS LAG LAND LAST LAUS LAUT LEER LIED LOSE MAST MAUS MEER MEIN MILD MUND MUT NASE NETT NOT PAAR PLAN POST RAD RAT RAUM RAUS REIM REIN RIND ROSE ROST ROT RUND SAG SAND SEIL SEIN SIEB SPIEL STAND STAUB TAG TEIL TIER TOR TOT TRAUM VASE VIEL VIER WAHR WALD WALL WAND WART WEIN WELL WETT WILD WIND WUT ZAHN ZART ZIEL".split(" "));
         const dictionaryEN = new Set("BAG BALE BALL BAND BAT BEAR BED BEG BELL BEST BET BIG BILL BOIL BOOK BOW BOWL BOWS BOYS BULL BUNT CALL CAP CAST CAT CATS CELL COOK COOL COST CUP CUT DEAR DIG DOG DOT DULL FADE FAIL FALL FAST FAT FEAR FED FELL FILE FIND FINE FIRE FOIL FOOD FULL GALE GEAR GET GILL GIRL GOOD HALL HAND HAT HELL HIP HIRE HIT HOLE HOOD HOOK HOP HOT HUNT HURT JADE JET KIND LAND LED LET LINE LOOK MADE MALE MALL MAP MAT MET MILE MIND MINE MOLE MOOD NEST NET NINE NUT PALE PANS PANT PAST PAT PEAR PEST PET PILE PINE PINS PLANT POLE POND POOL POST PULL PUNT PUP PUT RAT RED REST ROLE ROOK SALE SAND SAT SELL SET SOLE TALE TALL TELL TEST TILE TIP TIRE TOOL TOP WADE WALL WAND WED WELL WEST WET WIND WINE WIRE WOOD WOOL".split(" "));
@@ -1446,6 +1482,8 @@
         let blackjackState = null;
         let blackjackDeck = [];
         let blackjackDealerId = 'bank';
+        let blackjackDealerTimer = null;
+        let blackjackDealerTurnToken = 0;
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
         const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
@@ -2026,7 +2064,7 @@
             if (!/^\d{4}$/.test(code || '')) return null;
 
             const requestedMode = (query.get('mode') || query.get('game') || hash.get('mode') || hash.get('game') || 'words').toLowerCase();
-            const mode = ['pong', 'hangman'].includes(requestedMode) ? requestedMode : 'words';
+            const mode = ['pong', 'hangman', 'blackjack'].includes(requestedMode) ? requestedMode : 'words';
             return { code, mode };
         }
 
@@ -2043,6 +2081,10 @@
                 document.getElementById('hangmanRoomCodeInput').value = code;
                 switchMainTab('hangman');
                 joinHangmanLobby(code);
+            } else if (mode === 'blackjack') {
+                document.getElementById('blackjackRoomCodeInput').value = code;
+                switchMainTab('blackjack');
+                joinBlackjackLobby(code);
             } else {
                 document.getElementById('roomCodeInput').value = code;
                 switchMainTab('words');
@@ -2069,7 +2111,7 @@
                     myId = id;
                     const tagDisplay = document.getElementById('myTagDisplay');
                     if (tagDisplay) tagDisplay.innerText = '#' + myTag;
-                    showStatus('Verbunden', 'success');
+                    showStatus('Online', 'success');
                     checkAllFriendsOnline();
                 });
 
@@ -2088,7 +2130,7 @@
                             showToast('Dieser Spieler ist derzeit nicht online.', 'error');
                         }
                     } else {
-                        showStatus('Verbindungsfehler: ' + err.type, 'error');
+                        showStatus('Spiel aktuell nicht erreichbar', 'error');
                     }
                 });
 
@@ -2511,6 +2553,7 @@
         const BLACKJACK_MAX_PLAYERS = 6;
 
         function hostBlackjackLobby() {
+            switchMainTab('blackjack');
             ensurePeerReady(() => {
                 isHost = true;
                 connections = [];
@@ -2530,8 +2573,9 @@
 
         function joinBlackjackLobby(overrideCode = null) {
             const code = String(overrideCode || document.getElementById('blackjackRoomCodeInput').value).trim();
-            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige Host-ID ein.');
+            if (!/^\d{4}$/.test(code)) return alert('Bitte gib einen gültigen vierstelligen Tischcode ein.');
             if (code === myTag) return alert('Du kannst deinem eigenen Tisch nicht beitreten.');
+            switchMainTab('blackjack');
             ensurePeerReady(() => {
                 isHost = false;
                 blackjackRoomActive = false;
@@ -2544,8 +2588,8 @@
                     conn.send({ type: 'BLACKJACK_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
                     blackjackRoomActive = true;
                     document.getElementById('blackjackRoomCode').innerText = '#' + code;
-                    switchScreen('screenBlackjack');
-                    showStatus('Mit Blackjack-Tisch verbunden', 'success');
+                    switchMainTab('blackjack');
+                    showStatus('Du bist am Blackjack-Tisch', 'success');
                 });
                 conn.on('error', () => {
                     showToast('Der Blackjack-Tisch wurde nicht gefunden oder ist offline.', 'error');
@@ -2671,6 +2715,7 @@
         function startBlackjackRound() {
             if (!isHost || !blackjackRoomActive || !blackjackPlayers.length ||
                 (blackjackState && blackjackState.phase !== 'settled')) return;
+            cancelBlackjackDealerTurn();
             const humanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
             const punters = blackjackPlayers.filter(player => !humanDealer || player.id !== blackjackDealerId);
@@ -2745,6 +2790,8 @@
         }
 
         function beginBlackjackDealerTurn() {
+            if (!blackjackState) return;
+            cancelBlackjackDealerTurn();
             if (blackjackDealerId !== 'bank' && blackjackPlayers.some(player => player.id === blackjackDealerId)) {
                 blackjackState.phase = 'dealer';
                 blackjackState.currentPlayerId = null;
@@ -2752,11 +2799,55 @@
                 blackjackState.message = `${dealer.name} ist als Dealer am Zug. Drehe die verdeckte Karte um.`;
                 return;
             }
-            resolveBlackjackRound();
+            blackjackState.phase = 'dealer';
+            blackjackState.currentPlayerId = null;
+            blackjackState.dealerRevealed = true;
+            blackjackState.dealerCards.forEach(card => {
+                if (card && card.isFlipped === false) {
+                    card.isFlipped = true;
+                    card.isNewlyFlipped = true;
+                }
+            });
+            blackjackState.message = 'Die Bank deckt ihre Karte auf.';
+            const turnToken = blackjackDealerTurnToken;
+            syncBlackjackTable();
+            scheduleBlackjackBankStep(turnToken);
+        }
+
+        function cancelBlackjackDealerTurn() {
+            if (blackjackDealerTimer !== null) {
+                clearTimeout(blackjackDealerTimer);
+                blackjackDealerTimer = null;
+            }
+            blackjackDealerTurnToken++;
+        }
+
+        function scheduleBlackjackBankStep(turnToken) {
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealer' || blackjackDealerId !== 'bank') return;
+
+                if (blackjackHandValue(blackjackState.dealerCards) < 17) {
+                    const card = drawBlackjackCard();
+                    card.isFlipped = true;
+                    card.isNewlyFlipped = true;
+                    blackjackState.dealerCards.push(card);
+                    blackjackState.message = 'Die Bank zieht eine Karte.';
+                    syncBlackjackTable();
+                    scheduleBlackjackBankStep(turnToken);
+                    return;
+                }
+
+                blackjackState.message = 'Die Bank hält.';
+                resolveBlackjackRound();
+                syncBlackjackTable();
+            }, 750);
         }
 
         function resolveBlackjackRound() {
             if (!blackjackState) return;
+            cancelBlackjackDealerTurn();
             blackjackState.dealerRevealed = true;
             blackjackState.dealerCards.forEach(card => {
                 if (card && card.isFlipped === false) {
@@ -2766,11 +2857,6 @@
             });
             const hasHumanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
-            if (!hasHumanDealer) {
-                while (blackjackHandValue(blackjackState.dealerCards) < 17) {
-                    blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
-                }
-            }
             const dealerTotal = blackjackHandValue(blackjackState.dealerCards);
             const dealerNatural = blackjackState.dealerCards.length === 2 && dealerTotal === 21;
             let wins = 0;
@@ -2952,7 +3038,7 @@
                 <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : label}">
                     <span class="blackjack-card-face blackjack-card-back" aria-hidden="true">
                         <span class="absolute inset-1 rounded-md border border-amber-100/20"></span>
-                        <span class="relative">✦<small class="block text-[9px] tracking-[.25em]">P2P</small></span>
+                        <span class="relative">✦<small class="block text-[9px] tracking-[.25em]">DECK</small></span>
                     </span>
                     <span class="blackjack-card-face blackjack-card-front ${colorClass}" aria-hidden="true">
                         <span class="text-sm font-black leading-none">${hasValue ? `${card.rank}<span class="block text-[11px]">${card.suit}</span>` : ''}</span>
@@ -2979,58 +3065,129 @@
         function renderBlackjackTable() {
             const state = blackjackState;
             const playersList = document.getElementById('blackjackPlayersList');
-            playersList.innerHTML = blackjackPlayers.map(player => {
-                const active = state && state.phase === 'playing' && state.currentPlayerId === player.id;
-                const isDealer = blackjackDealerId !== 'bank' && player.id === blackjackDealerId;
-                const status = isDealer ? 'Dealer' :
-                    player.status === 'playing' ? 'Spielt' :
-                    player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
-                    player.status === 'bust' ? 'Über 21' :
-                    player.status === 'win' ? 'Gewonnen' :
-                    player.status === 'lose' ? 'Verloren' :
-                    player.status === 'push' ? 'Unentschieden' : 'Bereit';
-                const cards = player.cards.length
-                    ? player.cards.map((card, index) => {
-                        const canFlip = !!card && card.isFlipped === false &&
-                            player.id === myId && state && state.phase === 'playing' &&
-                            state.currentPlayerId === myId;
-                        return blackjackCardMarkup(card, canFlip, index, false);
+            const viewerState = getPublicBlackjackState(myId);
+            const visibleDealerCards = viewerState ? viewerState.dealerCards : [];
+            const humanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
+            const tablePlayers = blackjackPlayers.map(player => ({
+                ...player,
+                isDealer: humanDealer && player.id === blackjackDealerId,
+                isBank: false
+            }));
+            if (!humanDealer) {
+                tablePlayers.push({
+                    id: 'bank',
+                    name: 'Bank / KI',
+                    color: '#FBBF24',
+                    badge: 'crown',
+                    cards: [],
+                    wins: 0,
+                    bet: 0,
+                    status: 'dealer',
+                    isDealer: true,
+                    isBank: true
+                });
+            }
+
+            const activePlayerId = state && state.phase === 'playing'
+                ? state.currentPlayerId
+                : state && humanDealer && (state.phase === 'dealing' || state.phase === 'dealer')
+                    ? blackjackDealerId
+                    : null;
+            const hasActivePlayer = activePlayerId !== null &&
+                tablePlayers.some(player => player.id === activePlayerId);
+            playersList.classList.toggle('has-active', hasActivePlayer);
+            playersList.innerHTML = tablePlayers.map(player => {
+                const isDealer = player.isDealer;
+                const isBank = player.isBank;
+                const isActive = player.id === activePlayerId;
+                const isMyDealer = isDealer && !isBank && player.id === myId;
+                const playerCards = isDealer ? visibleDealerCards : (player.cards || []);
+                const cardsReady = playerCards.length > 0 && playerCards.every(blackjackCardIsFaceUp);
+                const status = isDealer
+                    ? !state ? 'Bereit' :
+                        state.phase === 'dealing' ? (isBank ? 'Bank teilt aus' : 'Teilt aus') :
+                        state.phase === 'dealer' ? 'Am Zug' :
+                        state.phase === 'playing' ? 'Wartet' :
+                        state.phase === 'settled' ? 'Runde beendet' : 'Dealer'
+                    : player.status === 'playing' ? 'Spielt' :
+                        player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
+                        player.status === 'bust' ? 'Über 21' :
+                        player.status === 'win' ? 'Gewonnen' :
+                        player.status === 'lose' ? 'Verloren' :
+                        player.status === 'push' ? 'Unentschieden' : 'Bereit';
+                const cardMarkup = playerCards.length
+                    ? playerCards.map((card, index) => {
+                        const canFlip = !!card && card.isFlipped === false && (
+                            isDealer
+                                ? isMyDealer && state && state.phase === 'dealer'
+                                : player.id === myId && state && state.phase === 'playing' &&
+                                    state.currentPlayerId === myId
+                        );
+                        return blackjackCardMarkup(card, canFlip, index, isDealer);
                     }).join('')
-                    : `<span class="text-[11px] italic text-gray-500">${isDealer ? 'Dealer am Tisch' : 'Wartet auf die nächste Runde'}</span>`;
-                const total = player.cards.some(blackjackCardIsFaceUp)
-                    ? blackjackHandValue(player.cards)
-                    : '—';
-                return `<article class="rounded-2xl border ${active ? 'border-amber-200/70 bg-emerald-950/55 shadow-lg shadow-amber-500/10' : 'border-amber-100/10 bg-slate-950/45'} p-3 transition">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0 truncate text-xs font-bold">${playerLabelHtml(player)}</div>
-                        <div class="flex shrink-0 gap-1">
-                            <span class="rounded-full border border-amber-200/15 bg-amber-950/40 px-2 py-1 text-[9px] font-bold text-amber-100">${isDealer ? 'Dealer' : 'Punter'}</span>
-                            <span class="rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] font-bold ${active || isDealer ? 'text-amber-100' : 'text-gray-300'}">${status}</span>
+                    : `<span class="self-center text-xs italic text-gray-400">${isDealer ? 'Wartet auf Karten' : 'Noch keine Karten'}</span>`;
+                const visibleCards = playerCards.filter(blackjackCardIsFaceUp).length;
+                const handTotal = visibleCards ? blackjackHandValue(playerCards) : '—';
+                const totalLabel = isDealer
+                    ? `${cardsReady ? 'Dealerpunkte' : 'Offene Punkte'} ${handTotal}`
+                    : `Punkte ${handTotal}`;
+                const displayName = isBank ? 'Bank / KI' : player.name;
+                const displayColor = isBank ? '#FBBF24' : playerDisplayColor(player);
+                const avatar = isBank ? '♠' : playerDisplayBadge(player);
+                let contextActions = '';
+
+                if (state && state.phase === 'playing' && !isDealer &&
+                    state.currentPlayerId === player.id) {
+                    const canAct = player.id === myId && cardsReady;
+                    contextActions = `<div class="blackjack-context-actions">
+                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-emerald-200/80">${player.id === myId ? 'Dein Zug' : 'Am Zug'}</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <button id="blackjackHitButton" onclick="blackjackPlayerAction('hit')" ${canAct ? '' : 'disabled'} class="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-cyan-600/20 transition-all duration-200 hover:bg-cyan-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Karte ziehen</button>
+                            <button id="blackjackStandButton" onclick="blackjackPlayerAction('stand')" ${canAct ? '' : 'disabled'} class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:bg-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Halten</button>
+                            <button id="blackjackDoubleButton" onclick="blackjackPlayerAction('double')" ${canAct && playerCards.length === 2 ? '' : 'disabled'} class="rounded-xl bg-amber-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-amber-600/20 transition-all duration-200 hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
+                        </div>
+                    </div>`;
+                } else if (humanDealer && isDealer && state && state.phase === 'dealing') {
+                    contextActions = `<div class="blackjack-context-actions">
+                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Du teilst aus' : 'Dealer teilt aus'}</p>
+                        <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
+                    </div>`;
+                } else if (humanDealer && isDealer && state && state.phase === 'dealer') {
+                    const canDealerAct = isMyDealer && cardsReady;
+                    contextActions = `<div class="blackjack-context-actions">
+                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Dein Dealer-Zug' : 'Dealer ist am Zug'}</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <button id="blackjackDealerHitButton" onclick="blackjackDealerAction('hit')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Dealer zieht</button>
+                            <button id="blackjackDealerStandButton" onclick="blackjackDealerAction('stand')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl border border-amber-200/30 bg-amber-950/40 px-3 py-2 text-xs font-extrabold text-amber-100 transition-all duration-200 hover:bg-amber-900/50 active:scale-95 disabled:opacity-40">Dealer hält</button>
+                        </div>
+                    </div>`;
+                }
+
+                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : ''}" style="--player-color:${displayColor}">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div class="blackjack-player-avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="truncate text-sm font-black" style="color:${displayColor}">${escapeHtml(displayName)}</h3>
+                            <p class="mt-0.5 text-[10px] text-gray-400">${isBank ? 'Automatischer Tischdealer' : player.id === myId ? 'Du am Tisch' : 'Mitspieler am Tisch'}</p>
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                            <span class="rounded-full border border-amber-200/20 bg-amber-950/40 px-2 py-1 text-[9px] font-bold text-amber-100">${isDealer ? 'Dealer' : 'Punter'}</span>
+                            <span class="rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[9px] font-bold ${isActive ? 'text-emerald-200' : 'text-gray-300'}">${status}</span>
                         </div>
                     </div>
-                    <div class="mt-2 flex min-h-28 flex-wrap items-center justify-center gap-1.5">${cards}</div>
-                    <div class="mt-2 flex justify-between text-[10px] font-semibold text-gray-300">
-                        <span>${player.cards.length ? 'Punkte ' + total : (isDealer ? 'Tischleitung' : 'Siege ' + player.wins)}</span>
-                        <span>${player.cards.length ? 'Einsatz ' + player.bet : (isDealer ? 'Manuell' : player.wins + ' Siege')}</span>
+                    <div class="blackjack-hand-zone">
+                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-100/65">${isDealer ? 'Dealer-Hand' : 'Spieler-Hand'}</p>
+                        <div class="flex min-h-24 flex-wrap items-center justify-center gap-2">${cardMarkup}</div>
+                        <div class="mt-3 flex justify-between text-[10px] font-semibold text-gray-300">
+                            <span>${totalLabel}</span>
+                            <span>${isDealer ? (cardsReady ? 'Offen' : 'Verdeckt') : `Einsatz ${player.bet || 10}`}</span>
+                        </div>
                     </div>
+                    ${contextActions}
                 </article>`;
             }).join('');
 
-            const viewerState = getPublicBlackjackState(myId);
-            const visibleDealerCards = viewerState ? viewerState.dealerCards : [];
-            const dealerCards = visibleDealerCards.length
-                ? visibleDealerCards.map((card, index) => {
-                    const canFlip = !!card && card.isFlipped === false &&
-                        myId === blackjackDealerId && state && state.phase === 'dealer';
-                    return blackjackCardMarkup(card, canFlip, index, true);
-                }).join('')
-                : '<span class="self-center text-xs italic text-gray-500">Noch keine Karten</span>';
-            document.getElementById('blackjackDealerCards').innerHTML = dealerCards;
-            document.getElementById('blackjackDealerTotal').innerText = state && state.dealerCards.length
-                ? (state.dealerRevealed || myId === blackjackDealerId
-                    ? `Punkte ${viewerState.dealerTotal}`
-                    : `Offene Karte: ${viewerState.dealerTotal}`)
-                : '';
             renderBlackjackDealerRole();
             document.getElementById('blackjackRoundLabel').innerText = state
                 ? `Runde ${state.round} · ${
@@ -3039,43 +3196,18 @@
                     state.phase === 'dealer' ? 'Dealerzug' : 'beendet'
                 }`
                 : 'Warteraum';
-            const humanDealer = blackjackDealerId !== 'bank' &&
-                blackjackPlayers.some(player => player.id === blackjackDealerId);
             const currentPlayer = state && blackjackPlayers.find(player => player.id === state.currentPlayerId);
             const myTurn = !!currentPlayer && currentPlayer.id === myId && currentPlayer.status === 'playing' && state.phase === 'playing';
-            const playerCardsReady = !!currentPlayer && currentPlayer.cards.every(blackjackCardIsFaceUp);
-            const canPlay = myTurn && playerCardsReady;
             const needsPlayerFlip = myTurn && currentPlayer.cards.some(card => !blackjackCardIsFaceUp(card));
             const isMyDealer = myId === blackjackDealerId && humanDealer;
             const needsDealerFlip = !!state && state.phase === 'dealer' && isMyDealer &&
                 state.dealerCards.some(card => !blackjackCardIsFaceUp(card));
             document.getElementById('blackjackMessage').innerText = state
                 ? `${state.message}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}${needsDealerFlip ? ' Klicke die verdeckte Dealer-Karte an, um sie aufzudecken.' : ''}`
-                : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass der Host die Runde startet.');
-            document.getElementById('blackjackHitButton').disabled = !canPlay;
-            document.getElementById('blackjackStandButton').disabled = !canPlay;
-            document.getElementById('blackjackDoubleButton').disabled = !canPlay || currentPlayer.cards.length !== 2;
+                : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass die Spielleitung die Runde startet.');
             const startButton = document.getElementById('blackjackStartButton');
             startButton.classList.toggle('hidden', !isHost || !!(state && state.phase !== 'settled'));
             startButton.innerText = state ? 'Nächste Runde' : 'Runde starten';
-            const dealerControls = document.getElementById('blackjackDealerControls');
-            const showDealerControls = humanDealer && state && state.phase !== 'settled';
-            dealerControls.classList.toggle('hidden', !showDealerControls);
-            document.getElementById('blackjackDealButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealing' || !isMyDealer);
-            document.getElementById('blackjackDealerHitButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealer' || !isMyDealer);
-            document.getElementById('blackjackDealerStandButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealer' || !isMyDealer);
-            const dealerCardsReady = !!state && state.dealerCards.every(blackjackCardIsFaceUp);
-            document.getElementById('blackjackDealerHitButton').disabled = !isMyDealer || !dealerCardsReady;
-            document.getElementById('blackjackDealerStandButton').disabled = !isMyDealer || !dealerCardsReady;
-            document.getElementById('blackjackDealerPrompt').innerText = state && state.phase === 'dealing'
-                ? (isMyDealer ? 'Du bist Dealer: Gib jetzt die ersten Karten aus.' : 'Der Dealer teilt die ersten Karten aus.')
-                : state && state.phase === 'dealer'
-                    ? (isMyDealer
-                        ? (needsDealerFlip ? 'Dein Dealer-Zug: Decke zuerst die verdeckte Karte auf.' : 'Dein Dealer-Zug: Ziehe Karten oder halte.')
-                        : 'Der Dealer spielt seine Hand.')
-                    : state && state.phase === 'playing'
-                        ? (isMyDealer ? 'Warte, bis alle Punter gezogen oder gehalten haben.' : 'Die Punter sind am Zug. Der Dealer spielt danach.')
-                    : '';
             renderBlackjackDealerRoleChoice();
             const inviteSection = document.getElementById('blackjackFriendInviteSection');
             inviteSection.classList.toggle('hidden', !isHost || !!state);
@@ -3131,6 +3263,7 @@
         }
 
         function returnBlackjackToSetup(message) {
+            cancelBlackjackDealerTurn();
             conn = null;
             connections = [];
             isHost = false;
@@ -3145,6 +3278,7 @@
         }
 
         function leaveBlackjackLobby(returnToScreen = true) {
+            cancelBlackjackDealerTurn();
             if (isHost) {
                 broadcast({ type: 'BLACKJACK_CLOSED' });
                 const endedConnections = [...connections];
@@ -3218,7 +3352,7 @@
                     document.getElementById('pongRoomCode').innerText = '#' + code;
                     document.getElementById('pongStartButton').classList.add('hidden');
                     switchScreen('screenPong');
-                    showStatus('Pong-Lobby verbunden', 'success');
+                    showStatus('Pong-Lobby betreten', 'success');
                 });
                 conn.on('error', () => alert('Die Pong-Lobby wurde nicht gefunden oder ist offline.'));
             });
@@ -3320,7 +3454,7 @@
                     document.getElementById('hangmanRoomCode').innerText = '#' + code;
                     hangmanRoomActive = true;
                     renderHangmanView();
-                    showStatus('Hangman-Lobby verbunden', 'success');
+                    showStatus('Hangman-Lobby betreten', 'success');
                 });
                 conn.on('error', () => alert('Die Hangman-Lobby wurde nicht gefunden oder ist offline.'));
             });
@@ -3473,7 +3607,7 @@
                 : `Zufallswort · ${HANGMAN_CATEGORY_LABELS[hangmanCategory]}`;
             info.innerText = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
             playerList.innerHTML = hangmanPublicPlayers().map((player, index) =>
-                `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)}${index === 0 ? ' · Host' : ''}</span>`
+                `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)}${index === 0 ? ' · Spielleitung' : ''}</span>`
             ).join('');
             document.getElementById('hangmanStartButton').classList.toggle('hidden', !isHost);
             document.getElementById('hangmanWaitingMessage').classList.toggle('hidden', isHost);
@@ -3735,7 +3869,7 @@
                 ).join('');
                 document.getElementById('hangmanRoundActions').innerHTML = isHost
                     ? `<button onclick="nextHangmanRound()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl">${state.round >= state.rounds ? 'Neue Partie starten' : 'Nächste Runde (Wortgeber wechselt)'}</button>`
-                    : '<p class="text-xs text-gray-400 italic">Warte auf den Host für die nächste Runde...</p>';
+                    : '<p class="text-xs text-gray-400 italic">Warte auf die Spielleitung für die nächste Runde...</p>';
                 return;
             }
             document.getElementById('hangmanHint').innerText = state.hint ? `Hinweis: ${state.hint}` : '';
@@ -4367,15 +4501,15 @@
             conn.on('open', () => {
                 conn.send({ type: 'JOIN', name: `${myName} #${myTag}`, id: myId, tag: myTag, color: myPlayerColor, badge: myPlayerBadge });
                 switchScreen('screenLobby');
-                showStatus('Mit Lobby verbunden!', 'success');
+                showStatus('Du bist der Lobby beigetreten.', 'success');
             });
             
                 conn.on('error', (err) => {
                     const closed = err && err.type === 'peer-unavailable';
                     alert(closed
-                        ? 'Diese Lobby existiert nicht mehr. Der Host hat sie wahrscheinlich beendet.'
-                        : 'Konnte keine Verbindung zur Lobby herstellen. Ist der Host online?');
-                    showStatus(closed ? 'Lobby nicht verfügbar' : 'Verbindung fehlgeschlagen', 'error');
+                        ? 'Diese Lobby gibt es nicht mehr.'
+                        : 'Lobby nicht gefunden. Prüfe den Spielcode und versuche es erneut.');
+                    showStatus('Lobby nicht verfügbar', 'error');
                 });
             });
         }
@@ -4492,7 +4626,7 @@
         function handleGuestHostDisconnect(c) {
             if (c !== conn || isHost || !openedPeerConnections.has(c)) return;
             if (blackjackRoomActive) {
-                returnBlackjackToSetup('Die Verbindung zum Blackjack-Host wurde beendet.');
+                returnBlackjackToSetup('Die Spielleitung hat den Blackjack-Tisch geschlossen.');
                 return;
             }
             const mode = hangmanRoomActive
@@ -4505,7 +4639,7 @@
                         ? 'words'
                         : null;
             if (!mode) return;
-            returnGuestToSetup('Die Verbindung zum Host wurde beendet.');
+            returnGuestToSetup('Die Spielleitung hat den Raum geschlossen.');
         }
 
         function setupConnectionHandlers(c) {
@@ -4630,9 +4764,10 @@
                                 return;
                             }
                             if (blackjackState && blackjackState.phase === 'dealer') {
-                                resolveBlackjackRound();
+                                beginBlackjackDealerTurn();
+                                return;
                             } else if (blackjackState && blackjackState.phase === 'playing') {
-                                blackjackState.message = 'Der menschliche Dealer ist nicht mehr verbunden. Die Bank übernimmt.';
+                                blackjackState.message = 'Der menschliche Dealer ist nicht mehr dabei. Die Bank übernimmt.';
                             }
                         } else if (wasCurrentTurn) {
                             advanceBlackjackTurn(removed.id, removedIndex - 1);
@@ -4680,7 +4815,7 @@
                     break;
                 }
                 case 'BLACKJACK_CLOSED':
-                    if (senderConn === conn) returnBlackjackToSetup('Der Host hat den Blackjack-Tisch geschlossen.');
+                    if (senderConn === conn) returnBlackjackToSetup('Die Spielleitung hat den Blackjack-Tisch geschlossen.');
                     break;
                 case 'HANGMAN_SYNC':
                     hangmanRoomActive = true;
@@ -4765,7 +4900,7 @@
                     break;
                 }
                 case 'HANGMAN_CLOSED':
-                    returnGuestToSetup('Der Host hat die Hangman-Lobby beendet.');
+                    returnGuestToSetup('Die Spielleitung hat die Hangman-Lobby beendet.');
                     break;
                 case 'PONG_JOIN':
                     if (isHost && pongPlayers.length < pongMaxPlayers) {
@@ -4902,7 +5037,7 @@
                     }
                     break;
                 case 'PONG_CLOSED': {
-                    returnGuestToSetup('Der Host hat die Pong-Lobby beendet.');
+                    returnGuestToSetup('Die Spielleitung hat die Pong-Lobby beendet.');
                     break;
                 }
                 case 'JOIN':
@@ -5003,7 +5138,7 @@
                     if (data.kind === 'error' || (data.kind === 'warning' && data.text.indexOf('⚠️') === 0)) playWordError();
                     break;
                 case 'HOST_CLOSED':
-                    returnGuestToSetup('Der Host hat die Lobby beendet.');
+                    returnGuestToSetup('Die Spielleitung hat die Lobby beendet.');
                     break;
             }
         }
@@ -5485,7 +5620,7 @@
             const btn = (fn, txt, cls) => `<button onclick="${fn}" class="w-full ${cls} text-white font-bold py-3.5 rounded-xl transition text-sm cursor-pointer">${txt}</button>`;
             let html = '';
             if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
-            else html += '<p class="text-xs text-gray-400 italic">Warte auf den Host...</p>';
+            else html += '<p class="text-xs text-gray-400 italic">Warte auf die Spielleitung...</p>';
             if (isHost) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
             html += btn('leaveLobby()', 'Zurück zum Menü', 'bg-indigo-600 hover:bg-indigo-500');
             document.getElementById('roundOverActions').innerHTML = html;
