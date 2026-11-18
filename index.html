@@ -3853,8 +3853,9 @@
         const BLACKJACK_MAX_PLAYERS = 6;
         const BLACKJACK_MIN_BET = 10;
         const BLACKJACK_STARTING_BANKROLLS = [100, 500, 1000, 2500, 5000];
-        const BLACKJACK_BOT_DELAY_MS = 800;
-        const BLACKJACK_CARD_REVEAL_DELAY_MS = 450;
+        const BLACKJACK_BOT_DELAY_MS = 1100;
+        const BLACKJACK_CARD_REVEAL_DELAY_MS = 800;
+        const BLACKJACK_BANK_RESULT_DELAY_MS = 1600;
         const BLACKJACK_TURN_PAUSE_MS = 1350;
 
         function hostBlackjackLobby() {
@@ -3996,9 +3997,12 @@
 
         function getPublicBlackjackState() {
             if (!blackjackState) return null;
-            const dealerCards = blackjackState.dealerCards.map(card => card.isFlipped === false
-                ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
-                : { ...card });
+            const dealerCards = blackjackState.dealerCards.map(card => ({
+                ...(card.isFlipped === false ? {} : card),
+                isFlipped: card.isFlipped !== false,
+                isNewlyDealt: card.isNewlyDealt === true,
+                isNewlyFlipped: card.isNewlyFlipped === true
+            }));
             const visibleDealerCards = dealerCards.filter(blackjackCardIsFaceUp);
             return {
                 round: blackjackState.round,
@@ -4196,9 +4200,14 @@
 
             const punters = blackjackPlayers.filter(player => player.status === 'playing');
             punters.forEach(player => player.hands[0].cards.push(drawBlackjackCard()));
-            blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
+            blackjackState.dealerCards.push({
+                ...drawBlackjackCard(),
+                isFlipped: true,
+                isNewlyDealt: true,
+                isNewlyFlipped: true
+            });
             punters.forEach(player => player.hands[0].cards.push(drawBlackjackCard()));
-            blackjackState.dealerCards.push(drawBlackjackCard());
+            blackjackState.dealerCards.push({ ...drawBlackjackCard(), isNewlyDealt: true });
             blackjackState.phase = 'dealing';
             blackjackState.dealComplete = true;
             const currentPlayer = punters.find(player => player.status === 'playing');
@@ -4368,7 +4377,7 @@
                     blackjackState.phase !== 'dealer' || blackjackDealerId !== 'bank') return;
 
                 if (blackjackHandValue(blackjackState.dealerCards) < 17) {
-                    const card = drawBlackjackCard();
+                    const card = { ...drawBlackjackCard(), isNewlyDealt: true };
                     const cardIndex = blackjackState.dealerCards.length;
                     blackjackState.dealerCards.push(card);
                     blackjackState.message = 'Die Bank zieht eine Karte und deckt sie gleich auf ...';
@@ -4377,9 +4386,18 @@
                     return;
                 }
 
-                blackjackState.message = 'Die Bank hält.';
-                resolveBlackjackRound();
+                const dealerTotal = blackjackHandValue(blackjackState.dealerCards);
+                blackjackState.message = dealerTotal > 21
+                    ? 'Die Bank hat überkauft.'
+                    : 'Die Bank hält.';
                 syncBlackjackTable();
+                blackjackDealerTimer = setTimeout(() => {
+                    blackjackDealerTimer = null;
+                    if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                        blackjackState.phase !== 'dealer' || blackjackDealerId !== 'bank') return;
+                    resolveBlackjackRound();
+                    syncBlackjackTable();
+                }, BLACKJACK_BANK_RESULT_DELAY_MS);
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
