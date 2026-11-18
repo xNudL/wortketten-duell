@@ -1925,6 +1925,7 @@
                 currentHandIndex: safeNonNegativeInteger(value.currentHandIndex, 0, 1),
                 dealerCards: sanitizeBlackjackCards(value.dealerCards),
                 dealerRevealed: value.dealerRevealed === true,
+                dealComplete: value.dealComplete === true,
                 message: sanitizePlainText(value.message, 180)
             };
         }
@@ -3358,6 +3359,7 @@
         const BLACKJACK_MIN_BET = 10;
         const BLACKJACK_STARTING_BANKROLLS = [500, 1000, 2500, 5000];
         const BLACKJACK_BOT_DELAY_MS = 800;
+        const BLACKJACK_CARD_REVEAL_DELAY_MS = 450;
 
         function hostBlackjackLobby() {
             const startingBankroll = Number(document.getElementById('blackjackStartingBankrollSelect').value);
@@ -3510,6 +3512,7 @@
                 currentHandIndex: blackjackState.currentHandIndex || 0,
                 dealerCards,
                 dealerRevealed: blackjackState.dealerRevealed,
+                dealComplete: blackjackState.dealComplete === true,
                 dealerTotal: blackjackHandValue(visibleDealerCards),
                 message: blackjackState.message
             };
@@ -3594,6 +3597,7 @@
                 currentHandIndex: 0,
                 dealerCards: [],
                 dealerRevealed: false,
+                dealComplete: false,
                 message: 'Setzt euren Einsatz, bevor die Karten ausgeteilt werden.'
             };
             blackjackPlayers.forEach(player => {
@@ -3683,7 +3687,8 @@
         }
 
         function dealBlackjackCards(dealerPlayerId = blackjackDealerId, senderConn = null) {
-            if (!isHost || !blackjackState || blackjackState.phase !== 'dealing') return;
+            if (!isHost || !blackjackState || blackjackState.phase !== 'dealing' ||
+                blackjackState.dealComplete) return;
             const humanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
             if (humanDealer && dealerPlayerId !== blackjackDealerId) return;
@@ -3694,16 +3699,40 @@
             blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
             punters.forEach(player => player.hands[0].cards.push(drawBlackjackCard()));
             blackjackState.dealerCards.push(drawBlackjackCard());
-            blackjackState.phase = 'playing';
+            blackjackState.phase = 'dealing';
+            blackjackState.dealComplete = true;
             const currentPlayer = punters.find(player => player.status === 'playing');
-            blackjackState.currentPlayerId = currentPlayer ? currentPlayer.id : null;
+            blackjackState.currentPlayerId = null;
             blackjackState.currentHandIndex = 0;
             if (!currentPlayer) {
+                blackjackState.dealComplete = false;
                 beginBlackjackDealerTurn();
+                if (blackjackDealerId !== 'bank') syncBlackjackTable();
             } else {
-                blackjackState.message = `${currentPlayer.name} ist am Zug. Drehe deine Karten um.`;
+                blackjackState.message = `Die Karten sind verteilt. ${currentPlayer.name} ist gleich am Zug.`;
+                const turnToken = blackjackDealerTurnToken;
+                syncBlackjackTable();
+                scheduleBlackjackFirstPlayerTurn(turnToken);
             }
-            syncBlackjackTable();
+        }
+
+        function scheduleBlackjackFirstPlayerTurn(turnToken) {
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealing' || !blackjackState.dealComplete) return;
+                const currentPlayer = blackjackPlayers.find(player => player.status === 'playing');
+                blackjackState.dealComplete = false;
+                if (!currentPlayer) {
+                    beginBlackjackDealerTurn();
+                    if (blackjackDealerId !== 'bank') syncBlackjackTable();
+                    return;
+                }
+                blackjackState.phase = 'playing';
+                blackjackState.currentPlayerId = currentPlayer.id;
+                blackjackState.message = `${currentPlayer.name} ist am Zug. Drehe deine Karten um.`;
+                syncBlackjackTable();
+            }, BLACKJACK_BOT_DELAY_MS);
         }
 
         function advanceBlackjackTurn(previousPlayerId = blackjackState.currentPlayerId, previousIndexOverride = null) {
@@ -3740,6 +3769,7 @@
         function beginBlackjackDealerTurn() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
+            blackjackState.dealComplete = false;
             if (blackjackDealerId !== 'bank' && blackjackPlayers.some(player => player.id === blackjackDealerId)) {
                 blackjackState.phase = 'dealer';
                 blackjackState.currentPlayerId = null;
@@ -3749,17 +3779,15 @@
             }
             blackjackState.phase = 'dealer';
             blackjackState.currentPlayerId = null;
-            blackjackState.dealerRevealed = true;
-            blackjackState.dealerCards.forEach(card => {
-                if (card && card.isFlipped === false) {
-                    card.isFlipped = true;
-                    card.isNewlyFlipped = true;
-                }
-            });
-            blackjackState.message = 'Die Bank deckt ihre Karte auf.';
             const turnToken = blackjackDealerTurnToken;
+            const holeCardIndex = blackjackState.dealerCards.findIndex(card => card && card.isFlipped === false);
+            blackjackState.dealerRevealed = holeCardIndex < 0;
+            blackjackState.message = holeCardIndex >= 0
+                ? 'Die Bank deckt die verdeckte Karte auf ...'
+                : 'Die Bank ist am Zug.';
             syncBlackjackTable();
-            scheduleBlackjackBankStep(turnToken);
+            if (holeCardIndex >= 0) scheduleBlackjackHoleCardReveal(turnToken, holeCardIndex);
+            else scheduleBlackjackBankStep(turnToken);
         }
 
         function cancelBlackjackDealerTurn() {
@@ -3779,6 +3807,23 @@
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
+        function scheduleBlackjackHoleCardReveal(turnToken, cardIndex) {
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealer' || blackjackDealerId !== 'bank') return;
+                const card = blackjackState.dealerCards[cardIndex];
+                if (card && card.isFlipped === false) {
+                    card.isFlipped = true;
+                    card.isNewlyFlipped = true;
+                }
+                blackjackState.dealerRevealed = blackjackState.dealerCards.every(blackjackCardIsFaceUp);
+                blackjackState.message = 'Die Bank deckt ihre Karte auf.';
+                syncBlackjackTable();
+                scheduleBlackjackBankStep(turnToken);
+            }, BLACKJACK_BOT_DELAY_MS);
+        }
+
         function scheduleBlackjackBankStep(turnToken) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
@@ -3787,12 +3832,11 @@
 
                 if (blackjackHandValue(blackjackState.dealerCards) < 17) {
                     const card = drawBlackjackCard();
-                    card.isFlipped = true;
-                    card.isNewlyFlipped = true;
+                    const cardIndex = blackjackState.dealerCards.length;
                     blackjackState.dealerCards.push(card);
-                    blackjackState.message = 'Die Bank zieht eine Karte.';
+                    blackjackState.message = 'Die Bank zieht eine Karte und deckt sie gleich auf ...';
                     syncBlackjackTable();
-                    scheduleBlackjackBankStep(turnToken);
+                    scheduleBlackjackBankCardReveal(turnToken, cardIndex);
                     return;
                 }
 
@@ -3800,6 +3844,21 @@
                 resolveBlackjackRound();
                 syncBlackjackTable();
             }, BLACKJACK_BOT_DELAY_MS);
+        }
+
+        function scheduleBlackjackBankCardReveal(turnToken, cardIndex) {
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealer' || blackjackDealerId !== 'bank') return;
+                const card = blackjackState.dealerCards[cardIndex];
+                if (!card || card.isFlipped !== false) return;
+                card.isFlipped = true;
+                card.isNewlyFlipped = true;
+                blackjackState.message = 'Die Bank deckt ihre Karte auf.';
+                syncBlackjackTable();
+                scheduleBlackjackBankStep(turnToken);
+            }, BLACKJACK_CARD_REVEAL_DELAY_MS);
         }
 
         function getBlackjackRoundWinnings(player) {
@@ -4311,7 +4370,7 @@
                 const avatar = isBank ? '♠' : playerDisplayBadge(player);
                 let contextActions = '';
 
-                if (humanDealer && isDealer && state && state.phase === 'dealing') {
+                if (humanDealer && isDealer && state && state.phase === 'dealing' && !state.dealComplete) {
                     contextActions = `<div class="blackjack-context-actions">
                         <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Du teilst aus' : 'Dealer teilt aus'}</p>
                         <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
@@ -5986,6 +6045,14 @@
                         if (removed && removed.id === blackjackDealerId) {
                             blackjackDealerId = 'bank';
                             if (blackjackState && blackjackState.phase === 'dealing') {
+                                if (blackjackState.dealComplete) {
+                                    const nextPlayer = blackjackPlayers.find(player => player.status === 'playing');
+                                    blackjackState.message = nextPlayer
+                                        ? `Die Bank übernimmt. ${nextPlayer.name} ist gleich am Zug.`
+                                        : 'Die Bank übernimmt den Tisch.';
+                                    syncBlackjackTable();
+                                    return;
+                                }
                                 blackjackState.message = 'Die Bank übernimmt und teilt die Karten aus ...';
                                 const turnToken = blackjackDealerTurnToken;
                                 syncBlackjackTable();
