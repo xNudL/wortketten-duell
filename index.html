@@ -2129,7 +2129,7 @@
         let blackjackDealerId = 'bank';
         let blackjackDealerTimer = null;
         let blackjackDealerTurnToken = 0;
-        let blackjackAutoCloseTimer = null;
+        let blackjackLobbyReturnTimer = null;
         let blackjackAudioSnapshot = null;
         let blackjackStatsRecordedKey = '';
         let blackjackCelebrationKey = '';
@@ -3587,7 +3587,7 @@
                 showToast('Alle Punter sind ausgeschieden. Niemand kann den Mindesteinsatz setzen.', 'warning');
                 return;
             }
-            cancelBlackjackAutoClose();
+            cancelBlackjackLobbyReturn();
             blackjackDeck = createBlackjackDeck();
             const previousRound = blackjackState ? blackjackState.round : 0;
             blackjackState = {
@@ -3876,26 +3876,50 @@
             );
         }
 
-        function cancelBlackjackAutoClose() {
-            if (blackjackAutoCloseTimer !== null) {
-                clearTimeout(blackjackAutoCloseTimer);
-                blackjackAutoCloseTimer = null;
+        function cancelBlackjackLobbyReturn() {
+            if (blackjackLobbyReturnTimer !== null) {
+                clearTimeout(blackjackLobbyReturnTimer);
+                blackjackLobbyReturnTimer = null;
             }
         }
 
-        function scheduleBlackjackAutoClose() {
-            cancelBlackjackAutoClose();
+        function returnBlackjackToWaitingRoom() {
+            if (!isHost || !blackjackRoomActive || !blackjackState ||
+                blackjackState.phase !== 'settled' || getBlackjackEligiblePunters().length) return;
+            cancelBlackjackLobbyReturn();
+            blackjackState = null;
+            blackjackDeck = [];
+            blackjackCelebrationKey = '';
+            blackjackStatsRecordedKey = '';
+            blackjackPlayers.forEach(player => {
+                player.cards = [];
+                player.hands = [];
+                player.bankroll = blackjackStartingBankroll;
+                player.bet = player.bankroll >= BLACKJACK_MIN_BET ? BLACKJACK_MIN_BET : 0;
+                player.betLocked = false;
+                player.status = player.id === blackjackDealerId
+                    ? 'dealer'
+                    : player.bankroll < BLACKJACK_MIN_BET ? 'broke' : 'waiting';
+                player.natural = false;
+                player.doublePending = false;
+            });
+            syncBlackjackTable();
+            showStatus('Die Partie ist beendet. Alle bleiben im Blackjack-Warteraum.', 'success');
+        }
+
+        function scheduleBlackjackLobbyReturn() {
+            cancelBlackjackLobbyReturn();
             if (!isHost || !blackjackRoomActive || !blackjackState ||
                 blackjackState.phase !== 'settled' || getBlackjackEligiblePunters().length) return;
             const round = blackjackState.round;
             const roomCode = document.getElementById('blackjackRoomCode').textContent;
-            blackjackAutoCloseTimer = setTimeout(() => {
-                blackjackAutoCloseTimer = null;
+            blackjackLobbyReturnTimer = setTimeout(() => {
+                blackjackLobbyReturnTimer = null;
                 if (!isHost || !blackjackRoomActive || !blackjackState ||
                     blackjackState.phase !== 'settled' || blackjackState.round !== round ||
                     document.getElementById('blackjackRoomCode').textContent !== roomCode ||
                     getBlackjackEligiblePunters().length) return;
-                leaveBlackjackLobby();
+                returnBlackjackToWaitingRoom();
             }, 5000);
         }
 
@@ -3964,7 +3988,7 @@
             blackjackState.message = eliminatedPlayers.length
                 ? `${resultMessage} ${eliminatedPlayers.map(player => player.name).join(', ')} ${eliminatedPlayers.length === 1 ? 'scheidet aus und schaut' : 'scheiden aus und schauen'} zu.`
                 : resultMessage;
-            scheduleBlackjackAutoClose();
+            scheduleBlackjackLobbyReturn();
         }
 
         function finishManualBlackjackDealerTurn() {
@@ -4508,7 +4532,7 @@
 
         function returnBlackjackToSetup(message) {
             cancelBlackjackDealerTurn();
-            cancelBlackjackAutoClose();
+            cancelBlackjackLobbyReturn();
             conn = null;
             connections = [];
             isHost = false;
@@ -4525,7 +4549,7 @@
 
         function leaveBlackjackLobby(returnToScreen = true) {
             cancelBlackjackDealerTurn();
-            cancelBlackjackAutoClose();
+            cancelBlackjackLobbyReturn();
             if (isHost) {
                 broadcast({ type: 'BLACKJACK_CLOSED' });
                 const endedConnections = [...connections];
@@ -6070,7 +6094,7 @@
                         }
                         syncBlackjackTable();
                         if (blackjackState && blackjackState.phase === 'settled') {
-                            scheduleBlackjackAutoClose();
+                            scheduleBlackjackLobbyReturn();
                         }
                     });
                     syncBlackjackTable();
@@ -6082,6 +6106,7 @@
                         if (blackjackPlayers.length < 2 || !blackjackPlayers.some(player => player.id === myId)) break;
                         const safeState = data.state == null ? null : sanitizeBlackjackState(data.state);
                         if (data.state != null && !safeState) break;
+                        const wasSettled = !!blackjackState && blackjackState.phase === 'settled';
                         isHost = false;
                         blackjackRoomActive = true;
                         blackjackDealerId = data.dealerId === 'bank' || isSafePlayerId(data.dealerId) ? data.dealerId : 'bank';
@@ -6090,6 +6115,13 @@
                             ? startingBankroll
                             : 1000;
                         blackjackState = safeState;
+                        if (!safeState) {
+                            blackjackCelebrationKey = '';
+                            blackjackStatsRecordedKey = '';
+                            if (wasSettled) {
+                                showStatus('Die Partie ist beendet. Alle bleiben im Blackjack-Warteraum.', 'success');
+                            }
+                        }
                         const hostTag = sanitizePlayerTag(data.hostTag);
                         if (hostTag) document.getElementById('blackjackRoomCode').textContent = '#' + hostTag;
                         renderBlackjackView();
