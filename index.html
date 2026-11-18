@@ -387,18 +387,13 @@
             transition: transform .68s cubic-bezier(.2,.8,.2,1);
         }
         .blackjack-card-inner:not(:disabled) { cursor: pointer; }
-        .blackjack-card-inner:focus-visible { outline: 2px solid rgba(252,211,77,.9); outline-offset: 3px; }
-        .blackjack-card-inner.is-actionable::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 2;
-            border: 2px solid rgba(34,211,238,.78);
-            border-radius: .65rem;
-            filter: drop-shadow(0 0 5px rgba(34,211,238,.7)) drop-shadow(0 0 11px rgba(34,211,238,.42));
-            pointer-events: none;
-            transform: translateZ(1px);
-            animation: blackjackCardActionGlow 1.7s ease-in-out infinite;
+        .blackjack-card-inner:focus-visible { outline: none; }
+        .blackjack-card-inner:focus-visible .blackjack-card-image {
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(252,211,77,.9));
+        }
+        .blackjack-card-inner:focus-visible .blackjack-card-front.is-fallback,
+        .blackjack-card-inner:focus-visible .blackjack-card-back.is-fallback .blackjack-card-back-fallback {
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(252,211,77,.9));
         }
         .blackjack-card-inner.is-flipped { transform: rotateY(180deg); }
         .blackjack-card-inner.is-flip-pending { animation: blackjackCardFlip .68s cubic-bezier(.2,.8,.2,1) both; }
@@ -415,6 +410,10 @@
             height: 100%;
             object-fit: contain;
             filter: drop-shadow(0 6px 12px rgba(0,0,0,.6));
+        }
+        .blackjack-card-image.is-actionable,
+        .blackjack-card-back-fallback.is-actionable {
+            animation: blackjackCardActionGlow 1.7s ease-in-out infinite;
         }
         .blackjack-card-front { background: transparent; }
         .blackjack-card-front.is-fallback {
@@ -474,8 +473,12 @@
             background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
         }
         @keyframes blackjackCardActionGlow {
-            0%, 100% { opacity: .58; }
-            50% { opacity: 1; }
+            0%, 100% {
+                filter: drop-shadow(0 6px 12px rgba(0,0,0,.6)) drop-shadow(0 0 4px rgba(34,211,238,.58));
+            }
+            50% {
+                filter: drop-shadow(0 6px 12px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(34,211,238,.9));
+            }
         }
         .blackjack-card-front { transform: rotateY(180deg); }
         @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
@@ -634,11 +637,9 @@
         }
         #screenBlackjack.blackjack-round-active .blackjack-card-scene {
             width: 3.4rem;
-            height: 5.1rem;
         }
         #screenBlackjack.blackjack-round-active .blackjack-player-box:not(.is-active) .blackjack-card-scene {
             width: 2.7rem;
-            height: 4.05rem;
         }
         #screenBlackjack.blackjack-round-active .blackjack-hand-panel .min-h-24 {
             min-height: 0;
@@ -1086,7 +1087,11 @@
             .blackjack-card-scene.is-new { animation: none; }
             .blackjack-card-inner { transition: none; }
             .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
-            .blackjack-card-inner.is-actionable::after { animation: none; }
+            .blackjack-card-image.is-actionable,
+            .blackjack-card-back-fallback.is-actionable {
+                animation: none;
+                filter: drop-shadow(0 6px 12px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(34,211,238,.9));
+            }
             .blackjack-player-box { transition: none; }
             .blackjack-winner-card { animation: none; }
             .blackjack-player-box.has-blackjack-win,
@@ -4630,10 +4635,10 @@
                 : '';
             const fallbackColor = redSuit ? 'is-red' : '';
             return `<div class="blackjack-card-scene ${newCardClass}">
-                <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''} ${actionableDownCard ? 'is-actionable' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : actionableDownCard ? 'Wird jetzt vom aktiven Spieler aufgedeckt' : label}">
+                <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : actionableDownCard ? 'Wird jetzt vom aktiven Spieler aufgedeckt' : label}">
                     <span class="blackjack-card-face blackjack-card-back" aria-hidden="true">
-                        <img class="blackjack-card-image" src="https://deckofcardsapi.com/static/img/back.png" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">
-                        <span class="blackjack-card-back-fallback"><span>✦<small>DECK</small></span></span>
+                        <img class="blackjack-card-image ${actionableDownCard ? 'is-actionable' : ''}" src="https://deckofcardsapi.com/static/img/back.png" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">
+                        <span class="blackjack-card-back-fallback ${actionableDownCard ? 'is-actionable' : ''}"><span>✦<small>DECK</small></span></span>
                     </span>
                     <span class="blackjack-card-face blackjack-card-front ${hasValue ? '' : 'is-fallback'}" aria-hidden="true">
                         ${hasValue ? `<img class="blackjack-card-image" src="${cardImage}" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">` : ''}
