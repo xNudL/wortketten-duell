@@ -364,6 +364,15 @@
         .word-tile:hover, .target-tile:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,.3), 0 0 18px rgba(99,102,241,.12); }
         .word-tile.is-current { border-color: rgba(129,140,248,.72) !important; box-shadow: 0 0 25px rgba(99,102,241,.22), inset 0 1px 0 rgba(255,255,255,.1); }
         .target-tile { background: linear-gradient(145deg, rgba(6,78,59,.34), rgba(9,22,32,.98)) !important; border-color: rgba(52,211,153,.48) !important; box-shadow: 0 0 24px rgba(16,185,129,.08); }
+        .blackjack-card {
+            animation: blackjackDeal .24s cubic-bezier(.2,1.2,.35,1) both;
+            box-shadow: 0 10px 24px rgba(0,0,0,.32), 0 0 14px rgba(34,211,238,.12);
+        }
+        .blackjack-card-back {
+            background: repeating-linear-gradient(45deg, rgba(99,102,241,.8) 0 5px, rgba(30,41,95,.95) 5px 10px);
+            box-shadow: inset 0 0 0 3px rgba(255,255,255,.14), 0 10px 24px rgba(0,0,0,.32), 0 0 14px rgba(99,102,241,.18);
+        }
+        @keyframes blackjackDeal { from { opacity: 0; transform: translateY(-12px) rotate(-4deg) scale(.92); } to { opacity: 1; transform: translateY(0) rotate(0) scale(1); } }
         #lastScoreLog:not(.hidden) {
             position: relative;
             z-index: 2;
@@ -384,6 +393,7 @@
         @media (prefers-reduced-motion: reduce) {
             body::before, .streak-badge::after, #timerDisplay.timer-critical, .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host { animation: none; }
             #ambientParticles { opacity: .16; }
+            .blackjack-card { animation: none; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
@@ -419,6 +429,7 @@
             <button id="tabWords" onclick="switchMainTab('words')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
             <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
+            <button id="tabBlackjack" onclick="switchMainTab('blackjack')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-spade mr-1"></i> Blackjack</button>
         </nav>
         <div class="flex items-center space-x-3">
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -765,6 +776,66 @@
                                 <div id="hangmanRoundScores" class="space-y-2 mt-3"></div>
                                 <div id="hangmanRoundActions" class="mt-4"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLACKJACK MODE -->
+        <div id="screenBlackjack" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-5 sm:p-8 shadow-2xl border border-border/80">
+                <div class="text-center max-w-lg mx-auto mb-5">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-widest">Kartenspiel</span>
+                    <h2 class="text-2xl sm:text-3xl font-black mt-3">♠ Blackjack</h2>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Spielt reihum gegen den Dealer. Die Karten und der Tisch werden vom Host synchronisiert.</p>
+                </div>
+
+                <div id="blackjackSetup" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 to-transparent">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-emerald-400 mr-2"></i>Tisch eröffnen</h3>
+                        <p class="text-xs text-gray-400 mt-2">Öffne einen P2P-Tisch für bis zu sechs Spieler. Der Host verwaltet das Deck und den Dealer.</p>
+                        <button onclick="hostBlackjackLobby()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-emerald-600/20">
+                            <i class="fa-solid fa-clone mr-1"></i> Blackjack-Tisch eröffnen
+                        </button>
+                    </div>
+                    <div class="glass rounded-2xl p-5 border border-border">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Tisch beitreten</h3>
+                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Host-ID ein, um einem Blackjack-Tisch beizutreten.</p>
+                        <label for="blackjackRoomCodeInput" class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Host-ID</label>
+                        <input id="blackjackRoomCodeInput" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
+                        <button onclick="joinBlackjackLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold py-3 rounded-xl transition-all duration-200">
+                            <i class="fa-solid fa-plug mr-1"></i> Tisch betreten
+                        </button>
+                    </div>
+                </div>
+
+                <div id="blackjackTable" class="hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Blackjack-Tisch</p>
+                            <p id="blackjackRoomCode" class="text-xl font-mono font-black text-emerald-300">#----</p>
+                        </div>
+                        <p id="blackjackRoundLabel" class="text-xs font-bold text-gray-300">Warteraum</p>
+                        <button onclick="leaveBlackjackLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen
+                        </button>
+                    </div>
+
+                    <div id="blackjackPlayersList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
+
+                    <div class="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-950/60 via-slate-950/90 to-cyan-950/40 p-4 sm:p-7 shadow-inner shadow-emerald-900/20">
+                        <div class="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6 text-center">
+                            <p class="text-[10px] uppercase tracking-[.25em] font-bold text-emerald-200/80">Dealer</p>
+                            <div id="blackjackDealerCards" class="mt-3 flex min-h-28 flex-wrap justify-center gap-2"></div>
+                            <p id="blackjackDealerTotal" class="mt-2 text-xs font-bold text-gray-300"></p>
+                        </div>
+                        <p id="blackjackMessage" class="mx-auto my-4 min-h-5 text-center text-sm font-bold text-cyan-200" aria-live="polite"></p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <button id="blackjackHitButton" onclick="blackjackPlayerAction('hit')" class="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-600/20 transition-all duration-200 hover:bg-cyan-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Karte ziehen</button>
+                            <button id="blackjackStandButton" onclick="blackjackPlayerAction('stand')" class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:bg-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Halten</button>
+                            <button id="blackjackDoubleButton" onclick="blackjackPlayerAction('double')" class="rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-amber-600/20 transition-all duration-200 hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
+                            <button id="blackjackStartButton" onclick="startBlackjackRound()" class="hidden rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 transition-all duration-200 hover:bg-emerald-500 active:scale-95">Runde starten</button>
                         </div>
                     </div>
                 </div>
@@ -1296,6 +1367,10 @@
         let hangmanGameStarted = false;
         let hangmanReactionTimeouts = new Set();
         let wordRoundStatsRecorded = false;
+        let blackjackPlayers = [];
+        let blackjackRoomActive = false;
+        let blackjackState = null;
+        let blackjackDeck = [];
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
         const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
@@ -2315,6 +2390,7 @@
 
         function switchMainTab(tab) {
             const leavingPong = !document.getElementById('screenPong').classList.contains('hidden') && tab !== 'pong';
+            const leavingBlackjack = !document.getElementById('screenBlackjack').classList.contains('hidden') && tab !== 'blackjack' && blackjackRoomActive;
             const leavingWordGame = tab !== 'words' && (
                 !document.getElementById('screenLobby').classList.contains('hidden') ||
                 !document.getElementById('screenGame').classList.contains('hidden') ||
@@ -2325,9 +2401,11 @@
             else if (leavingPong) pausePongView();
             if (leavingWordGame) leaveLobby();
             if (leavingHangman) leaveHangmanLobby();
+            if (leavingBlackjack) leaveBlackjackLobby(false);
             document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabBlackjack').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             if (tab === 'pong') {
                 document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white transition';
                 switchScreen('screenPong');
@@ -2336,10 +2414,394 @@
                 document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
                 switchScreen('screenHangman');
                 renderHangmanView();
+            } else if (tab === 'blackjack') {
+                document.getElementById('tabBlackjack').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white transition';
+                switchScreen('screenBlackjack');
+                renderBlackjackView();
             } else {
                 document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
                 switchScreen('screenSetup');
             }
+        }
+
+        const BLACKJACK_SUITS = ['♠', '♥', '♦', '♣'];
+        const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const BLACKJACK_MAX_PLAYERS = 6;
+
+        function hostBlackjackLobby() {
+            ensurePeerReady(() => {
+                isHost = true;
+                connections = [];
+                blackjackPlayers = [{
+                    id: myId, name: `${myName} #${myTag}`, cards: [], wins: 0,
+                    bet: 10, status: 'waiting', natural: false, color: myPlayerColor, badge: myPlayerBadge, conn: null
+                }];
+                blackjackRoomActive = true;
+                blackjackState = null;
+                blackjackDeck = [];
+                document.getElementById('blackjackRoomCode').innerText = '#' + myTag;
+                renderBlackjackView();
+                switchScreen('screenBlackjack');
+            });
+        }
+
+        function joinBlackjackLobby(overrideCode = null) {
+            const code = String(overrideCode || document.getElementById('blackjackRoomCodeInput').value).trim();
+            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige Host-ID ein.');
+            if (code === myTag) return alert('Du kannst deinem eigenen Tisch nicht beitreten.');
+            ensurePeerReady(() => {
+                isHost = false;
+                blackjackRoomActive = false;
+                blackjackState = null;
+                blackjackPlayers = [];
+                conn = peer.connect('wd-user-' + code);
+                setupConnectionHandlers(conn);
+                conn.on('open', () => {
+                    conn.send({ type: 'BLACKJACK_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
+                    blackjackRoomActive = true;
+                    document.getElementById('blackjackRoomCode').innerText = '#' + code;
+                    switchScreen('screenBlackjack');
+                    showStatus('Mit Blackjack-Tisch verbunden', 'success');
+                });
+                conn.on('error', () => {
+                    showToast('Der Blackjack-Tisch wurde nicht gefunden oder ist offline.', 'error');
+                });
+            });
+        }
+
+        function createBlackjackDeck() {
+            const deck = [];
+            for (let pack = 0; pack < 6; pack++) {
+                BLACKJACK_SUITS.forEach(suit => {
+                    BLACKJACK_RANKS.forEach(rank => deck.push({ rank, suit }));
+                });
+            }
+            for (let index = deck.length - 1; index > 0; index--) {
+                const swapIndex = Math.floor(Math.random() * (index + 1));
+                [deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]];
+            }
+            return deck;
+        }
+
+        function drawBlackjackCard() {
+            if (!blackjackDeck.length) blackjackDeck = createBlackjackDeck();
+            return blackjackDeck.pop();
+        }
+
+        function blackjackHandValue(cards) {
+            let total = 0;
+            let aces = 0;
+            cards.forEach(card => {
+                if (card.rank === 'A') {
+                    total += 11;
+                    aces++;
+                } else if (['J', 'Q', 'K'].includes(card.rank)) {
+                    total += 10;
+                } else {
+                    total += Number(card.rank);
+                }
+            });
+            while (total > 21 && aces > 0) {
+                total -= 10;
+                aces--;
+            }
+            return total;
+        }
+
+        function getPublicBlackjackPlayers() {
+            return blackjackPlayers.map(player => ({
+                id: player.id, name: player.name, cards: player.cards.map(card => ({ ...card })),
+                wins: player.wins, bet: player.bet, status: player.status, natural: player.natural,
+                color: playerDisplayColor(player), badge: playerDisplayBadge(player)
+            }));
+        }
+
+        function getPublicBlackjackState() {
+            if (!blackjackState) return null;
+            const dealerCards = blackjackState.dealerCards.map((card, index) =>
+                index === 1 && !blackjackState.dealerRevealed ? null : { ...card }
+            );
+            return {
+                round: blackjackState.round,
+                phase: blackjackState.phase,
+                currentPlayerId: blackjackState.currentPlayerId,
+                dealerCards,
+                dealerRevealed: blackjackState.dealerRevealed,
+                dealerTotal: blackjackState.dealerRevealed
+                    ? blackjackHandValue(blackjackState.dealerCards)
+                    : blackjackHandValue(blackjackState.dealerCards.slice(0, 1)),
+                message: blackjackState.message
+            };
+        }
+
+        function syncBlackjackTable() {
+            const message = {
+                type: 'BLACKJACK_SYNC',
+                hostTag: myTag,
+                players: getPublicBlackjackPlayers(),
+                state: getPublicBlackjackState()
+            };
+            broadcast(message);
+            renderBlackjackView();
+        }
+
+        function startBlackjackRound() {
+            if (!isHost || !blackjackRoomActive || !blackjackPlayers.length) return;
+            blackjackDeck = createBlackjackDeck();
+            const previousRound = blackjackState ? blackjackState.round : 0;
+            blackjackState = {
+                round: previousRound + 1,
+                phase: 'playing',
+                currentPlayerId: null,
+                dealerCards: [],
+                dealerRevealed: false,
+                message: 'Der Host hat gegeben. Viel Glück!'
+            };
+            blackjackPlayers.forEach(player => {
+                player.cards = [];
+                player.bet = 10;
+                player.status = 'playing';
+                player.natural = false;
+            });
+            blackjackPlayers.forEach(player => player.cards.push(drawBlackjackCard()));
+            blackjackState.dealerCards.push(drawBlackjackCard());
+            blackjackPlayers.forEach(player => player.cards.push(drawBlackjackCard()));
+            blackjackState.dealerCards.push(drawBlackjackCard());
+
+            blackjackPlayers.forEach(player => {
+                if (blackjackHandValue(player.cards) === 21) {
+                    player.natural = true;
+                    player.status = 'stood';
+                }
+            });
+            const dealerHasNatural = blackjackHandValue(blackjackState.dealerCards) === 21;
+            blackjackState.currentPlayerId = blackjackPlayers.find(player => player.status === 'playing')?.id || null;
+            if (dealerHasNatural || !blackjackState.currentPlayerId) {
+                resolveBlackjackRound();
+            } else {
+                const currentPlayer = blackjackPlayers.find(player => player.id === blackjackState.currentPlayerId);
+                blackjackState.message = `${currentPlayer.name} ist am Zug.`;
+            }
+            syncBlackjackTable();
+        }
+
+        function advanceBlackjackTurn(previousPlayerId = blackjackState.currentPlayerId, previousIndexOverride = null) {
+            const playerCount = blackjackPlayers.length;
+            const previousIndex = previousIndexOverride === null
+                ? blackjackPlayers.findIndex(player => player.id === previousPlayerId)
+                : previousIndexOverride;
+            for (let offset = 1; offset <= playerCount; offset++) {
+                const index = ((Math.max(previousIndex, -1) + offset) % playerCount + playerCount) % playerCount;
+                const nextPlayer = blackjackPlayers[index];
+                if (nextPlayer.status === 'playing') {
+                    blackjackState.currentPlayerId = nextPlayer.id;
+                    blackjackState.message = `${nextPlayer.name} ist am Zug.`;
+                    return;
+                }
+            }
+            resolveBlackjackRound();
+        }
+
+        function resolveBlackjackRound() {
+            if (!blackjackState) return;
+            blackjackState.dealerRevealed = true;
+            while (blackjackHandValue(blackjackState.dealerCards) < 17) {
+                blackjackState.dealerCards.push(drawBlackjackCard());
+            }
+            const dealerTotal = blackjackHandValue(blackjackState.dealerCards);
+            const dealerNatural = blackjackState.dealerCards.length === 2 && dealerTotal === 21;
+            let wins = 0;
+            blackjackPlayers.forEach(player => {
+                const total = blackjackHandValue(player.cards);
+                let result = 'push';
+                if (player.status === 'bust' || (dealerNatural && !player.natural)) result = 'lose';
+                else if (player.natural && !dealerNatural) result = 'win';
+                else if (dealerTotal > 21 || total > dealerTotal) result = 'win';
+                else if (total < dealerTotal) result = 'lose';
+                player.status = result;
+                if (result === 'win') {
+                    player.wins++;
+                    wins++;
+                }
+            });
+            blackjackState.phase = 'settled';
+            blackjackState.currentPlayerId = null;
+            blackjackState.message = wins
+                ? (wins === 1 ? '1 Spieler hat die Runde gewonnen.' : `${wins} Spieler haben die Runde gewonnen.`)
+                : 'Die Runde ist beendet. Neue Runde?';
+        }
+
+        function blackjackPlayerAction(action) {
+            if (!blackjackRoomActive || !['hit', 'stand', 'double'].includes(action)) return;
+            if (isHost) {
+                processBlackjackAction(action, myId);
+            } else if (conn && conn.open) {
+                conn.send({ type: 'BLACKJACK_ACTION', action, playerId: myId });
+            }
+        }
+
+        function isBlackjackSender(playerId, senderConn) {
+            const player = blackjackPlayers.find(entry => entry.id === playerId);
+            return !!player && player.conn === senderConn && senderConn && senderConn.open;
+        }
+
+        function processBlackjackAction(action, playerId, senderConn = null) {
+            if (!isHost || !blackjackState || blackjackState.phase !== 'playing') return;
+            const player = blackjackPlayers.find(entry => entry.id === playerId);
+            if (!player || player.status !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
+            if (senderConn && player.conn !== senderConn) return;
+
+            if (action === 'hit') {
+                player.cards.push(drawBlackjackCard());
+                const total = blackjackHandValue(player.cards);
+                if (total > 21) {
+                    player.status = 'bust';
+                    blackjackState.message = `${player.name} ist über 21.`;
+                    advanceBlackjackTurn(playerId);
+                } else if (total === 21) {
+                    player.status = 'stood';
+                    blackjackState.message = `${player.name} hat 21 erreicht.`;
+                    advanceBlackjackTurn(playerId);
+                } else {
+                    blackjackState.message = `${player.name} hat eine Karte gezogen.`;
+                }
+            } else if (action === 'stand') {
+                player.status = 'stood';
+                advanceBlackjackTurn(playerId);
+            } else if (action === 'double' && player.cards.length === 2) {
+                player.bet *= 2;
+                player.cards.push(drawBlackjackCard());
+                const total = blackjackHandValue(player.cards);
+                player.status = total > 21 ? 'bust' : 'stood';
+                blackjackState.message = `${player.name} hat verdoppelt${total > 21 ? ' und ist über 21' : ''}.`;
+                advanceBlackjackTurn(playerId);
+            } else {
+                return;
+            }
+            syncBlackjackTable();
+        }
+
+        function blackjackCardMarkup(card, hidden = false) {
+            if (hidden || !card) {
+                return '<div class="blackjack-card blackjack-card-back flex h-28 w-[4.5rem] items-center justify-center rounded-xl border border-indigo-200/30 text-3xl font-black text-indigo-100">✦</div>';
+            }
+            const redSuit = card.suit === '♥' || card.suit === '♦';
+            const colorClass = redSuit ? 'text-rose-600' : 'text-slate-950';
+            return `<div class="blackjack-card relative flex h-28 w-[4.5rem] flex-col justify-between rounded-xl border border-white/70 bg-gradient-to-br from-white to-slate-200 p-2 text-left ${colorClass}" aria-label="${card.rank} ${card.suit}">
+                <span class="text-lg font-black leading-none">${card.rank}<span class="block text-sm">${card.suit}</span></span>
+                <span class="self-center text-3xl font-black">${card.suit}</span>
+                <span class="rotate-180 self-end text-lg font-black leading-none">${card.rank}<span class="block text-sm">${card.suit}</span></span>
+            </div>`;
+        }
+
+        function renderBlackjackView() {
+            const setup = document.getElementById('blackjackSetup');
+            const table = document.getElementById('blackjackTable');
+            if (!blackjackRoomActive) {
+                setup.classList.remove('hidden');
+                table.classList.add('hidden');
+                return;
+            }
+            setup.classList.add('hidden');
+            table.classList.remove('hidden');
+            renderBlackjackTable();
+        }
+
+        function renderBlackjackTable() {
+            const state = blackjackState;
+            const playersList = document.getElementById('blackjackPlayersList');
+            playersList.innerHTML = blackjackPlayers.map(player => {
+                const active = state && state.phase === 'playing' && state.currentPlayerId === player.id;
+                const status = player.status === 'playing' ? 'Spielt' :
+                    player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
+                    player.status === 'bust' ? 'Über 21' :
+                    player.status === 'win' ? 'Gewonnen' :
+                    player.status === 'lose' ? 'Verloren' :
+                    player.status === 'push' ? 'Unentschieden' : 'Bereit';
+                const cards = player.cards.length
+                    ? player.cards.map(card => blackjackCardMarkup(card)).join('')
+                    : '<span class="text-[11px] italic text-gray-500">Wartet auf die nächste Runde</span>';
+                const total = player.cards.length ? blackjackHandValue(player.cards) : '—';
+                return `<article class="rounded-2xl border ${active ? 'border-emerald-300/70 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' : 'border-white/10 bg-slate-950/50'} p-3 transition">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 truncate text-xs font-bold">${playerLabelHtml(player)}</div>
+                        <span class="shrink-0 rounded-full bg-black/30 px-2 py-1 text-[10px] font-bold ${active ? 'text-emerald-200' : 'text-gray-300'}">${status}</span>
+                    </div>
+                    <div class="mt-2 flex min-h-28 flex-wrap items-center justify-center gap-1.5">${cards}</div>
+                    <div class="mt-2 flex justify-between text-[10px] font-semibold text-gray-300">
+                        <span>${player.cards.length ? 'Punkte ' + total : 'Siege ' + player.wins}</span>
+                        <span>${player.cards.length ? 'Einsatz ' + player.bet : player.wins + ' Siege'}</span>
+                    </div>
+                </article>`;
+            }).join('');
+
+            const dealerCards = state && state.dealerCards.length
+                ? state.dealerCards.map((card, index) => blackjackCardMarkup(card, card === null && index === 1)).join('')
+                : '<span class="self-center text-xs italic text-gray-500">Noch keine Karten</span>';
+            document.getElementById('blackjackDealerCards').innerHTML = dealerCards;
+            const dealerVisibleCards = state && state.dealerRevealed
+                ? state.dealerCards.filter(Boolean)
+                : state ? state.dealerCards.filter(Boolean).slice(0, 1) : [];
+            const dealerTotal = blackjackHandValue(dealerVisibleCards);
+            document.getElementById('blackjackDealerTotal').innerText = state && state.dealerCards.length
+                ? (state.dealerRevealed ? `Punkte ${dealerTotal}` : `Offene Karte: ${dealerTotal}`)
+                : '';
+            document.getElementById('blackjackRoundLabel').innerText = state
+                ? `Runde ${state.round} · ${state.phase === 'playing' ? 'läuft' : 'beendet'}`
+                : 'Warteraum';
+            document.getElementById('blackjackMessage').innerText = state
+                ? state.message
+                : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass der Host die Runde startet.');
+
+            const currentPlayer = state && blackjackPlayers.find(player => player.id === state.currentPlayerId);
+            const myTurn = !!currentPlayer && currentPlayer.id === myId && currentPlayer.status === 'playing' && state.phase === 'playing';
+            document.getElementById('blackjackHitButton').disabled = !myTurn;
+            document.getElementById('blackjackStandButton').disabled = !myTurn;
+            document.getElementById('blackjackDoubleButton').disabled = !myTurn || currentPlayer.cards.length !== 2;
+            const startButton = document.getElementById('blackjackStartButton');
+            startButton.classList.toggle('hidden', !isHost || !!(state && state.phase === 'playing'));
+            startButton.innerText = state ? 'Nächste Runde' : 'Runde starten';
+        }
+
+        function returnBlackjackToSetup(message) {
+            conn = null;
+            connections = [];
+            isHost = false;
+            blackjackRoomActive = false;
+            blackjackPlayers = [];
+            blackjackState = null;
+            blackjackDeck = [];
+            renderBlackjackView();
+            switchScreen('screenBlackjack');
+            if (message) showToast(message, 'warning');
+        }
+
+        function leaveBlackjackLobby(returnToScreen = true) {
+            if (isHost) {
+                broadcast({ type: 'BLACKJACK_CLOSED' });
+                const endedConnections = [...connections];
+                const hostPeer = peer;
+                setTimeout(() => {
+                    endedConnections.forEach(connection => { if (connection && connection.open) connection.close(); });
+                    if (peer === hostPeer && hostPeer) {
+                        hostPeer.destroy();
+                        peer = null;
+                        myId = '';
+                    }
+                }, 250);
+                connections = [];
+            } else if (conn) {
+                conn.close();
+                conn = null;
+            }
+            isHost = false;
+            blackjackRoomActive = false;
+            blackjackPlayers = [];
+            blackjackState = null;
+            blackjackDeck = [];
+            renderBlackjackView();
+            if (returnToScreen) switchScreen('screenBlackjack');
+            showStatus('Blackjack-Tisch verlassen', 'success');
         }
 
         function assignPongTeams() {
@@ -3588,6 +4050,7 @@
             document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
             document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabBlackjack').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             switchScreen('screenSetup');
         }
 
@@ -3659,6 +4122,10 @@
 
         function handleGuestHostDisconnect(c) {
             if (c !== conn || isHost || !openedPeerConnections.has(c)) return;
+            if (blackjackRoomActive) {
+                returnBlackjackToSetup('Die Verbindung zum Blackjack-Host wurde beendet.');
+                return;
+            }
             const mode = hangmanRoomActive
                 ? 'hangman'
                 : !document.getElementById('screenPong').classList.contains('hidden')
@@ -3741,6 +4208,74 @@
                     } else {
                         senderConn.send({ type: 'HANGMAN_FULL' });
                     }
+                    break;
+                case 'BLACKJACK_JOIN': {
+                    const peerId = senderConn.peer || data.id;
+                    const existingPlayer = blackjackPlayers.find(player => player.id === peerId);
+                    if (!isHost || !blackjackRoomActive ||
+                        (!existingPlayer && (blackjackPlayers.length >= BLACKJACK_MAX_PLAYERS ||
+                            (blackjackState && blackjackState.phase === 'playing'))) ||
+                        !/^wd-user-\d{4}$/.test(peerId)) {
+                        senderConn.send({ type: 'BLACKJACK_FULL' });
+                        break;
+                    }
+                    if (existingPlayer) {
+                        const previousConnection = existingPlayer.conn;
+                        existingPlayer.name = String(data.name || existingPlayer.name).slice(0, 40);
+                        existingPlayer.color = normalizePlayerColor(data.color);
+                        existingPlayer.badge = normalizePlayerBadge(data.badge);
+                        existingPlayer.conn = senderConn;
+                        if (previousConnection && previousConnection !== senderConn && previousConnection.open) {
+                            previousConnection.close();
+                        }
+                    } else {
+                        blackjackPlayers.push({
+                            id: peerId,
+                            name: String(data.name || 'Spieler').slice(0, 40),
+                            cards: [], wins: 0, bet: 10, status: 'waiting', natural: false,
+                            color: normalizePlayerColor(data.color),
+                            badge: normalizePlayerBadge(data.badge),
+                            conn: senderConn
+                        });
+                    }
+                    if (!connections.includes(senderConn)) connections.push(senderConn);
+                    senderConn.on('close', () => {
+                        if (!isHost || !blackjackRoomActive) return;
+                        const removed = blackjackPlayers.find(player => player.conn === senderConn);
+                        const removedIndex = blackjackPlayers.indexOf(removed);
+                        const wasCurrentTurn = !!removed && blackjackState &&
+                            blackjackState.phase === 'playing' && blackjackState.currentPlayerId === removed.id;
+                        blackjackPlayers = blackjackPlayers.filter(player => player.conn !== senderConn);
+                        connections = connections.filter(connection => connection !== senderConn);
+                        if (wasCurrentTurn) advanceBlackjackTurn(removed.id, removedIndex - 1);
+                        syncBlackjackTable();
+                    });
+                    syncBlackjackTable();
+                    break;
+                }
+                case 'BLACKJACK_SYNC':
+                    if (senderConn === conn) {
+                        isHost = false;
+                        blackjackRoomActive = true;
+                        blackjackPlayers = data.players || [];
+                        blackjackState = data.state || null;
+                        if (data.hostTag) document.getElementById('blackjackRoomCode').innerText = '#' + data.hostTag;
+                        renderBlackjackView();
+                    }
+                    break;
+                case 'BLACKJACK_ACTION':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackAction(data.action, data.playerId, senderConn);
+                    }
+                    break;
+                case 'BLACKJACK_FULL': {
+                    const rejectedConn = conn;
+                    if (rejectedConn && rejectedConn.open) rejectedConn.close();
+                    returnBlackjackToSetup('Dieser Blackjack-Tisch ist voll oder die Runde läuft bereits.');
+                    break;
+                }
+                case 'BLACKJACK_CLOSED':
+                    if (senderConn === conn) returnBlackjackToSetup('Der Host hat den Blackjack-Tisch geschlossen.');
                     break;
                 case 'HANGMAN_SYNC':
                     hangmanRoomActive = true;
@@ -4552,7 +5087,7 @@
         }
 
         function switchScreen(screenId) {
-            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenHangman', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenHangman', 'screenBlackjack', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
