@@ -27,6 +27,9 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <!-- FontAwesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&amp;family=VT323&amp;display=swap" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
@@ -117,6 +120,36 @@
             filter: blur(42px);
             animation: ambientDrift 24s ease-in-out infinite alternate;
         }
+        #ambientParticles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: .46;
+        }
+        #customCursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 9999;
+            width: 12px;
+            height: 12px;
+            border: 1px solid rgba(103,232,249,.9);
+            border-radius: 50%;
+            background: rgba(99,102,241,.24);
+            box-shadow: 0 0 10px rgba(34,211,238,.75), 0 0 26px rgba(99,102,241,.55);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: opacity .2s ease, width .16s ease, height .16s ease;
+        }
+        #customCursor.cursor-visible { opacity: .85; }
+        #customCursor.cursor-hover { width: 22px; height: 22px; }
+        @media (hover: none), (pointer: coarse), (max-width: 767px) {
+            #customCursor { display: none; }
+        }
         @keyframes ambientDrift {
             from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
             to { transform: translate3d(1.5%, 1%, 0) scale(1.04); }
@@ -140,6 +173,7 @@
             box-shadow: 0 22px 65px rgba(0, 0, 0, .3), 0 0 42px rgba(91, 67, 196, .055), inset 0 1px 0 rgba(255,255,255,.045);
         }
         button {
+            font-family: 'Chakra Petch', sans-serif !important;
             transition: all .2s cubic-bezier(.2, .8, .2, 1);
         }
         button:active:not(:disabled) { transform: scale(.95); }
@@ -299,9 +333,17 @@
             border-color: rgba(129,140,248,.35) !important;
             background: linear-gradient(145deg, rgba(24,31,56,.98), rgba(8,12,25,.98)) !important;
             box-shadow: 0 0 24px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.08) !important;
-            font-size: 1.1rem;
+            font-family: 'VT323', monospace;
+            font-size: 1.75rem;
             transition: color .2s ease, box-shadow .2s ease, border-color .2s ease;
         }
+        #statsSummary [id$="Summary"], #statsSummary [id$="Record"],
+        #playerScoresBar .score-chip, #hangmanScoreboard .score-chip,
+        #finalScoresList .font-mono {
+            font-family: 'VT323', monospace;
+            font-size: 1.2em;
+        }
+        #pongCanvas { font-family: 'VT323', monospace; }
         #timerDisplay::before {
             content: "";
             position: absolute;
@@ -352,13 +394,16 @@
         #lobbyPlayerList > span:hover, #pongPlayerList > span:hover, #hangmanPlayerList > span:hover, #hangmanScoreboard > span:hover { transform: translateY(-2px); }
         @media (prefers-reduced-motion: reduce) {
             body::before, .streak-badge::after, #timerDisplay.timer-critical, .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host { animation: none; }
+            #ambientParticles { opacity: .16; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
     </style>
 </head>
 <body class="bg-darker text-gray-100 min-h-[100dvh] flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white pb-6">
+    <canvas id="ambientParticles" aria-hidden="true"></canvas>
     <div id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
+    <div id="customCursor" aria-hidden="true"></div>
     <div id="devtoolsOverlay" aria-hidden="true">
         <div class="max-w-md rounded-3xl border border-indigo-400/30 bg-gray-900/90 p-8 shadow-2xl shadow-indigo-950">
             <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">
@@ -400,6 +445,7 @@
             </button>
             <div id="userProfileBadge" class="hidden items-center space-x-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-bold text-indigo-300">
                 <i class="fa-solid fa-user"></i>
+                <span id="displayMyBadge" aria-hidden="true">✦</span>
                 <span id="displayMyName">---</span>
                 <span id="displayMyTag" class="text-indigo-400 font-mono text-[10px]">#----</span>
                 <button onclick="changeMyName()" class="text-gray-400 hover:text-white ml-1.5 cursor-pointer" title="Namen ändern"><i class="fa-solid fa-pen text-[10px]"></i></button>
@@ -428,6 +474,23 @@
                     <div>
                         <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Dein Spielername</label>
                         <input type="text" id="onboardingNameInput" placeholder="Z.B. Paolo" maxlength="15" autocomplete="nickname" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-indigo-500 transition">
+                    </div>
+                    <div class="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-darker/50 px-4 py-3">
+                        <div>
+                            <label for="onboardingPlayerColor" class="block text-[11px] font-bold text-gray-300 uppercase tracking-wider">Spielerfarbe</label>
+                            <span id="onboardingColorLabel" class="mt-1 block font-mono text-xs text-indigo-300">#818CF8</span>
+                        </div>
+                        <input id="onboardingPlayerColor" type="color" value="#818cf8" aria-label="Persönliche Spielerfarbe" class="h-10 w-14 cursor-pointer rounded-lg border border-white/10 bg-transparent p-1">
+                    </div>
+                    <div>
+                        <label for="onboardingPlayerBadge" class="mb-1 block text-[11px] font-bold uppercase tracking-wider text-gray-300">Spieler-Badge</label>
+                        <select id="onboardingPlayerBadge" class="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold text-white">
+                            <option value="star">✦ Stern</option>
+                            <option value="bolt">⚡ Blitz</option>
+                            <option value="crown">♛ Krone</option>
+                            <option value="diamond">◆ Diamant</option>
+                            <option value="comet">☄ Komet</option>
+                        </select>
                     </div>
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition text-sm cursor-pointer flex items-center justify-center space-x-2">
                         <span>Loslegen</span>
@@ -465,16 +528,6 @@
                         <div id="statsHangmanRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
                     </div>
                 </div>
-
-                <button onclick="startDailyChallenge()" class="w-full mb-6 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 px-4 py-3 text-left transition hover:border-cyan-300/60 hover:shadow-lg hover:shadow-cyan-500/10 active:scale-[.99]">
-                    <span class="flex items-center justify-between gap-3">
-                        <span>
-                            <span class="block text-sm font-extrabold text-white">📅 Daily Challenge</span>
-                            <span class="block text-[11px] text-gray-400">Das gleiche Wortketten-Rätsel für alle — jeden Tag neu.</span>
-                        </span>
-                        <i class="fa-solid fa-arrow-right text-cyan-300"></i>
-                    </span>
-                </button>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <!-- Host Card -->
@@ -619,6 +672,13 @@
                             <option value="custom">Eigenes Wort (Wortgeber wechselt)</option>
                             <option value="random">Zufallswort (Deutsch &amp; Englisch)</option>
                         </select>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Kategorie für Zufallswörter</label>
+                        <select id="hangmanCategorySelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="gaming">Gaming</option>
+                            <option value="anime">Anime</option>
+                            <option value="geography">Geografie</option>
+                            <option value="music">Musik</option>
+                        </select>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Maximale Fehlversuche</label>
                         <select id="hangmanMaxErrorsSelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
                             <option value="6">6 Versuche</option><option value="8">8 Versuche</option><option value="10">10 Versuche</option>
@@ -661,6 +721,14 @@
                         <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
                     </div>
                     <div id="hangmanScoreboard" class="flex flex-wrap justify-center gap-2 mb-4"></div>
+                    <div class="mb-4 flex flex-wrap items-center justify-center gap-2" aria-label="Schnelle Hangman-Reaktionen">
+                        <button onclick="sendHangmanReaction('GG')" class="rounded-full border border-indigo-400/25 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-200 hover:bg-indigo-500/25">GG</button>
+                        <button onclick="sendHangmanReaction('GLHF')" class="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/25">GLHF</button>
+                        <button onclick="sendHangmanReaction('🔥')" class="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1.5 text-xs hover:bg-amber-500/25">🔥</button>
+                        <button onclick="sendHangmanReaction('😂')" class="rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1.5 text-xs hover:bg-violet-500/25">😂</button>
+                        <button onclick="sendHangmanReaction('EZ')" class="rounded-full border border-pink-400/25 bg-pink-500/10 px-3 py-1.5 text-xs font-bold text-pink-200 hover:bg-pink-500/25">EZ</button>
+                    </div>
+                    <div id="hangmanReactionFeed" class="mb-4 flex min-h-0 flex-wrap justify-center gap-2 empty:hidden" aria-live="polite"></div>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                         <div class="glass rounded-2xl p-4 flex flex-col items-center border border-indigo-500/20">
                             <svg id="hangmanDrawing" viewBox="0 0 240 240" role="img" aria-label="Galgenmännchen" class="w-full max-w-[260px] h-56 drop-shadow-[0_0_10px_rgba(99,102,241,0.65)]">
@@ -1050,10 +1118,6 @@
 
         extraDE.forEach(w => dictionaryDE.add(w));
         extraEN.forEach(w => dictionaryEN.add(w));
-        const DAILY_WORD_POOL = [...new Set([...dictionaryDE, ...dictionaryEN])]
-            .filter(word => /^[A-ZÄÖÜ]{3,8}$/.test(word))
-            .sort();
-
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
         const LEARNED_KEY = 'wortketten_learned_v1';
         let learned = { de: [], en: [] };
@@ -1125,6 +1189,51 @@
             return false;
         }
 
+        const DEFAULT_PLAYER_COLOR = '#818cf8';
+        const PLAYER_COLOR_KEY = 'wortketten_player_color';
+        const PLAYER_BADGE_KEY = 'wortketten_player_badge';
+        const PLAYER_BADGES = { star: '✦', bolt: '⚡', crown: '♛', diamond: '◆', comet: '☄' };
+        const HANGMAN_CATEGORY_LABELS = {
+            gaming: 'Gaming',
+            anime: 'Anime',
+            geography: 'Geografie',
+            music: 'Musik'
+        };
+        const HANGMAN_CATEGORY_WORDS = {
+            gaming: ['MINECRAFT', 'TETRIS', 'ZELDA', 'PACMAN', 'FORTNITE', 'PORTAL', 'OVERWATCH', 'STARCRAFT', 'SONIC', 'HALO'],
+            anime: ['NARUTO', 'ONEPIECE', 'BLEACH', 'DEATHNOTE', 'SAILORMOON', 'DEMONSLAYER', 'JUJUTSU', 'ATTACKONTITAN', 'DRAGONBALL', 'SPIRITEDAWAY'],
+            geography: ['DEUTSCHLAND', 'OESTERREICH', 'SCHWEIZ', 'BERLIN', 'TOKIO', 'MADRID', 'AMAZONAS', 'HIMALAYA', 'AUSTRALIEN', 'KANADA'],
+            music: ['GITARRE', 'KLAVIER', 'SCHLAGZEUG', 'VIOLINE', 'JAZZ', 'ROCK', 'TECHNO', 'KONZERT', 'MELODIE', 'SYNTHESIZER']
+        };
+        const HANGMAN_REACTIONS = ['GG', 'GLHF', '🔥', '😂', 'EZ'];
+
+        function normalizePlayerColor(value) {
+            return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : DEFAULT_PLAYER_COLOR;
+        }
+
+        function normalizePlayerBadge(value) {
+            return Object.prototype.hasOwnProperty.call(PLAYER_BADGES, value) ? value : 'star';
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[char]);
+        }
+
+        function playerDisplayColor(player) {
+            return player && player.id === myId ? myPlayerColor : normalizePlayerColor(player && player.color);
+        }
+
+        function playerDisplayBadge(player) {
+            const badge = player && player.id === myId ? myPlayerBadge : normalizePlayerBadge(player && player.badge);
+            return PLAYER_BADGES[badge];
+        }
+
+        function playerLabelHtml(player) {
+            return `<span class="mr-1" aria-hidden="true">${escapeHtml(playerDisplayBadge(player))}</span><span style="color:${playerDisplayColor(player)}">${escapeHtml(player.name)}</span>`;
+        }
+
         let peer = null;
         let conn = null;
         let connections = [];
@@ -1132,6 +1241,8 @@
         let myId = '';
         let myName = localStorage.getItem('wortketten_my_name') || '';
         let myTag = localStorage.getItem('wortketten_my_tag') || '';
+        let myPlayerColor = normalizePlayerColor(localStorage.getItem(PLAYER_COLOR_KEY));
+        let myPlayerBadge = normalizePlayerBadge(localStorage.getItem(PLAYER_BADGE_KEY));
         let players = [];
         let currentTurnIndex = 0;
         let wordChain = ["BOYS"];
@@ -1183,6 +1294,7 @@
         let pongHitParticles = [];
         let hangmanPlayers = [];
         let hangmanMode = 'custom';
+        let hangmanCategory = 'gaming';
         let hangmanMaxErrors = 6;
         let hangmanRounds = 3;
         let hangmanRound = 1;
@@ -1192,9 +1304,7 @@
         let recordedHangmanRounds = new Set();
         let hangmanRoomActive = false;
         let hangmanGameStarted = false;
-        let isDailyChallenge = false;
-        let dailyChallengeDate = '';
-        let dailyChallengeSteps = 0;
+        let hangmanReactionTimeouts = new Set();
         let wordRoundStatsRecorded = false;
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
@@ -1476,6 +1586,139 @@
             else if (type === 'success') playChime(587, 784);
         }
 
+        function initAmbientParticles() {
+            const canvas = document.getElementById('ambientParticles');
+            const context = canvas && canvas.getContext('2d');
+            if (!canvas || !context) return;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let width = 0, height = 0, pixelRatio = 1, frameId = null;
+            let particles = [];
+
+            function resize() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+                canvas.width = Math.round(width * pixelRatio);
+                canvas.height = Math.round(height * pixelRatio);
+                context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+                const count = Math.min(64, Math.max(26, Math.round(width * height / 22000)));
+                particles = Array.from({ length: count }, () => ({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - .5) * .17,
+                    vy: (Math.random() - .5) * .17,
+                    radius: .7 + Math.random() * 1.2
+                }));
+                draw();
+            }
+
+            function draw() {
+                context.clearRect(0, 0, width, height);
+                for (let i = 0; i < particles.length; i++) {
+                    const particle = particles[i];
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const other = particles[j];
+                        const distance = Math.hypot(particle.x - other.x, particle.y - other.y);
+                        if (distance < 118) {
+                            context.strokeStyle = `rgba(103, 232, 249, ${(1 - distance / 118) * .12})`;
+                            context.lineWidth = .65;
+                            context.beginPath();
+                            context.moveTo(particle.x, particle.y);
+                            context.lineTo(other.x, other.y);
+                            context.stroke();
+                        }
+                    }
+                    context.fillStyle = 'rgba(165, 180, 252, .52)';
+                    context.shadowBlur = 7;
+                    context.shadowColor = 'rgba(34, 211, 238, .45)';
+                    context.beginPath();
+                    context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    context.fill();
+                }
+                context.shadowBlur = 0;
+            }
+
+            function animate() {
+                frameId = null;
+                if (document.hidden) return;
+                particles.forEach(particle => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    if (particle.x < -5) particle.x = width + 5;
+                    else if (particle.x > width + 5) particle.x = -5;
+                    if (particle.y < -5) particle.y = height + 5;
+                    else if (particle.y > height + 5) particle.y = -5;
+                });
+                draw();
+                frameId = requestAnimationFrame(animate);
+            }
+
+            function start() {
+                if (!reducedMotion && !frameId && !document.hidden) frameId = requestAnimationFrame(animate);
+                else if (reducedMotion) draw();
+            }
+
+            function stop() {
+                if (frameId !== null) cancelAnimationFrame(frameId);
+                frameId = null;
+            }
+
+            resize();
+            window.addEventListener('resize', resize, { passive: true });
+            document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+            if (!reducedMotion) start();
+        }
+
+        function initCustomCursor() {
+            const cursor = document.getElementById('customCursor');
+            if (!cursor || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+            let targetX = 0, targetY = 0, currentX = 0, currentY = 0, frameId = null;
+
+            function followCursor() {
+                currentX += (targetX - currentX) * .24;
+                currentY += (targetY - currentY) * .24;
+                cursor.style.left = `${currentX}px`;
+                cursor.style.top = `${currentY}px`;
+                if (Math.abs(targetX - currentX) > .3 || Math.abs(targetY - currentY) > .3) {
+                    frameId = requestAnimationFrame(followCursor);
+                } else {
+                    currentX = targetX;
+                    currentY = targetY;
+                    cursor.style.left = `${currentX}px`;
+                    cursor.style.top = `${currentY}px`;
+                    frameId = null;
+                }
+            }
+
+            document.addEventListener('pointermove', event => {
+                if (event.pointerType && event.pointerType !== 'mouse') return;
+                targetX = event.clientX;
+                targetY = event.clientY;
+                cursor.classList.add('cursor-visible');
+                if (frameId === null) frameId = requestAnimationFrame(followCursor);
+            }, { passive: true });
+            document.addEventListener('pointerover', event => {
+                if (event.target instanceof Element && event.target.closest('button, a, input, select')) cursor.classList.add('cursor-hover');
+            });
+            document.addEventListener('pointerout', event => {
+                if (event.target instanceof Element && event.target.closest('button, a, input, select')) cursor.classList.remove('cursor-hover');
+            });
+        }
+
+        function updatePlayerColorPreview() {
+            const colorInput = document.getElementById('onboardingPlayerColor');
+            if (!colorInput) return;
+            myPlayerColor = normalizePlayerColor(colorInput.value);
+            document.getElementById('onboardingColorLabel').textContent = myPlayerColor.toUpperCase();
+        }
+
+        function applyPlayerColorToProfile() {
+            const name = document.getElementById('displayMyName');
+            if (name) name.style.color = myPlayerColor;
+            const badge = document.getElementById('displayMyBadge');
+            if (badge) badge.textContent = PLAYER_BADGES[myPlayerBadge];
+        }
+
         window.alert = function(msg) {
             showToast(msg, 'error');
         };
@@ -1522,6 +1765,16 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             installClientGuards();
+            initAmbientParticles();
+            initCustomCursor();
+            const playerColorInput = document.getElementById('onboardingPlayerColor');
+            if (playerColorInput) {
+                playerColorInput.value = myPlayerColor;
+                updatePlayerColorPreview();
+                playerColorInput.addEventListener('input', updatePlayerColorPreview);
+            }
+            const playerBadgeInput = document.getElementById('onboardingPlayerBadge');
+            if (playerBadgeInput) playerBadgeInput.value = myPlayerBadge;
             pendingRoomJoin = getRoomJoinRequestFromUrl();
             renderStatsSummary();
             const modalClosers = [
@@ -1616,9 +1869,12 @@
             }
             myName = input;
             myTag = Math.floor(1000 + Math.random() * 9000).toString();
-            
+            myPlayerColor = normalizePlayerColor(document.getElementById('onboardingPlayerColor').value);
+            myPlayerBadge = normalizePlayerBadge(document.getElementById('onboardingPlayerBadge').value);
             localStorage.setItem('wortketten_my_name', myName);
             localStorage.setItem('wortketten_my_tag', myTag);
+            localStorage.setItem(PLAYER_COLOR_KEY, myPlayerColor);
+            localStorage.setItem(PLAYER_BADGE_KEY, myPlayerBadge);
             initPeerAndSetup();
             startPendingRoomJoin();
         }
@@ -1660,6 +1916,7 @@
                 myName = newName.trim();
                 localStorage.setItem('wortketten_my_name', myName);
                 document.getElementById('displayMyName').innerText = myName;
+                applyPlayerColorToProfile();
             }
         }
 
@@ -1702,6 +1959,7 @@
 
             document.getElementById('displayMyName').innerText = myName;
             document.getElementById('displayMyTag').innerText = '#' + myTag;
+            applyPlayerColorToProfile();
             document.getElementById('userProfileBadge').classList.remove('hidden');
             document.getElementById('userProfileBadge').classList.add('flex');
             const friendsButton = document.getElementById('friendsButton');
@@ -1932,7 +2190,7 @@
 
         function showOfflineFriendToast(targetTag) {
             lastPeerAttemptFailureAt = Date.now();
-            showToast('Spieler #' + targetTag + ' ist derzeit nicht online.', 'error', 'search-player');
+            showToast('Spieler #' + targetTag + ' ist derzeit nicht online.', 'error');
         }
 
         async function sendFriendRequest() {
@@ -1940,7 +2198,6 @@
             if (!/^\d{4}$/.test(targetTag)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
 
-            showToast('Suche Spieler #' + targetTag + '...', 'info', 'search-player');
             let connection = null;
             try {
                 connection = await connectWithTimeout(targetTag);
@@ -2013,7 +2270,6 @@
 
         async function sendLobbyInvitation(friendTag, type) {
             const targetTag = String(friendTag).trim();
-            showToast('Suche Spieler #' + targetTag + '...', 'info', 'search-player');
             let connection = null;
             try {
                 connection = await connectWithTimeout(targetTag);
@@ -2109,7 +2365,7 @@
                 pongRunning = false;
                 pongWinnerText = '';
                 pongPlayerIndex = 0;
-                pongPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, team: null, conn: null }];
+                pongPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, team: null, color: myPlayerColor, badge: myPlayerBadge, conn: null }];
                 assignPongTeams();
                 document.getElementById('pongLobby').classList.add('hidden');
                 document.getElementById('pongArena').classList.remove('hidden');
@@ -2129,7 +2385,7 @@
                 conn = peer.connect('wd-user-' + code);
                 setupConnectionHandlers(conn);
                 conn.on('open', () => {
-                    conn.send({ type: 'PONG_JOIN', id: myId, name: `${myName} #${myTag}` });
+                    conn.send({ type: 'PONG_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
                     document.getElementById('pongLobby').classList.add('hidden');
                     document.getElementById('pongArena').classList.remove('hidden');
                     document.getElementById('pongRoomCode').innerText = '#' + code;
@@ -2151,7 +2407,7 @@
                         : i === 1 ? 'border-rose-400/50 bg-rose-500/20 text-rose-200'
                         : 'border-amber-400/50 bg-amber-500/20 text-amber-200')
                     : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
-                return `<span class="lobby-player-pill ${p.id === myId ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="score-chip font-mono text-white ml-1">${p.score || 0} P</span></span>`;
+                return `<span class="lobby-player-pill ${p.id === myId ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${playerLabelHtml(p)}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="score-chip font-mono text-white ml-1">${p.score || 0} P</span></span>`;
             }).join('');
             document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
@@ -2185,15 +2441,14 @@
         }
 
         function escapeHangmanHtml(value) {
-            return String(value).replace(/[&<>"']/g, char => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            })[char]);
+            return escapeHtml(value);
         }
 
         function hangmanPublicPlayers() {
             return hangmanPlayers.map(player => ({
                 id: player.id, name: player.name, score: player.score || 0,
-                roundPoints: player.roundPoints || 0
+                roundPoints: player.roundPoints || 0,
+                color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
         }
 
@@ -2202,6 +2457,8 @@
                 isHost = true;
                 connections = [];
                 hangmanMode = document.getElementById('hangmanModeSelect').value;
+                const selectedCategory = document.getElementById('hangmanCategorySelect').value;
+                hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, selectedCategory) ? selectedCategory : 'gaming';
                 hangmanMaxErrors = +document.getElementById('hangmanMaxErrorsSelect').value;
                 hangmanRounds = +document.getElementById('hangmanRoundsSelect').value;
                 hangmanRound = 1;
@@ -2209,7 +2466,7 @@
                 hangmanWord = '';
                 hangmanGameStarted = false;
                 hangmanRoomActive = true;
-                hangmanPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, roundPoints: 0, conn: null }];
+                hangmanPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, roundPoints: 0, color: myPlayerColor, badge: myPlayerBadge, conn: null }];
                 document.getElementById('hangmanRoomCode').innerText = '#' + myTag;
                 renderHangmanView();
             });
@@ -2228,7 +2485,7 @@
                 conn = peer.connect('wd-user-' + code);
                 setupConnectionHandlers(conn);
                 conn.on('open', () => {
-                    conn.send({ type: 'HANGMAN_JOIN', id: myId, name: `${myName} #${myTag}` });
+                    conn.send({ type: 'HANGMAN_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
                     document.getElementById('hangmanRoomCode').innerText = '#' + code;
                     hangmanRoomActive = true;
                     renderHangmanView();
@@ -2247,9 +2504,11 @@
             const existing = hangmanPlayers.find(player => player.id === playerId);
             if (existing) {
                 existing.name = String(data.name || existing.name).slice(0, 40);
+                existing.color = normalizePlayerColor(data.color);
+                existing.badge = normalizePlayerBadge(data.badge);
                 existing.conn = senderConn;
             } else {
-                hangmanPlayers.push({ id: playerId, name: String(data.name || 'Spieler').slice(0, 40), score: 0, roundPoints: 0, conn: senderConn });
+                hangmanPlayers.push({ id: playerId, name: String(data.name || 'Spieler').slice(0, 40), score: 0, roundPoints: 0, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
             }
             if (!connections.includes(senderConn)) connections.push(senderConn);
             senderConn.on('close', () => {
@@ -2290,9 +2549,52 @@
 
         function broadcastHangmanSync() {
             broadcast({
-                type: 'HANGMAN_SYNC', mode: hangmanMode, maxErrors: hangmanMaxErrors,
+                type: 'HANGMAN_SYNC', mode: hangmanMode, category: hangmanCategory, maxErrors: hangmanMaxErrors,
                 rounds: hangmanRounds, players: hangmanPublicPlayers()
             });
+        }
+
+        function showHangmanReaction(reaction) {
+            if (!HANGMAN_REACTIONS.includes(reaction.text)) return;
+            const feed = document.getElementById('hangmanReactionFeed');
+            const item = document.createElement('span');
+            item.className = 'rounded-full border border-white/10 bg-darker/80 px-3 py-1 text-xs font-semibold shadow-lg animate-fade-in';
+            item.style.color = normalizePlayerColor(reaction.color);
+            item.textContent = `${PLAYER_BADGES[normalizePlayerBadge(reaction.badge)]} ${String(reaction.name || 'Spieler').slice(0, 40)}: ${reaction.text}`;
+            feed.appendChild(item);
+            while (feed.children.length > 4) feed.firstElementChild.remove();
+            const timeout = setTimeout(() => {
+                item.remove();
+                hangmanReactionTimeouts.delete(timeout);
+            }, 4000);
+            hangmanReactionTimeouts.add(timeout);
+        }
+
+        function clearHangmanReactions() {
+            hangmanReactionTimeouts.forEach(timeout => clearTimeout(timeout));
+            hangmanReactionTimeouts.clear();
+            document.getElementById('hangmanReactionFeed').replaceChildren();
+        }
+
+        function broadcastHangmanReaction(reaction, excludedConnection = null) {
+            hangmanPlayers.forEach(player => {
+                if (player.conn && player.conn !== excludedConnection && player.conn.open) player.conn.send(reaction);
+            });
+        }
+
+        function sendHangmanReaction(text) {
+            if (!hangmanRoomActive || !HANGMAN_REACTIONS.includes(text)) return;
+            const reaction = {
+                type: 'HANGMAN_REACTION',
+                text,
+                playerId: myId,
+                name: `${myName} #${myTag}`,
+                color: myPlayerColor,
+                badge: myPlayerBadge
+            };
+            showHangmanReaction(reaction);
+            if (isHost) broadcastHangmanReaction(reaction);
+            else if (conn && conn.open) conn.send(reaction);
         }
 
         function renderHangmanView() {
@@ -2320,10 +2622,12 @@
             const info = document.getElementById('hangmanLobbyInfo');
             const playerList = document.getElementById('hangmanPlayerList');
             if (!info || !playerList) return;
-            const modeLabel = hangmanMode === 'custom' ? 'Eigenes Wort · Wortgeber wechselt' : 'Zufallswort';
+            const modeLabel = hangmanMode === 'custom'
+                ? 'Eigenes Wort · Wortgeber wechselt'
+                : `Zufallswort · ${HANGMAN_CATEGORY_LABELS[hangmanCategory]}`;
             info.innerText = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
             playerList.innerHTML = hangmanPublicPlayers().map((player, index) =>
-                `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)}${index === 0 ? ' · Host' : ''}</span>`
+                `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)}${index === 0 ? ' · Host' : ''}</span>`
             ).join('');
             document.getElementById('hangmanStartButton').classList.toggle('hidden', !isHost);
             document.getElementById('hangmanWaitingMessage').classList.toggle('hidden', isHost);
@@ -2348,6 +2652,7 @@
         function startHangmanGame() {
             if (!isHost) return;
             if (hangmanPlayers.length < 2) return alert('Für Hangman brauchst du mindestens 2 Spieler.');
+            clearHangmanReactions();
             hangmanGameStarted = true;
             hangmanRound = 1;
             hangmanMatchId = `${myId || myTag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -2364,6 +2669,7 @@
             hangmanState = {
                 matchId: hangmanMatchId,
                 mode: hangmanMode, maxErrors: hangmanMaxErrors, rounds: hangmanRounds,
+                category: hangmanCategory,
                 round: hangmanRound, status: setter ? 'setting' : 'playing',
                 setterId: setter ? setter.id : null,
                 turnIndex: setter ? (setterIndex + 1) % hangmanPlayers.length : (hangmanRound - 1) % hangmanPlayers.length,
@@ -2371,12 +2677,11 @@
                 players: hangmanPublicPlayers()
             };
             if (!setter) {
-                const pool = [...new Set([...dictionaryDE, ...dictionaryEN])]
-                    .filter(word => /^[A-ZÄÖÜ]{3,16}$/.test(word));
+                const pool = HANGMAN_CATEGORY_WORDS[hangmanCategory].filter(word => /^[A-ZÄÖÜ]{3,16}$/.test(word));
                 if (!pool.length) return alert('Es ist kein passendes Zufallswort im Wörterbuch verfügbar.');
                 hangmanWord = pool[Math.floor(Math.random() * pool.length)];
                 hangmanState.wordLength = hangmanWord.length;
-                hangmanState.hint = 'Zufallswort';
+                hangmanState.hint = HANGMAN_CATEGORY_LABELS[hangmanCategory];
             }
             broadcast({ type: 'HANGMAN_START', state: getPublicHangmanState() });
             renderHangmanView();
@@ -2387,6 +2692,7 @@
             const state = {
                 matchId: hangmanState.matchId,
                 mode: hangmanState.mode, maxErrors: hangmanState.maxErrors, rounds: hangmanState.rounds,
+                category: hangmanState.category,
                 round: hangmanState.round, status: hangmanState.status, setterId: hangmanState.setterId,
                 turnIndex: hangmanState.turnIndex, mistakes: hangmanState.mistakes,
                 guessedLetters: [...hangmanState.guessedLetters], wordLength: hangmanState.wordLength,
@@ -2541,13 +2847,14 @@
             const activePlayerIndex = state.status === 'setting'
                 ? playersForView.findIndex(player => player.id === state.setterId)
                 : state.turnIndex;
-            document.getElementById('hangmanRoundLabel').innerText = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}`;
+            const categoryLabel = state.mode === 'random' ? ` · ${HANGMAN_CATEGORY_LABELS[state.category] || HANGMAN_CATEGORY_LABELS.gaming}` : '';
+            document.getElementById('hangmanRoundLabel').innerText = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}${categoryLabel}`;
             document.getElementById('hangmanTurnLabel').innerText = state.status === 'setting'
                 ? `Wortgeber: ${setter ? setter.name : '---'}`
                 : state.status === 'over' ? (state.solved ? 'Wort erraten!' : 'Keine Leben mehr')
                 : `Am Zug: ${currentPlayer ? currentPlayer.name : '---'}${isMyTurn ? ' · Du bist dran' : ''}`;
             document.getElementById('hangmanScoreboard').innerHTML = playersForView.map((player, index) =>
-                `<span class="lobby-player-pill ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)} <span class="score-chip text-cyan-300">${player.score} P</span></span>`
+                `<span class="lobby-player-pill ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)} <span class="score-chip text-cyan-300">${player.score} P</span></span>`
             ).join('');
             document.getElementById('hangmanLives').innerText = `${Math.max(0, state.maxErrors - state.mistakes)} / ${state.maxErrors}`;
             document.getElementById('hangmanLivesBar').style.width = `${Math.max(0, (state.maxErrors - state.mistakes) / state.maxErrors * 100)}%`;
@@ -2578,7 +2885,7 @@
                 }
                 document.getElementById('hangmanAnswer').innerText = `${state.solved ? 'Erratenes Wort' : 'Gesuchtes Wort'}: ${state.answer || hangmanWord}`;
                 document.getElementById('hangmanRoundScores').innerHTML = playersForView.slice().sort((a, b) => b.roundPoints - a.roundPoints).map(player =>
-                    `<div class="flex justify-between rounded-lg bg-card px-3 py-2 text-xs"><span>${escapeHangmanHtml(player.name)}</span><span class="text-cyan-300">+${player.roundPoints} Runde · ${player.score} gesamt</span></div>`
+                    `<div class="flex justify-between rounded-lg bg-card px-3 py-2 text-xs">${playerLabelHtml(player)}<span class="text-cyan-300">+${player.roundPoints} Runde · ${player.score} gesamt</span></div>`
                 ).join('');
                 document.getElementById('hangmanRoundActions').innerHTML = isHost
                     ? `<button onclick="nextHangmanRound()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl">${state.round >= state.rounds ? 'Neue Partie starten' : 'Nächste Runde (Wortgeber wechselt)'}</button>`
@@ -2603,6 +2910,7 @@
         }
 
         function leaveHangmanLobby() {
+            clearHangmanReactions();
             if (isHost) {
                 broadcast({ type: 'HANGMAN_CLOSED' });
                 const ended = [...connections];
@@ -2674,7 +2982,7 @@
             document.getElementById('pongStartButton').classList.add('hidden');
             broadcast({
                 type: 'PONG_START',
-                players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot })),
+                players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot, color: playerDisplayColor(p), badge: playerDisplayBadge(p) })),
                 maxPlayers: pongMaxPlayers,
                 winScore: pongWinScore,
                 state: pongState,
@@ -2761,7 +3069,8 @@
             pongRunning = false;
             pongHostLoop = null;
             const playersSnapshot = pongPlayers.map(player => ({
-                id: player.id, name: player.name, score: player.score, team: player.team, isBot: !!player.isBot
+                id: player.id, name: player.name, score: player.score, team: player.team,
+                isBot: !!player.isBot, color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
             recordPongMatchResult(playersSnapshot);
             celebrate();
@@ -2913,7 +3222,7 @@
 
             if (timestamp - pongLastNetworkAt >= 50) {
                 pongLastNetworkAt = timestamp;
-                broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot })) });
+                broadcast({ type: 'PONG_STATE', state: pongState, players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot, color: playerDisplayColor(p), badge: playerDisplayBadge(p) })) });
             }
             if (timestamp - pongLastDrawAt >= 16) {
                 pongLastDrawAt = timestamp;
@@ -2966,7 +3275,13 @@
             const state = stateOverride || pongState || createPongState();
             state.paddles.forEach(p => {
                 const paddleColors = ['#22d3ee', '#fb7185', '#818cf8', '#fbbf24'];
-                ctx.fillStyle = pongMaxPlayers === 4 ? paddleColors[p.index] : (p.side === 'right' ? '#f87171' : '#60a5fa');
+                const player = pongPlayers[p.index];
+                const playerColor = player && player.color && normalizePlayerColor(player.color) !== DEFAULT_PLAYER_COLOR
+                    ? normalizePlayerColor(player.color)
+                    : null;
+                ctx.fillStyle = player && player.id === myId
+                    ? myPlayerColor
+                    : playerColor || (pongMaxPlayers === 4 ? paddleColors[p.index] : (p.side === 'right' ? '#f87171' : '#60a5fa'));
                 ctx.shadowBlur = 18; ctx.shadowColor = ctx.fillStyle;
                 ctx.fillRect(p.x, p.y, p.w, p.h);
             });
@@ -3033,13 +3348,13 @@
             ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px Plus Jakarta Sans'; ctx.textAlign = 'center';
+            ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 48px VT323'; ctx.textAlign = 'center';
             ctx.fillText(pongMaxPlayers === 4 ? `${state.blueScore}  ·  ${state.redScore}` : `${state.individualScore[0] || 0}  ·  ${state.individualScore[1] || 0}`, 400, 55);
             if (pongWinnerText) {
                 ctx.fillStyle = 'rgba(2, 6, 23, .72)';
                 ctx.fillRect(0, 0, 800, 500);
                 ctx.fillStyle = '#fff';
-                ctx.font = '900 48px Plus Jakarta Sans';
+                ctx.font = '900 58px "Chakra Petch"';
                 ctx.fillText(pongWinnerText, 400, 270);
             }
             if (pongCountdown > 0) {
@@ -3156,7 +3471,7 @@
             const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
             document.getElementById('lobbyModeBadgeText').innerText = 'Modus: ' + modeText;
             
-            players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true }];
+            players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true, color: myPlayerColor, badge: myPlayerBadge }];
             updateLobbyUI();
             
             document.getElementById('hostFriendInviteSection').classList.remove('hidden');
@@ -3187,7 +3502,7 @@
                 setupConnectionHandlers(conn);
             
             conn.on('open', () => {
-                conn.send({ type: 'JOIN', name: `${myName} #${myTag}`, id: myId, tag: myTag });
+                conn.send({ type: 'JOIN', name: `${myName} #${myTag}`, id: myId, tag: myTag, color: myPlayerColor, badge: myPlayerBadge });
                 switchScreen('screenLobby');
                 showStatus('Mit Lobby verbunden!', 'success');
             });
@@ -3227,7 +3542,6 @@
             }
 
             isHost = false;
-            isDailyChallenge = false;
             stopWordTimer();
             stopPongGame();
             stopAllSounds();
@@ -3309,6 +3623,8 @@
                     hangmanState = null;
                     hangmanWord = '';
                     hangmanMode = data.mode;
+                    hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.category) ? data.category : 'gaming';
+                    document.getElementById('hangmanCategorySelect').value = hangmanCategory;
                     hangmanMaxErrors = data.maxErrors;
                     hangmanRounds = data.rounds;
                     hangmanPlayers = data.players || [];
@@ -3329,6 +3645,8 @@
                     hangmanState = data.state;
                     hangmanMatchId = data.state.matchId || hangmanMatchId;
                     hangmanMode = data.state.mode;
+                    hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.state.category) ? data.state.category : 'gaming';
+                    document.getElementById('hangmanCategorySelect').value = hangmanCategory;
                     hangmanMaxErrors = data.state.maxErrors;
                     hangmanRounds = data.state.rounds;
                     hangmanRound = data.state.round;
@@ -3349,6 +3667,25 @@
                     document.getElementById('hangmanActionMessage').innerText = data.text;
                     document.getElementById('hangmanSetterFeedback').innerText = data.text;
                     break;
+                case 'HANGMAN_REACTION': {
+                    if (!HANGMAN_REACTIONS.includes(data.text)) break;
+                    const player = hangmanPlayers.find(entry => entry.id === data.playerId);
+                    if (isHost && player && player.conn === senderConn) {
+                        const reaction = {
+                            type: 'HANGMAN_REACTION',
+                            text: data.text,
+                            playerId: player.id,
+                            name: player.name,
+                            color: playerDisplayColor(player),
+                            badge: playerDisplayBadge(player)
+                        };
+                        showHangmanReaction(reaction);
+                        broadcastHangmanReaction(reaction, senderConn);
+                    } else if (!isHost && senderConn === conn) {
+                        showHangmanReaction(data);
+                    }
+                    break;
+                }
                 case 'HANGMAN_CLOSED':
                     hangmanRoomActive = false;
                     hangmanGameStarted = false;
@@ -3363,16 +3700,16 @@
                 case 'PONG_JOIN':
                     if (isHost && pongPlayers.length < pongMaxPlayers) {
                         if (!connections.includes(senderConn)) connections.push(senderConn);
-                        if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, conn: senderConn });
+                        if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         assignPongTeams();
                         senderConn.on('close', () => {
                             pongPlayers = pongPlayers.filter(p => p.conn !== senderConn);
                             connections = connections.filter(c => c !== senderConn);
                             assignPongTeams();
-                            broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
+                            broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, color: playerDisplayColor(p), badge: playerDisplayBadge(p) })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
                             renderPongLobby();
                         });
-                        broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
+                        broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, color: playerDisplayColor(p), badge: playerDisplayBadge(p) })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
                         renderPongLobby();
                     } else {
                         senderConn.send({ type: 'PONG_FULL' });
@@ -3495,7 +3832,7 @@
                     if (isHost) {
                         if (!connections.includes(senderConn)) connections.push(senderConn);
                         if (!players.some(p => p.id === data.id)) {
-                            players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, conn: senderConn });
+                            players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         }
                         senderConn.on('close', () => {
                             players = players.filter(p => p.conn !== senderConn);
@@ -3515,7 +3852,6 @@
                     updateLobbyUI();
                     break;
                 case 'START_GAME':
-                    isDailyChallenge = false;
                     wordRoundStatsRecorded = false;
                     wordChain = data.wordChain;
                     settings = data.settings || settings;
@@ -3558,7 +3894,7 @@
                     renderGame();
                     break;
                 case 'LIVE_TYPING':
-                    showLiveTypingRemote(data.name, data.text);
+                    showLiveTypingRemote(data.name, data.text, data.color, data.badge);
                     break;
                 case 'EMOTE':
                     triggerFloatingEmote(data.emote);
@@ -3596,7 +3932,7 @@
         }
 
         function broadcastLiveTyping(text) {
-            const msg = { type: 'LIVE_TYPING', name: `${myName} #${myTag}`, text: text };
+            const msg = { type: 'LIVE_TYPING', name: `${myName} #${myTag}`, text: text, color: myPlayerColor, badge: myPlayerBadge };
             broadcast(msg);
         }
 
@@ -3614,10 +3950,12 @@
         };
         let settings = { rounds: 3, diff: 'medium', inf: false, keep: false, wordLength: 0 };
         let round = 1, lastRejected = null;
-        const pubPlayers = () => players.map(p => ({ id: p.id, name: p.name, score: p.score, streak: p.streak || 0, isHost: p.isHost }));
+        const pubPlayers = () => players.map(p => ({
+            id: p.id, name: p.name, score: p.score, streak: p.streak || 0,
+            isHost: p.isHost, color: playerDisplayColor(p), badge: playerDisplayBadge(p)
+        }));
 
         function wordPool() {
-            if (isDailyChallenge) return DAILY_WORD_POOL.slice();
             let words;
             if (gameMode === 'de') words = [...dictionaryDE];
             else if (gameMode === 'en') words = [...dictionaryEN];
@@ -3677,88 +4015,8 @@
             return ['HAUS', 'MAUS', 1];
         }
 
-        function hashDailyDate(dateKey) {
-            let hash = 2166136261;
-            for (const char of dateKey) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-            return hash >>> 0;
-        }
-
-        function getDailyChallengePair(dateKey = new Date().toDateString()) {
-            const pool = DAILY_WORD_POOL;
-            if (pool.length < 3) return null;
-            const seed = hashDailyDate(dateKey);
-            const startOffset = seed % pool.length;
-
-            for (let attempt = 0; attempt < pool.length; attempt++) {
-                const start = pool[(startOffset + attempt) % pool.length];
-                const distances = new Map([[start, 0]]);
-                const queue = [start];
-                for (let index = 0; index < queue.length; index++) {
-                    const word = queue[index];
-                    const distance = distances.get(word);
-                    if (distance >= 5) continue;
-                    for (const candidate of pool) {
-                        if (!distances.has(candidate) && checkWordDifference(word, candidate)) {
-                            distances.set(candidate, distance + 1);
-                            queue.push(candidate);
-                        }
-                    }
-                }
-                const targets = [...distances.entries()]
-                    .filter(([, distance]) => distance >= 2 && distance <= 5)
-                    .map(([word, steps]) => ({ word, steps }));
-                if (targets.length) {
-                    const target = targets[(seed + attempt) % targets.length];
-                    return { start, target: target.word, steps: target.steps };
-                }
-            }
-            return null;
-        }
-
-        function startDailyChallenge() {
-            if (!myName || !myTag) {
-                showToast('Erstelle zuerst dein Spielerprofil.', 'warning');
-                return;
-            }
-            const date = new Date();
-            const pair = getDailyChallengePair(date.toDateString());
-            if (!pair) {
-                showToast('Für die heutige Daily Challenge wurde kein Wortpaar gefunden.', 'error');
-                return;
-            }
-
-            isDailyChallenge = true;
-            dailyChallengeDate = date.toLocaleDateString('de-DE');
-            dailyChallengeSteps = 0;
-            wordRoundStatsRecorded = false;
-            isHost = true;
-            gameMode = 'all';
-            settings = { rounds: 1, diff: 'inf', inf: true, keep: false, wordLength: 0 };
-            const localId = myId || 'daily-' + myTag;
-            players = [{ id: localId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true }];
-            round = 1;
-            wordChain = [pair.start];
-            targetWord = pair.target;
-            optimalSteps = pair.steps;
-            lastScoreSummary = '';
-            currentTurnIndex = 0;
-            startGameUI();
-        }
-
-        function copyDailyChallengeResult() {
-            const result = `🟩 Wortketten Daily · ${dailyChallengeDate}\n🟩 Gelöst in ${dailyChallengeSteps} Schritten`;
-            if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
-                showToast('Die Zwischenablage ist in diesem Browser nicht verfügbar.', 'warning');
-                return;
-            }
-            navigator.clipboard.writeText(result)
-                .then(() => showToast('Daily-Ergebnis kopiert!', 'success'))
-                .catch(() => showToast('Das Ergebnis konnte nicht kopiert werden.', 'error'));
-        }
-
         function startOnlineGame(newMatch = true) {
             if (!isHost) return;
-            isDailyChallenge = false;
             wordRoundStatsRecorded = false;
             if (newMatch) {
                 round = 1;
@@ -3782,16 +4040,14 @@
             document.getElementById('playerScoresBar').innerHTML = players.map((p, idx) => `
                 <div class="player-score-card px-3 py-1.5 rounded-xl border ${idx === currentTurnIndex ? 'is-active bg-indigo-600/20 border-indigo-500 text-white' : 'bg-darker/60 border-border text-gray-400'} flex items-center space-x-2">
                     <span class="w-2 h-2 rounded-full ${idx === currentTurnIndex ? 'bg-indigo-400 animate-pulse' : 'bg-gray-600'}"></span>
-                    <span class="text-xs font-bold">${p.name}</span>
+                    <span class="text-xs font-bold">${playerLabelHtml(p)}</span>
                     ${(p.streak && p.streak >= 2) ? `<span class="streak-badge text-[10px] px-2 py-0.5 rounded-full text-amber-200 border border-amber-400/30 font-bold">🔥 x${getMultiplier(p.streak).toFixed(1)}</span>` : ''}
                     <span class="score-chip text-[10px] px-2 py-0.5 rounded-full bg-darker/80 font-mono font-bold text-indigo-200">${p.score} P</span>
                 </div>`).join('');
 
             document.getElementById('lblStartWord').innerText = wordChain[0];
             document.getElementById('lblTargetWord').innerHTML = paintTarget();
-            document.getElementById('roundLabel').innerText = isDailyChallenge
-                ? `Daily Challenge · ${dailyChallengeDate} · Optimum ${optimalSteps} Schritte`
-                : `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
+            document.getElementById('roundLabel').innerText = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
 
             const logEl = document.getElementById('lastScoreLog');
             if (lastScoreSummary) {
@@ -3811,9 +4067,9 @@
                     <i class="fa-solid fa-arrow-right text-xs text-indigo-400"></i>
                 </div>`).join('') + `<div class="target-tile px-3 py-2 lg:px-5 lg:py-3 rounded-xl border-2 border-dashed text-emerald-300 font-mono font-black text-sm sm:text-base lg:text-2xl tracking-widest">${paintTarget()}</div>`;
 
-            document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost || isDailyChallenge);
+            document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost);
             const active = players[currentTurnIndex];
-            const myTurn = isDailyChallenge || (active && active.id === myId);
+            const myTurn = active && active.id === myId;
             document.getElementById('currentTurnName').innerText = active ? active.name : '---';
             document.getElementById('gameFeedback').innerText = '';
             document.getElementById('liveTypingBox').classList.add('hidden');
@@ -3837,8 +4093,7 @@
             const input = document.getElementById('wordInput');
             const word = input.value.trim().toUpperCase();
             if (!word) return;
-            if (isDailyChallenge) processWordSubmission(word, players[0].id);
-            else if (isHost) processWordSubmission(word, myId);
+            if (isHost) processWordSubmission(word, myId);
             else if (conn && conn.open) conn.send({ type: 'SUBMIT_WORD', word, playerId: myId });
             input.value = '';
             broadcastLiveTyping('');
@@ -3869,13 +4124,13 @@
             if (wordChain.includes(word)) return say('♻️ Dieses Wort wurde schon benutzt.', 'error');
 
             if (!force && word !== targetWord && !wordPool().includes(word)) {
-                if (!checked && !isDailyChallenge) {
+                if (!checked) {
                     say('🔎 Prüfe Wort im Online-Wörterbuch …', 'warning');
                     checkOnline(word).then(ok => processWordSubmission(word, playerId, reply, ok, true));
                     return;
                 }
                 lastRejected = { word, playerId };
-                if (isHost && !isDailyChallenge) document.getElementById('hostJokerBox').classList.remove('hidden');
+                if (isHost) document.getElementById('hostJokerBox').classList.remove('hidden');
                 return say(`⚠️ "${word}" ist nicht im gewählten Wörterbuch.`, 'warning');
             }
 
@@ -4062,18 +4317,18 @@
             }
         }
 
-        function showLiveTypingRemote(name, text) {
+        function showLiveTypingRemote(name, text, color, badge) {
             const box = document.getElementById('liveTypingBox');
             if (!text) {
                 box.classList.add('hidden');
                 return;
             }
             box.classList.remove('hidden');
-            document.getElementById('liveTypingUser').innerHTML = `<i class="fa-solid fa-pen-nib animate-bounce"></i> <span>${name} tippt: <b>${text}</b></span>`;
+            document.getElementById('liveTypingUser').innerHTML = `<i class="fa-solid fa-pen-nib animate-bounce"></i> <span><b aria-hidden="true">${escapeHtml(PLAYER_BADGES[normalizePlayerBadge(badge)])}</b> <b style="color:${normalizePlayerColor(color)}">${escapeHtml(name)}</b> tippt: <b>${escapeHtml(text)}</b></span>`;
             
             const tilesContainer = document.getElementById('liveTilesContainer');
             tilesContainer.innerHTML = text.split('').map(char => `
-                <div class="w-8 h-8 rounded-lg bg-indigo-900/60 border border-indigo-500/50 flex items-center justify-center font-mono font-bold text-sm text-white">${char}</div>
+                <div class="w-8 h-8 rounded-lg bg-indigo-900/60 border border-indigo-500/50 flex items-center justify-center font-mono font-bold text-sm text-white">${escapeHtml(char)}</div>
             `).join('');
         }
 
@@ -4123,12 +4378,10 @@
             stopWordTimer();
             stopAllSounds();
             if (!wordRoundStatsRecorded) {
-                const localPlayer = (d.players || []).find(player => player.id === myId) ||
-                    (isDailyChallenge ? (d.players || [])[0] : null);
+                const localPlayer = (d.players || []).find(player => player.id === myId);
                 const winnerId = d.winnerId || (d.players || []).find(player => player.name === d.winner)?.id;
                 if (localPlayer) recordGameResult('words', localPlayer.id === winnerId);
                 wordRoundStatsRecorded = true;
-                if (isDailyChallenge) dailyChallengeSteps = Math.max(0, d.chain.length - 1);
             }
             players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
             const winner = players.find(p => p.name === d.winner);
@@ -4141,17 +4394,14 @@
             document.getElementById('gameOverStats').innerText = `${d.lastScoreSummary || d.winner + ' hat "' + d.target + '" erreicht'} (${d.chain.length - 1} Schritte): ${d.chain.join(' → ')}`;
             document.getElementById('finalScoresList').innerHTML = ranking.map((p, i) => `
                 <div class="flex justify-between items-center px-3 py-2 lg:px-4 lg:py-3 rounded-xl bg-darker border border-border text-xs">
-                    <span class="font-bold text-white">${['🥇','🥈','🥉'][i] || '▫️'} ${p.name}</span>
+                    <span class="font-bold text-white">${['🥇','🥈','🥉'][i] || '▫️'} ${playerLabelHtml(p)}</span>
                     <span class="font-mono text-indigo-400 font-bold">${p.score} Punkte</span>
                 </div>`).join('');
             const btn = (fn, txt, cls) => `<button onclick="${fn}" class="w-full ${cls} text-white font-bold py-3.5 rounded-xl transition text-sm cursor-pointer">${txt}</button>`;
             let html = '';
-            if (isDailyChallenge) {
-                html += btn('copyDailyChallengeResult()', '📋 Daily-Ergebnis teilen', 'bg-cyan-600 hover:bg-cyan-500');
-                html += btn('startDailyChallenge()', '🔁 Heutige Challenge nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500');
-            } else if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
+            if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
             else html += '<p class="text-xs text-gray-400 italic">Warte auf den Host...</p>';
-            if (isHost && !isDailyChallenge) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
+            if (isHost) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
             html += btn('leaveLobby()', 'Zurück zum Menü', 'bg-indigo-600 hover:bg-indigo-500');
             document.getElementById('roundOverActions').innerHTML = html;
         }
@@ -4171,7 +4421,7 @@
             const list = document.getElementById('lobbyPlayerList');
             list.innerHTML = players.map(p => `
                 <span class="lobby-player-pill ${p.isHost ? 'is-host' : ''} px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">
-                    ${p.name} ${p.isHost ? '👑' : ''}
+                    ${playerLabelHtml(p)} ${p.isHost ? '👑' : ''}
                 </span>
             `).join('');
 
