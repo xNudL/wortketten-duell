@@ -2514,6 +2514,7 @@
                 switchScreen('screenOnboarding');
             } else {
                 initPeerAndSetup();
+                switchScreen('screenSetup');
                 startPendingRoomJoin();
             }
 
@@ -2586,6 +2587,7 @@
             writeStoredValue(PLAYER_COLOR_KEY, myPlayerColor);
             writeStoredValue(PLAYER_BADGE_KEY, myPlayerBadge);
             initPeerAndSetup();
+            switchScreen('screenSetup');
             startPendingRoomJoin();
         }
 
@@ -2683,7 +2685,6 @@
             friendsButton.classList.remove('hidden');
             friendsButton.classList.add('flex');
             renderFriendList();
-            switchScreen('screenSetup');
         }
 
         function checkAllFriendsOnline() {
