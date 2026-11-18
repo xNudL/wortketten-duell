@@ -447,6 +447,9 @@
             padding-top: .5rem;
             padding-bottom: .5rem;
         }
+        #screenBlackjack.blackjack-round-active {
+            margin-top: 0;
+        }
         #screenBlackjack.blackjack-round-active #blackjackIntro,
         #screenBlackjack.blackjack-round-active #blackjackDealerRolePanel {
             display: none;
@@ -590,7 +593,7 @@
     </div>
 
     <!-- Header -->
-    <header class="w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 flex justify-between items-center shadow-lg">
+    <header class="w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 shrink-0 flex justify-between items-center shadow-lg">
         <div class="flex items-center space-x-3">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
                 <i class="fa-solid fa-link text-white text-sm"></i>
@@ -1431,6 +1434,30 @@
             return /^\d{4}$/.test(tag) ? tag : '';
         }
 
+        const PROFILE_NAME_STORAGE_KEY = 'wortketten_my_name';
+        const PROFILE_TAG_STORAGE_KEY = 'wortketten_my_tag';
+        const FRIENDS_STORAGE_KEY = 'wortketten_friends';
+
+        function loadStoredFriends() {
+            const storedFriends = readStoredJson(FRIENDS_STORAGE_KEY, []);
+            if (!Array.isArray(storedFriends)) return [];
+
+            const seenTags = new Set();
+            return storedFriends.reduce((validFriends, friend) => {
+                if (validFriends.length >= 100 || !friend || typeof friend !== 'object') return validFriends;
+                const name = sanitizePlayerName(friend.name);
+                const tag = sanitizePlayerTag(friend.tag);
+                const peerMatch = typeof friend.peerId === 'string'
+                    ? /^wd-user-(\d{4})$/.exec(friend.peerId)
+                    : null;
+                if (!name || !tag || !peerMatch || peerMatch[1] !== tag || seenTags.has(tag)) return validFriends;
+
+                seenTags.add(tag);
+                validFriends.push({ name, tag, peerId: `wd-user-${tag}` });
+                return validFriends;
+            }, []);
+        }
+
         function sanitizeNetworkPlayerName(value) {
             const rawName = String(value == null ? '' : value).normalize('NFC').trim();
             const match = /^(.*?)(?:\s+#(\d{4}))?$/.exec(rawName);
@@ -1453,8 +1480,6 @@
                 .trim()
                 .slice(0, 40);
         }
-
-        ['wortketten_my_name', 'wortketten_my_tag', 'wortketten_friends'].forEach(removeStoredValue);
 
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
         const LEARNED_KEY = 'wortketten_learned_v1';
@@ -1865,8 +1890,8 @@
         let connections = [];
         let isHost = false;
         let myId = '';
-        let myName = '';
-        let myTag = '';
+        let myName = sanitizePlayerName(readStoredValue(PROFILE_NAME_STORAGE_KEY, ''));
+        let myTag = sanitizePlayerTag(readStoredValue(PROFILE_TAG_STORAGE_KEY, ''));
         let myPlayerColor = normalizePlayerColor(readStoredValue(PLAYER_COLOR_KEY));
         let myPlayerBadge = normalizePlayerBadge(readStoredValue(PLAYER_BADGE_KEY));
         let players = [];
@@ -1878,7 +1903,7 @@
         let timerInterval = null;
         let timeLeft = 30;
         let gameMode = 'all';
-        let friends = [];
+        let friends = loadStoredFriends();
         let pendingFriendConn = null;
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
@@ -2631,6 +2656,8 @@
             }
             myName = name;
             myTag = Math.floor(1000 + Math.random() * 9000).toString();
+            writeStoredValue(PROFILE_NAME_STORAGE_KEY, myName);
+            writeStoredValue(PROFILE_TAG_STORAGE_KEY, myTag);
             myPlayerColor = normalizePlayerColor(document.getElementById('onboardingPlayerColor').value);
             myPlayerBadge = normalizePlayerBadge(document.getElementById('onboardingPlayerBadge').value);
             writeStoredValue(PLAYER_COLOR_KEY, myPlayerColor);
@@ -2684,6 +2711,8 @@
                     return;
                 }
                 myName = safeName;
+                writeStoredValue(PROFILE_NAME_STORAGE_KEY, myName);
+                writeStoredValue(PROFILE_TAG_STORAGE_KEY, myTag);
                 document.getElementById('displayMyName').textContent = myName;
                 applyPlayerColorToProfile();
             }
@@ -2696,6 +2725,7 @@
                 
                 peer.on('open', (id) => {
                     myId = id;
+                    if (isHost && players[0]) players[0].id = myId;
                     const tagDisplay = document.getElementById('myTagDisplay');
                     if (tagDisplay) tagDisplay.textContent = '#' + myTag;
                     showStatus('Online', 'success');
@@ -2705,6 +2735,7 @@
                 peer.on('error', (err) => {
                     if (err.type === 'unavailable-id') {
                         myTag = Math.floor(1000 + Math.random() * 9000).toString();
+                        writeStoredValue(PROFILE_TAG_STORAGE_KEY, myTag);
                         peer.destroy();
                         peer = null;
                         initPeerAndSetup();
@@ -3004,11 +3035,14 @@
                     });
                 }
                 
-                if (!friends.some(f => f.tag === pendingFriendData.tag)) {
-                    friends.push({ name: pendingFriendData.name, tag: pendingFriendData.tag, peerId: pendingFriendData.id });
+                const friendName = sanitizePlayerName(pendingFriendData.name);
+                const acceptedFriendTag = sanitizePlayerTag(pendingFriendData.tag);
+                if (friendName && acceptedFriendTag && !friends.some(f => f.tag === acceptedFriendTag)) {
+                    friends.push({ name: friendName, tag: acceptedFriendTag, peerId: `wd-user-${acceptedFriendTag}` });
                     renderFriendList();
-                    checkFriendOnline(friendTag);
+                    checkFriendOnline(acceptedFriendTag);
                 }
+                writeStoredValue(FRIENDS_STORAGE_KEY, JSON.stringify(friends));
                 showToast('Freundschaftsanfrage angenommen.', 'success');
             }
             document.getElementById('friendRequestModal').classList.add('hidden');
@@ -3036,6 +3070,7 @@
             }
             friendOnlineStatus.delete(tag);
             friends.splice(idx, 1);
+            writeStoredValue(FRIENDS_STORAGE_KEY, JSON.stringify(friends));
             renderFriendList();
         }
 
@@ -5341,22 +5376,23 @@
                 keep: document.getElementById('gameLock').value === 'keep',
                 wordLength: Number(document.getElementById('gameWordLength').value)
             }, settings);
-            initPeerAndSetup();
-            isHost = true;
-            gameMode = settings.dictionaryMode;
-            document.getElementById('displayRoomCode').textContent = myTag;
-            
-            const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
-            document.getElementById('lobbyModeBadgeText').textContent = 'Modus: ' + modeText;
-            
-            players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true, color: myPlayerColor, badge: myPlayerBadge }];
-            updateLobbyUI();
-            
-            document.getElementById('hostFriendInviteSection').classList.remove('hidden');
-            renderLobbyFriendInvites();
-            
-            switchScreen('screenLobby');
-            showStatus('Lobby erstellt', 'success');
+            ensurePeerReady(() => {
+                isHost = true;
+                gameMode = settings.dictionaryMode;
+                document.getElementById('displayRoomCode').textContent = myTag;
+
+                const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
+                document.getElementById('lobbyModeBadgeText').textContent = 'Modus: ' + modeText;
+
+                players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true, color: myPlayerColor, badge: myPlayerBadge }];
+                updateLobbyUI();
+
+                document.getElementById('hostFriendInviteSection').classList.remove('hidden');
+                renderLobbyFriendInvites();
+
+                switchScreen('screenLobby');
+                showStatus('Lobby erstellt', 'success');
+            });
         }
 
         function joinGame(overrideTag = null) {
@@ -5563,6 +5599,7 @@
                         renderFriendList();
                         checkFriendOnline(tag);
                     }
+                    writeStoredValue(FRIENDS_STORAGE_KEY, JSON.stringify(friends));
                     break;
                 }
                 case 'FRIEND_REJECT':
