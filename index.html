@@ -373,7 +373,7 @@
             flex: 0 0 auto;
             perspective: 900px;
         }
-        .blackjack-card-scene.is-new { animation: blackjackDeal .42s cubic-bezier(.22,1,.36,1) both; }
+        .blackjack-card-scene.is-new { animation: blackjackDeal .68s cubic-bezier(.16,1.35,.36,1) both; }
         .blackjack-card-inner {
             position: relative;
             display: block;
@@ -418,8 +418,9 @@
         .blackjack-card-front { transform: rotateY(180deg); }
         @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
         @keyframes blackjackDeal {
-            from { opacity: 0; transform: translate3d(34px,-24px,0) rotate(9deg) scale(.78); }
-            to { opacity: 1; transform: translate3d(0,0,0) rotate(0) scale(1); }
+            0% { opacity: 0; transform: translate3d(38px,-32px,0) rotate(12deg) scale(.72); }
+            72% { opacity: 1; transform: translate3d(-3px,3px,0) rotate(-2deg) scale(1.06); }
+            100% { opacity: 1; transform: translate3d(0,0,0) rotate(0) scale(1); }
         }
         .blackjack-player-box {
             position: relative;
@@ -654,6 +655,7 @@
             padding: .5rem;
         }
         .blackjack-hand-panel {
+            position: relative;
             min-width: 0;
             border: 1px solid rgba(251,191,36,.12);
             border-radius: .85rem;
@@ -664,6 +666,122 @@
             border-color: rgba(110,231,183,.58);
             box-shadow: 0 0 18px rgba(16,185,129,.12);
             transform: translateY(-2px);
+        }
+        .blackjack-player-box.has-blackjack-21,
+        .blackjack-hand-panel.has-21 {
+            border-color: rgba(252,211,77,.82);
+            box-shadow: 0 0 0 1px rgba(251,191,36,.24), 0 0 28px rgba(245,158,11,.24), inset 0 0 24px rgba(245,158,11,.08);
+        }
+        .blackjack-player-box.has-blackjack-21 {
+            background: linear-gradient(145deg, rgba(70,48,8,.4), rgba(8,18,28,.76));
+        }
+        .blackjack-hand-panel.has-21 {
+            background: linear-gradient(145deg, rgba(120,76,8,.22), rgba(0,0,0,.2));
+        }
+        .blackjack-hand-panel.is-21-impact {
+            animation: blackjackTwentyOneImpact .72s cubic-bezier(.18,1.45,.38,1) both;
+        }
+        @keyframes blackjackTwentyOneImpact {
+            0% { transform: scale(.93); box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+            58% { transform: scale(1.06); box-shadow: 0 0 0 3px rgba(251,191,36,.28), 0 0 34px rgba(245,158,11,.4); }
+            100% { transform: scale(1); }
+        }
+        .blackjack-hand-panel.has-tension {
+            border-color: rgba(103,232,249,.42);
+            box-shadow: 0 0 20px rgba(34,211,238,.1), inset 0 0 18px rgba(99,102,241,.07);
+            animation: blackjackTensionPulse 2.8s ease-in-out infinite;
+        }
+        @keyframes blackjackTensionPulse {
+            50% { border-color: rgba(167,139,250,.72); box-shadow: 0 0 25px rgba(139,92,246,.2), inset 0 0 20px rgba(34,211,238,.08); }
+        }
+        .blackjack-player-box.has-blackjack-win,
+        .blackjack-hand-panel.is-winning-hand {
+            border-color: rgba(253,224,71,.9);
+            box-shadow: 0 0 0 1px rgba(250,204,21,.3), 0 0 35px rgba(245,158,11,.32), 0 0 68px rgba(234,179,8,.16), inset 0 0 26px rgba(250,204,21,.1);
+        }
+        .blackjack-player-box.has-blackjack-win {
+            z-index: 2;
+            background: linear-gradient(145deg, rgba(89,61,8,.55), rgba(3,28,30,.82));
+            animation: blackjackWinnerGlow 2s ease-in-out infinite;
+        }
+        .blackjack-hand-panel.is-winning-hand {
+            background: linear-gradient(145deg, rgba(120,83,8,.3), rgba(0,0,0,.18));
+        }
+        @keyframes blackjackWinnerGlow {
+            50% { box-shadow: 0 0 0 2px rgba(250,204,21,.38), 0 0 46px rgba(245,158,11,.48), 0 0 82px rgba(234,179,8,.22), inset 0 0 30px rgba(250,204,21,.14); }
+        }
+        .blackjack-player-box.has-bust {
+            border-color: rgba(248,113,113,.8);
+            box-shadow: 0 0 0 1px rgba(239,68,68,.22), 0 0 28px rgba(220,38,38,.22), inset 0 0 24px rgba(127,29,29,.12);
+        }
+        .blackjack-hand-panel.is-bust {
+            overflow: hidden;
+            border-color: rgba(248,113,113,.78);
+            background: linear-gradient(145deg, rgba(69,10,10,.5), rgba(18,3,10,.62));
+            box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 0 26px rgba(220,38,38,.2), inset 0 0 24px rgba(127,29,29,.18);
+        }
+        .blackjack-hand-panel.is-bust::before {
+            position: absolute;
+            z-index: 4;
+            inset: .25rem;
+            border-radius: .7rem;
+            background: rgba(40,3,10,.38);
+            content: "";
+            pointer-events: none;
+        }
+        .blackjack-hand-panel.is-bust::after {
+            position: absolute;
+            z-index: 5;
+            top: 50%;
+            left: 50%;
+            padding: .35rem .85rem;
+            transform: translate(-50%,-50%) rotate(-4deg);
+            border: 1px solid rgba(252,165,165,.68);
+            border-radius: .75rem;
+            background: rgba(69,10,10,.92);
+            box-shadow: 0 0 24px rgba(239,68,68,.55), 0 8px 20px rgba(0,0,0,.45);
+            color: #fee2e2;
+            content: "BUST!";
+            font-size: .9rem;
+            font-weight: 1000;
+            letter-spacing: .22em;
+            pointer-events: none;
+        }
+        .blackjack-hand-panel.animate-shake {
+            animation: blackjackBustShake .62s cubic-bezier(.36,.07,.19,.97) both,
+                blackjackBustFlash .62s ease-out both;
+        }
+        @keyframes blackjackBustShake {
+            10%, 90% { transform: translateX(-2px); }
+            20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-7px); }
+            40%, 60% { transform: translateX(7px); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes blackjackBustFlash {
+            0%, 100% { filter: brightness(1); }
+            24%, 58% { filter: brightness(1.75); box-shadow: 0 0 0 2px rgba(248,113,113,.38), 0 0 42px rgba(239,68,68,.55), inset 0 0 30px rgba(239,68,68,.32); }
+        }
+        .blackjack-bankroll { position: relative; display: inline-flex; align-items: baseline; gap: .2rem; white-space: nowrap; }
+        .blackjack-bankroll-counter { color: #f3f4f6; font-variant-numeric: tabular-nums; transition: color .2s ease; }
+        .blackjack-chip-float {
+            position: absolute;
+            z-index: 8;
+            top: -.1rem;
+            left: 50%;
+            white-space: nowrap;
+            font-size: .7rem;
+            font-weight: 900;
+            text-shadow: 0 2px 8px rgba(0,0,0,.8);
+            pointer-events: none;
+            animation: blackjackChipFloat 1.15s cubic-bezier(.2,.7,.25,1) both;
+        }
+        .blackjack-chip-float.is-positive { color: #6ee7b7; }
+        .blackjack-chip-float.is-negative { color: #fca5a5; }
+        @keyframes blackjackChipFloat {
+            0% { opacity: 0; transform: translate(-50%,0) scale(.75); }
+            16% { opacity: 1; transform: translate(-50%,-4px) scale(1.08); }
+            100% { opacity: 0; transform: translate(-50%,-28px) scale(1); }
         }
         .blackjack-player-avatar {
             display: grid;
@@ -890,6 +1008,11 @@
             .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
             .blackjack-player-box { transition: none; }
             .blackjack-winner-card { animation: none; }
+            .blackjack-player-box.has-blackjack-win,
+            .blackjack-hand-panel.has-tension,
+            .blackjack-hand-panel.is-21-impact,
+            .blackjack-hand-panel.animate-shake { animation: none; }
+            .blackjack-chip-float { display: none; }
             .blackjack-player-box.is-active, #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active), .blackjack-hand-panel.is-current-hand { transform: none; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
@@ -2305,6 +2428,9 @@
         let blackjackAudioSnapshot = null;
         let blackjackStatsRecordedKey = '';
         let blackjackCelebrationKey = '';
+        let blackjackHandVisualSnapshot = new Map();
+        let blackjackBankrollSnapshot = new Map();
+        let blackjackBalanceAnimations = new Map();
         let blackjackStartingBankroll = 1000;
         let hangmanAudioSnapshot = null;
 
@@ -4408,8 +4534,76 @@
             select.value = String(blackjackStartingBankroll);
         }
 
+        function formatBlackjackBalance(value) {
+            return new Intl.NumberFormat('de-DE').format(value);
+        }
+
+        function animateBlackjackBalance(playerId, animation) {
+            if (animation.frame !== null) return;
+            const update = timestamp => {
+                if (blackjackBalanceAnimations.get(playerId) !== animation) return;
+                const progress = Math.min((timestamp - animation.startedAt) / 720, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                animation.value = Math.round(animation.from + (animation.target - animation.from) * eased);
+                document.querySelectorAll('[data-blackjack-balance]').forEach(element => {
+                    if (element.dataset.blackjackBalance === playerId) {
+                        element.textContent = formatBlackjackBalance(animation.value);
+                    }
+                });
+                if (progress < 1) {
+                    animation.frame = requestAnimationFrame(update);
+                } else {
+                    animation.value = animation.target;
+                    animation.frame = null;
+                }
+            };
+            animation.frame = requestAnimationFrame(update);
+        }
+
+        function renderBlackjackBalance(player, state) {
+            const balance = safeNonNegativeInteger(player.bankroll);
+            let animation = blackjackBalanceAnimations.get(player.id);
+            if (!animation) {
+                animation = { value: balance, from: balance, target: balance, startedAt: 0, frame: null };
+                blackjackBalanceAnimations.set(player.id, animation);
+            }
+
+            const previousBalance = blackjackBankrollSnapshot.get(player.id);
+            let changeMarkup = '';
+            if (!state) {
+                if (animation.frame !== null) cancelAnimationFrame(animation.frame);
+                animation.value = balance;
+                animation.from = balance;
+                animation.target = balance;
+                animation.frame = null;
+            } else if (previousBalance !== undefined && previousBalance !== balance) {
+                const change = balance - previousBalance;
+                if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    animation.from = animation.value;
+                    animation.target = balance;
+                    animation.startedAt = performance.now();
+                    animateBlackjackBalance(player.id, animation);
+                    changeMarkup = `<span class="blackjack-chip-float ${change > 0 ? 'is-positive' : 'is-negative'}" aria-hidden="true">${change > 0 ? '+' : '−'}${formatBlackjackBalance(Math.abs(change))}</span>`;
+                } else {
+                    animation.value = balance;
+                    animation.from = balance;
+                    animation.target = balance;
+                }
+            }
+            blackjackBankrollSnapshot.set(player.id, balance);
+            return `<span class="blackjack-bankroll"><span class="blackjack-bankroll-counter" data-blackjack-balance="${escapeHtml(player.id)}">${formatBlackjackBalance(animation.value)}</span><span>Chips</span>${changeMarkup}</span>`;
+        }
+
         function renderBlackjackTable() {
             const state = blackjackState;
+            if (!state) {
+                blackjackHandVisualSnapshot.clear();
+                blackjackBankrollSnapshot.clear();
+                blackjackBalanceAnimations.forEach(animation => {
+                    if (animation.frame !== null) cancelAnimationFrame(animation.frame);
+                });
+                blackjackBalanceAnimations.clear();
+            }
             playBlackjackStateSound();
             renderBlackjackWinnerBanner();
             const playersList = document.getElementById('blackjackPlayersList');
@@ -4436,6 +4630,12 @@
                     isBank: true
                 });
             }
+            const hasRoundLoss = blackjackPlayers.some(player =>
+                player.id !== blackjackDealerId &&
+                (player.hands || []).some(hand => hand.status === 'lose')
+            );
+            const dealerWonRound = !!(state && state.phase === 'settled' && hasRoundLoss);
+            const nextHandVisualSnapshot = new Map();
 
             let activePlayerId = null;
             if (state && state.phase === 'playing') {
@@ -4496,6 +4696,10 @@
                         isSplit: false
                     }] : [])
                     : (player.hands || []);
+                let playerHas21 = false;
+                let playerHasBust = false;
+                let playerHasTension = false;
+                let playerHasWinningHand = false;
                 const handMarkup = playerHands.length
                     ? playerHands.map((hand, handIndex) => {
                         const isCurrentHand = !isDealer && isActive && state &&
@@ -4508,9 +4712,26 @@
                             blackjackCardMarkup(card, canFlip && card.isFlipped === false, index, isDealer, handIndex)
                         ).join('');
                         const compactCardRow = hand.cards.length > 2 || (playerHands.length > 1 && !isActive);
-                        const handTotal = hand.cards.some(blackjackCardIsFaceUp)
-                            ? blackjackHandValue(hand.cards)
-                            : '—';
+                        const hasVisibleCard = hand.cards.some(blackjackCardIsFaceUp);
+                        const numericHandTotal = hasVisibleCard ? blackjackHandValue(hand.cards) : null;
+                        const handTotal = numericHandTotal === null ? '—' : numericHandTotal;
+                        const handKey = `${player.id}:${isDealer ? 'dealer' : handIndex}:${hand.cards.map(card =>
+                            blackjackCardIsFaceUp(card) ? `${card.rank || ''}${card.suit || ''}` : '?'
+                        ).join(',')}`;
+                        const previousHandTotal = blackjackHandVisualSnapshot.get(handKey);
+                        const handHas21 = cardsReady && numericHandTotal === 21;
+                        const handIsBust = hand.status === 'bust' || cardsReady && numericHandTotal > 21;
+                        const handHasTension = cardsReady && (numericHandTotal === 19 || numericHandTotal === 20);
+                        const isWinningHand = !!(state && state.phase === 'settled' &&
+                            (isDealer ? dealerWonRound : hand.status === 'win'));
+                        const justHit21 = handHas21 && previousHandTotal !== 21;
+                        const justWentBust = handIsBust &&
+                            (previousHandTotal === undefined || previousHandTotal === null || previousHandTotal <= 21);
+                        nextHandVisualSnapshot.set(handKey, numericHandTotal);
+                        if (handHas21) playerHas21 = true;
+                        if (handIsBust) playerHasBust = true;
+                        if (handHasTension) playerHasTension = true;
+                        if (isWinningHand) playerHasWinningHand = true;
                         const handStatus = {
                             playing: isCurrentHand ? 'Dein Zug' : 'Spielt',
                             stood: hand.natural ? 'Blackjack!' : 'Hält',
@@ -4531,7 +4752,16 @@
                         } else if (isCurrentHand && player.id === myId && hand.status === 'playing' && !cardsReady) {
                             actions = '<p class="mt-2 text-center text-[10px] text-amber-200/80">Decke zuerst deine Karten auf.</p>';
                         }
-                        return `<section class="blackjack-hand-panel ${isCurrentHand ? 'is-current-hand' : ''} p-3">
+                        const handVisualClasses = [
+                            isCurrentHand ? 'is-current-hand' : '',
+                            handHas21 ? 'has-21' : '',
+                            justHit21 ? 'is-21-impact' : '',
+                            handHasTension ? 'has-tension' : '',
+                            handIsBust ? 'is-bust' : '',
+                            justWentBust ? 'animate-shake' : '',
+                            isWinningHand ? 'is-winning-hand' : ''
+                        ].filter(Boolean).join(' ');
+                        return `<section class="blackjack-hand-panel ${handVisualClasses} p-3">
                             <div class="mb-2 flex items-center justify-between gap-2 text-[10px] font-bold">
                                 <span class="text-amber-100">${isDealer ? 'Dealer-Hand' : playerHands.length > 1 ? `Hand ${handIndex + 1}` : 'Spieler-Hand'}</span>
                                 <span class="${isCurrentHand ? 'text-emerald-200' : 'text-gray-400'}">${handStatus}</span>
@@ -4564,6 +4794,13 @@
                 const displayName = isBank ? 'Bank / KI' : player.name;
                 const displayColor = isBank ? '#FBBF24' : playerDisplayColor(player);
                 const avatar = isBank ? '♠' : playerDisplayBadge(player);
+                const bankrollMarkup = !isBank ? renderBlackjackBalance(player, state) : '';
+                const playerVisualClasses = [
+                    playerHas21 ? 'has-blackjack-21' : '',
+                    playerHasBust ? 'has-bust' : '',
+                    playerHasTension ? 'has-tension' : '',
+                    playerHasWinningHand ? 'has-blackjack-win' : ''
+                ].filter(Boolean).join(' ');
                 let contextActions = '';
 
                 if (humanDealer && isDealer && state && state.phase === 'dealing' && !state.dealComplete) {
@@ -4582,12 +4819,12 @@
                     </div>`;
                 }
 
-                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''} ${isSpectator ? 'opacity-40 grayscale' : ''} ${playerHands.length > 1 ? 'has-split-hands' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
+                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''} ${playerVisualClasses} ${isSpectator ? 'opacity-40 grayscale' : ''} ${playerHands.length > 1 ? 'has-split-hands' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
                     <div class="flex min-w-0 items-center gap-3">
                         <div class="blackjack-player-avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
                         <div class="min-w-0 flex-1">
                             <h3 class="truncate text-sm font-black" style="color:${displayColor}">${escapeHtml(displayName)}</h3>
-                            <p class="mt-0.5 text-[10px] text-gray-400">${isBank ? 'Automatischer Tischdealer' : player.id === myId ? 'Du am Tisch' : 'Mitspieler am Tisch'}${!isBank ? ` · ${player.bankroll || 0} Chips` : ''}</p>
+                            <p class="mt-0.5 text-[10px] text-gray-400">${isBank ? 'Automatischer Tischdealer' : player.id === myId ? 'Du am Tisch' : 'Mitspieler am Tisch'}${!isBank ? ` · ${bankrollMarkup}` : ''}</p>
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
                             <span class="rounded-full border border-amber-200/20 bg-amber-950/40 px-2 py-1 text-[9px] font-bold text-amber-100">${isDealer ? 'Dealer' : 'Punter'}</span>
@@ -4601,6 +4838,10 @@
                     ${contextActions}
                 </article>`;
             }).join('');
+            blackjackHandVisualSnapshot = nextHandVisualSnapshot;
+            playersList.querySelectorAll('.blackjack-chip-float').forEach(ticker => {
+                ticker.addEventListener('animationend', () => ticker.remove(), { once: true });
+            });
 
             if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 playersList.querySelectorAll('.blackjack-player-box[data-player-id]').forEach(box => {
