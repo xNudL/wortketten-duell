@@ -36,21 +36,29 @@
         @media (min-width: 1536px) { html { font-size: 21px; } }
         #wordInput { font-size: 1.15rem; letter-spacing: .15em; text-transform: uppercase; }
         .glass { background: rgba(31, 41, 55, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        #toastContainer { position: fixed; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 10001; display: flex; flex-direction: column; gap: .65rem; width: min(24rem, calc(100vw - 2rem)); pointer-events: none; }
-        .toast { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; background: rgba(17,24,39,.94); color: #f9fafb; box-shadow: 0 16px 40px rgba(0,0,0,.4); backdrop-filter: blur(14px); pointer-events: auto; }
-        .toast-error { border-color: rgba(248,113,113,.45); }
-        .toast-success { border-color: rgba(52,211,153,.4); }
-        .toast-warning { border-color: rgba(251,191,36,.4); }
+        #toastContainer { position: fixed; top: max(1.25rem, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: .65rem; width: min(26rem, calc(100vw - 2rem)); pointer-events: none; }
+        .toast { position: relative; display: flex; align-items: center; gap: .75rem; overflow: hidden; padding: .9rem 1rem 1rem; border: 1px solid rgba(255,255,255,.14); border-radius: 1.15rem; background: linear-gradient(135deg, rgba(25,32,55,.94), rgba(8,13,28,.96)); color: #f9fafb; box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 32px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.07); backdrop-filter: blur(22px) saturate(145%); pointer-events: auto; }
+        .toast-error { border-color: rgba(248,113,113,.5); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(248,113,113,.16), inset 0 1px 0 rgba(255,255,255,.07); }
+        .toast-success { border-color: rgba(52,211,153,.48); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(52,211,153,.16), inset 0 1px 0 rgba(255,255,255,.07); }
+        .toast-warning { border-color: rgba(251,191,36,.46); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(251,191,36,.14), inset 0 1px 0 rgba(255,255,255,.07); }
         .toast-error .toast-icon { color: #f87171; }
         .toast-success .toast-icon { color: #34d399; }
         .toast-warning .toast-icon { color: #fbbf24; }
-        .toast-in { animation: toastIn .24s ease-out both; }
-        .toast-out { animation: toastOut .2s ease-in both; }
-        @keyframes toastIn { from { opacity:  0; transform: translate3d(1rem, .5rem, 0) scale(.98); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
-        @keyframes toastOut { to { opacity: 0; transform: translate3d(1rem, .25rem, 0) scale(.98); } }
+        .toast-in { animation: toastIn .48s cubic-bezier(.22, 1, .36, 1) both; }
+        .toast-out { animation: toastOut .24s ease-in both; }
+        .toast::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; transform-origin: left center; background: linear-gradient(90deg, rgba(129,140,248,.95), rgba(34,211,238,.85)); animation: toastProgress 4.2s linear both; }
+        .toast-error::after { background: linear-gradient(90deg, #f87171, #fb7185); }
+        .toast-success::after { background: linear-gradient(90deg, #34d399, #22d3ee); }
+        .toast-warning::after { background: linear-gradient(90deg, #fbbf24, #fb923c); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-24px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-12px) scale(.98); } }
+        @keyframes toastProgress { to { transform: scaleX(0); } }
         #devtoolsOverlay { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 20%, rgba(99,102,241,.18), transparent 55%), rgba(5,8,18,.98); backdrop-filter: blur(18px); text-align: center; }
         #devtoolsOverlay.devtools-open { display: flex; }
-        @media (prefers-reduced-motion: reduce) { .toast-in, .toast-out { animation-duration: .01ms; } }
+        @media (prefers-reduced-motion: reduce) {
+            .toast-in, .toast-out { animation-duration: .01ms; }
+            .toast::after { animation: none; }
+        }
         .tile-in { animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         @keyframes popIn {
             0% { transform: scale(0.5); opacity: 0; }
@@ -816,7 +824,7 @@
     </main>
 
     <!-- MODAL: FREUNDSCHAFTSANFRAGE -->
-    <div id="friendRequestModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="friendRequestModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl space-y-4">
             <div class="modal-header">
                 <span class="modal-icon"><i class="fa-solid fa-user-plus"></i></span>
@@ -832,7 +840,7 @@
     </div>
 
     <!-- MODAL: LOBBY EINLADUNG -->
-    <div id="lobbyInviteModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="lobbyInviteModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-sm w-full border border-cyan-500/40 shadow-2xl space-y-4">
             <div class="modal-header">
                 <span class="modal-icon modal-icon-cyan"><i class="fa-solid fa-envelope-open-text"></i></span>
@@ -899,7 +907,7 @@
     </div>
 
     <!-- MODAL: ADD FRIEND -->
-    <div id="addFriendModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="addFriendModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
             <div class="modal-header">
                 <span class="modal-icon"><i class="fa-solid fa-user-plus"></i></span>
@@ -1178,6 +1186,15 @@
             oscillator.stop(context.currentTime + duration);
         }
 
+        function playChime(firstFrequency, secondFrequency) {
+            playTone(firstFrequency, 0.13, 'sine', 0.04);
+            const timeout = setTimeout(() => {
+                pendingSoundTimeouts.delete(timeout);
+                playTone(secondFrequency, 0.17, 'sine', 0.035);
+            }, 95);
+            pendingSoundTimeouts.add(timeout);
+        }
+
         function playWordSuccess(streak = 1) {
             const base = 520 + Math.min(Math.max(streak - 1, 0), 8) * 55;
             playTone(base, 0.12, 'sine', 0.07);
@@ -1309,6 +1326,7 @@
             container.appendChild(toast);
             if (toastType === 'error') playTone(235, 0.09, 'triangle', 0.025, 175);
             else if (toastType === 'warning') playTone(440, 0.08, 'sine', 0.022, 360);
+            else playChime(587, 784);
         }
 
         window.alert = function(msg) {
@@ -1639,6 +1657,7 @@
 
                 c.on('open', () => {
                     c.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
+                    document.getElementById('friendTagInput').value = '';
                     showToast('Freundschaftsanfrage gesendet!', 'success');
                     closeAddFriendModal();
                 });
@@ -1671,6 +1690,7 @@
                     renderFriendList();
                     checkFriendOnline(friendTag);
                 }
+                showToast('Freundschaftsanfrage angenommen.', 'success');
             }
             document.getElementById('friendRequestModal').classList.add('hidden');
             pendingFriendConn = null;
@@ -2801,12 +2821,14 @@
         function handleNetworkData(data, senderConn) {
             switch(data.type) {
                 case 'FRIEND_REQUEST':
+                    playChime(784, 988);
                     pendingFriendConn = senderConn;
                     pendingFriendData = data;
                     document.getElementById('friendRequestText').innerHTML = `<b>${data.name} #${data.tag}</b> möchte dich als Freund hinzufügen.`;
                     document.getElementById('friendRequestModal').classList.remove('hidden');
                     break;
                 case 'FRIEND_ACCEPT':
+                    playChime(784, 988);
                     if (!friends.some(f => f.tag === data.tag)) {
                         friends.push({ name: data.name, tag: data.tag, peerId: data.id });
                         localStorage.setItem('wortketten_friends', JSON.stringify(friends));
@@ -2825,18 +2847,21 @@
                     break;
                 }
                 case 'LOBBY_INVITE':
+                    playChime(784, 988);
                     pendingLobbyHostId = data.hostTag;
                     pendingInviteMode = 'words';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
                     break;
                 case 'PONG_LOBBY_INVITE':
+                    playChime(784, 988);
                     pendingLobbyHostId = data.hostTag;
                     pendingInviteMode = 'pong';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Pong-Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
                     break;
                 case 'HANGMAN_LOBBY_INVITE':
+                    playChime(784, 988);
                     pendingLobbyHostId = data.hostTag;
                     pendingInviteMode = 'hangman';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Hangman-Lobby ein!`;
