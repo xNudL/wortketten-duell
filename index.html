@@ -393,27 +393,68 @@
         .blackjack-card-face {
             position: absolute;
             inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
             overflow: hidden;
             border: 1px solid #cbd5e1;
             border-radius: .7rem;
-            padding: .375rem;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
             box-shadow: 0 8px 18px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.92);
         }
+        .blackjack-card-image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: .62rem;
+            object-fit: contain;
+        }
         .blackjack-card-front { background: linear-gradient(145deg, #fff 0%, #f8fafc 55%, #e2e8f0 100%); }
+        .blackjack-card-fallback {
+            position: absolute;
+            inset: .375rem;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            color: #0f172a;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .blackjack-card-front.is-fallback .blackjack-card-fallback { display: flex; }
+        .blackjack-card-fallback.is-red { color: #e11d48; }
+        .blackjack-card-fallback-corner { font-size: .9rem; }
+        .blackjack-card-fallback-corner small { display: block; font-size: .68rem; }
+        .blackjack-card-fallback-suit { align-self: center; font-size: 2rem; }
+        .blackjack-card-fallback-corner.is-reversed { align-self: flex-end; transform: rotate(180deg); }
         .blackjack-card-back {
-            align-items: center;
-            justify-content: center;
             border-color: rgba(226,192,112,.75);
             background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
             box-shadow: inset 0 0 0 3px rgba(212,175,55,.24), 0 8px 18px rgba(0,0,0,.32);
             color: #fef3c7;
+        }
+        .blackjack-card-back .blackjack-card-image { border-radius: .55rem; }
+        .blackjack-card-back-fallback {
+            position: absolute;
+            inset: 3px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(226,192,112,.2);
+            border-radius: .5rem;
             font-size: 1.5rem;
             font-weight: 900;
+        }
+        .blackjack-card-back.is-fallback .blackjack-card-back-fallback { display: flex; }
+        .blackjack-card-back-fallback small { display: block; font-size: 9px; letter-spacing: .25em; }
+        .blackjack-card-back-fallback::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(226,192,112,.2);
+            border-radius: .4rem;
+            pointer-events: none;
+        }
+        .blackjack-card-back-fallback span { position: relative; }
+        .blackjack-card-back-fallback {
+            background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
         }
         .blackjack-card-front { transform: rotateY(180deg); }
         @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
@@ -1145,9 +1186,9 @@
                 <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
                 
                 <div class="text-center max-w-lg mx-auto mb-6">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Spielesammlung</span>
-                    <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">Wähle deinen Modus</h2>
-                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt mit einem vierstelligen Spielcode bei.</p>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Wort- &amp; Denkspiel</span>
+                    <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">WORTKETTEN</h2>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Verändere Buchstaben, bilde neue Wörter und tritt gegen deine Freunde an.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -4555,21 +4596,29 @@
             const suit = card && ['♠', '♥', '♦', '♣'].includes(card.suit) ? card.suit : '';
             const hasValue = !!(rank && suit);
             const redSuit = hasValue && (suit === '♥' || suit === '♦');
-            const colorClass = redSuit ? 'text-rose-600' : 'text-slate-950';
             const label = faceUp && hasValue ? `${rank} ${suit}` : 'Verdeckte Karte';
             const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand}, ${handIndex})"` : '';
             const newCardClass = card && card.isNewlyDealt ? 'is-new' : '';
             const animateFlip = faceUp && !!(card && card.isNewlyFlipped);
+            const suitCode = { '♠': 'S', '♥': 'H', '♦': 'D', '♣': 'C' }[suit];
+            const rankCode = rank === '10' ? '0' : rank;
+            const cardImage = hasValue
+                ? `https://deckofcardsapi.com/static/img/${rankCode}${suitCode}.png`
+                : '';
+            const fallbackColor = redSuit ? 'is-red' : '';
             return `<div class="blackjack-card-scene ${newCardClass}">
                 <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : label}">
                     <span class="blackjack-card-face blackjack-card-back" aria-hidden="true">
-                        <span class="absolute inset-1 rounded-md border border-amber-100/20"></span>
-                        <span class="relative">✦<small class="block text-[9px] tracking-[.25em]">DECK</small></span>
+                        <img class="blackjack-card-image" src="https://deckofcardsapi.com/static/img/back.png" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">
+                        <span class="blackjack-card-back-fallback"><span>✦<small>DECK</small></span></span>
                     </span>
-                    <span class="blackjack-card-face blackjack-card-front ${colorClass}" aria-hidden="true">
-                        <span class="text-sm font-black leading-none">${hasValue ? `${rank}<span class="block text-[11px]">${suit}</span>` : ''}</span>
-                        <span class="self-center text-2xl font-black">${hasValue ? suit : ''}</span>
-                        <span class="rotate-180 self-end text-sm font-black leading-none">${hasValue ? `${rank}<span class="block text-[11px]">${suit}</span>` : ''}</span>
+                    <span class="blackjack-card-face blackjack-card-front ${hasValue ? '' : 'is-fallback'}" aria-hidden="true">
+                        ${hasValue ? `<img class="blackjack-card-image" src="${cardImage}" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">` : ''}
+                        <span class="blackjack-card-fallback ${fallbackColor}">
+                            <span class="blackjack-card-fallback-corner">${hasValue ? rank : '?'}<small>${hasValue ? suit : ''}</small></span>
+                            <span class="blackjack-card-fallback-suit">${hasValue ? suit : '?'}</span>
+                            <span class="blackjack-card-fallback-corner is-reversed">${hasValue ? rank : '?'}<small>${hasValue ? suit : ''}</small></span>
+                        </span>
                     </span>
                 </button>
             </div>`;
