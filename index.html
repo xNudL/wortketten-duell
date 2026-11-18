@@ -430,15 +430,42 @@
         }
         .blackjack-player-box.is-active {
             z-index: 1;
-            transform: scale(1.025);
+            grid-column: 1 / -1;
+            width: min(100%, 48rem);
+            justify-self: center;
+            transform: scale(1.015);
             border-color: rgba(110,231,183,.72);
             background: linear-gradient(150deg, rgba(6,54,44,.84), rgba(2,20,29,.76));
             box-shadow: 0 0 0 1px rgba(110,231,183,.16), 0 0 30px rgba(16,185,129,.2), 0 20px 34px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
         }
+        .blackjack-player-box.is-compact { padding: .7rem; }
         #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
-            opacity: .7;
-            transform: scale(.985);
+            opacity: .78;
+            transform: scale(.97);
             filter: saturate(.72);
+        }
+        #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) .blackjack-player-avatar {
+            width: 2rem;
+            height: 2rem;
+            border-radius: .7rem;
+            font-size: .9rem;
+        }
+        #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) .blackjack-hand-zone {
+            min-height: 0;
+            margin-top: .5rem;
+            padding: .5rem;
+        }
+        .blackjack-hand-panel {
+            min-width: 0;
+            border: 1px solid rgba(251,191,36,.12);
+            border-radius: .85rem;
+            background: rgba(0,0,0,.14);
+            transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+        }
+        .blackjack-hand-panel.is-current-hand {
+            border-color: rgba(110,231,183,.58);
+            box-shadow: 0 0 18px rgba(16,185,129,.12);
+            transform: translateY(-2px);
         }
         .blackjack-player-avatar {
             display: grid;
@@ -492,7 +519,7 @@
             .blackjack-card-inner { transition: none; }
             .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
             .blackjack-player-box { transition: none; }
-            .blackjack-player-box.is-active, #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) { transform: none; }
+            .blackjack-player-box.is-active, #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active), .blackjack-hand-panel.is-current-hand { transform: none; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
@@ -529,6 +556,7 @@
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
             <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
             <button id="tabBlackjack" onclick="switchMainTab('blackjack')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-diamond mr-1"></i> Blackjack</button>
+            <button id="tabStats" onclick="switchMainTab('stats')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-chart-pie mr-1"></i> Statistiken</button>
         </nav>
         <div class="flex items-center space-x-3">
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -610,24 +638,6 @@
                     <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt mit einem vierstelligen Spielcode bei.</p>
                 </div>
 
-                <div id="statsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6" aria-label="Deine ewigen Statistiken">
-                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
-                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Wortketten</div>
-                        <div id="statsWordsSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
-                        <div id="statsWordsRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
-                    </div>
-                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
-                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Pong</div>
-                        <div id="statsPongSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
-                        <div id="statsPongRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
-                    </div>
-                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
-                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Hangman</div>
-                        <div id="statsHangmanSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
-                        <div id="statsHangmanRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
-                    </div>
-                </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <!-- Host Card -->
                     <div class="glass rounded-2xl p-5 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 to-transparent flex flex-col justify-between">
@@ -688,6 +698,38 @@
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <div id="screenStats" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80">
+                <div class="mb-6 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-300 border border-violet-500/20 uppercase tracking-widest">Dein Fortschritt</span>
+                    <h2 class="mt-3 text-2xl sm:text-3xl font-black">Statistiken</h2>
+                    <p class="mt-1 text-xs sm:text-sm text-gray-400">Partien, Siege und persönliche Siegesserien in allen Minigames.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Deine Statistiken">
+                    <div class="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 px-4 py-5 text-center">
+                        <div class="text-xs font-bold uppercase tracking-wider text-indigo-300">Wortketten</div>
+                        <div id="statsWordsSummary" class="mt-2 text-sm font-semibold text-gray-100">0 Partien · 0 Siege · 0 Niederlagen</div>
+                        <div id="statsWordsRecord" class="mt-1 text-xs text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                    <div class="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 px-4 py-5 text-center">
+                        <div class="text-xs font-bold uppercase tracking-wider text-cyan-300">Pong</div>
+                        <div id="statsPongSummary" class="mt-2 text-sm font-semibold text-gray-100">0 Partien · 0 Siege · 0 Niederlagen</div>
+                        <div id="statsPongRecord" class="mt-1 text-xs text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                    <div class="rounded-2xl border border-pink-500/20 bg-pink-950/20 px-4 py-5 text-center">
+                        <div class="text-xs font-bold uppercase tracking-wider text-pink-300">Hangman</div>
+                        <div id="statsHangmanSummary" class="mt-2 text-sm font-semibold text-gray-100">0 Partien · 0 Siege · 0 Niederlagen</div>
+                        <div id="statsHangmanRecord" class="mt-1 text-xs text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                    <div class="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 px-4 py-5 text-center">
+                        <div class="text-xs font-bold uppercase tracking-wider text-emerald-300">Blackjack</div>
+                        <div id="statsBlackjackSummary" class="mt-2 text-sm font-semibold text-gray-100">0 Partien · 0 Siege · 0 Niederlagen</div>
+                        <div id="statsBlackjackRecord" class="mt-1 text-xs text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1525,10 +1567,16 @@
                 if (Number.isSafeInteger(record.roundPoints) && record.roundPoints >= 0) player.roundPoints = Math.min(record.roundPoints, 1000000000);
                 if (Number.isSafeInteger(record.wins) && record.wins >= 0) player.wins = Math.min(record.wins, 1000000000);
                 if (Number.isSafeInteger(record.bet) && record.bet >= 0) player.bet = Math.min(record.bet, 1000000000);
-                if (['waiting', 'dealer', 'playing', 'stood', 'bust', 'win', 'lose', 'push'].includes(record.status)) player.status = record.status;
+                if ('bankroll' in record || Array.isArray(record.hands)) {
+                    player.bankroll = safeNonNegativeInteger(record.bankroll, 0, 1000000000);
+                }
+                if (['waiting', 'dealer', 'betting', 'broke', 'playing', 'stood', 'bust', 'win', 'lose', 'push'].includes(record.status)) player.status = record.status;
                 if (record.natural === true) player.natural = true;
                 if (record.doublePending === true) player.doublePending = true;
+                if (record.betLocked === true) player.betLocked = true;
+                if (record.rebuyUsed === true) player.rebuyUsed = true;
                 if (Array.isArray(record.cards)) player.cards = sanitizeBlackjackCards(record.cards);
+                if (Array.isArray(record.hands)) player.hands = sanitizeBlackjackHands(record.hands);
                 safeRecords.push(player);
                 return safeRecords;
             }, []);
@@ -1536,16 +1584,28 @@
 
         function sanitizeBlackjackCards(cards) {
             if (!Array.isArray(cards)) return [];
-            return cards.slice(0, 12).filter(card =>
-                card && typeof card === 'object' &&
-                typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) &&
-                ['♠', '♥', '♦', '♣'].includes(card.suit)
-            ).map(card => ({
-                rank: card.rank,
-                suit: card.suit,
+            return cards.slice(0, 12).filter(card => {
+                if (!card || typeof card !== 'object') return false;
+                if (card.isFlipped === false) return true;
+                return typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) &&
+                    ['♠', '♥', '♦', '♣'].includes(card.suit);
+            }).map(card => ({
+                rank: card.isFlipped === false ? '' : card.rank,
+                suit: card.isFlipped === false ? '' : card.suit,
                 isFlipped: card.isFlipped !== false,
                 isNewlyDealt: card.isNewlyDealt === true,
                 isNewlyFlipped: card.isNewlyFlipped === true
+            }));
+        }
+
+        function sanitizeBlackjackHands(hands) {
+            return hands.slice(0, 2).filter(hand => hand && typeof hand === 'object').map(hand => ({
+                cards: sanitizeBlackjackCards(hand.cards),
+                bet: safeNonNegativeInteger(hand.bet, 0, 1000000000),
+                status: ['playing', 'stood', 'bust', 'win', 'lose', 'push'].includes(hand.status) ? hand.status : 'playing',
+                natural: hand.natural === true,
+                doublePending: hand.doublePending === true,
+                isSplit: hand.isSplit === true
             }));
         }
 
@@ -1616,7 +1676,7 @@
 
         function sanitizeBlackjackState(value) {
             if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-            const phases = ['dealing', 'playing', 'dealer', 'settled'];
+            const phases = ['betting', 'dealing', 'playing', 'dealer', 'settled'];
             if (!phases.includes(value.phase) || !Number.isSafeInteger(value.round) ||
                 value.round < 1 || (value.currentPlayerId !== null && !isSafePlayerId(value.currentPlayerId)) ||
                 !Array.isArray(value.dealerCards)) return null;
@@ -1625,6 +1685,7 @@
                 phase: value.phase,
                 dealerId: value.dealerId === 'bank' || isSafePlayerId(value.dealerId) ? value.dealerId : 'bank',
                 currentPlayerId: isSafePlayerId(value.currentPlayerId) ? value.currentPlayerId : null,
+                currentHandIndex: safeNonNegativeInteger(value.currentHandIndex, 0, 1),
                 dealerCards: sanitizeBlackjackCards(value.dealerCards),
                 dealerRevealed: value.dealerRevealed === true,
                 message: sanitizePlainText(value.message, 180)
@@ -1830,10 +1891,11 @@
         let blackjackDealerTimer = null;
         let blackjackDealerTurnToken = 0;
         let blackjackAudioSnapshot = null;
+        let blackjackStatsRecordedKey = '';
         let hangmanAudioSnapshot = null;
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
-        const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
+        const GAME_STAT_MODES = ['words', 'pong', 'hangman', 'blackjack'];
 
         function emptyGameStats() {
             return Object.fromEntries(GAME_STAT_MODES.map(mode => [mode, {
@@ -1873,12 +1935,14 @@
             if (!GAME_STAT_MODES.includes(mode)) return;
             const stats = gameStats[mode];
             stats.played++;
-            if (won) {
+            if (won === true) {
                 stats.wins++;
                 stats.currentStreak++;
                 stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
-            } else {
+            } else if (won === false) {
                 stats.losses++;
+                stats.currentStreak = 0;
+            } else {
                 stats.currentStreak = 0;
             }
             saveGameStats();
@@ -1890,7 +1954,8 @@
             const elements = {
                 words: ['statsWordsSummary', 'statsWordsRecord'],
                 pong: ['statsPongSummary', 'statsPongRecord'],
-                hangman: ['statsHangmanSummary', 'statsHangmanRecord']
+                hangman: ['statsHangmanSummary', 'statsHangmanRecord'],
+                blackjack: ['statsBlackjackSummary', 'statsBlackjackRecord']
             };
             Object.entries(elements).forEach(([mode, ids]) => {
                 const stats = gameStats[mode];
@@ -1899,6 +1964,18 @@
                 if (summary) summary.textContent = `${stats.played} Partien · ${stats.wins} Siege · ${stats.losses} Niederlagen`;
                 if (record) record.textContent = `🔥 Rekordserie ${stats.maxStreak}`;
             });
+        }
+
+        function recordBlackjackRoundStats() {
+            if (!blackjackState || blackjackState.phase !== 'settled') return;
+            const key = `${document.getElementById('blackjackRoomCode').textContent}:${blackjackState.round}`;
+            if (blackjackStatsRecordedKey === key) return;
+            const player = blackjackPlayers.find(entry => entry.id === myId);
+            if (!player || player.id === blackjackDealerId || !player.hands || !player.hands.length) return;
+            blackjackStatsRecordedKey = key;
+            if (player.hands.some(hand => hand.status === 'win')) recordGameResult('blackjack', true);
+            else if (player.hands.every(hand => hand.status === 'push')) recordGameResult('blackjack', null);
+            else recordGameResult('blackjack', false);
         }
 
         function getAudioContext() {
@@ -2035,7 +2112,9 @@
                 dealer: (state.dealerCards || []).map(card => !!card && card.isFlipped !== false)
             };
             blackjackPlayers.forEach(player => {
-                hands[player.id] = (player.cards || []).map(card => !!card && card.isFlipped !== false);
+                (player.hands || []).forEach((hand, index) => {
+                    hands[`${player.id}:${index}`] = hand.cards.map(card => !!card && card.isFlipped !== false);
+                });
             });
             const previous = blackjackAudioSnapshot;
             const sameRound = previous && previous.round === state.round;
@@ -2998,6 +3077,7 @@
             document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabBlackjack').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabStats').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             if (tab === 'pong') {
                 document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white transition';
                 switchScreen('screenPong');
@@ -3010,6 +3090,10 @@
                 document.getElementById('tabBlackjack').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white transition';
                 switchScreen('screenBlackjack');
                 renderBlackjackView();
+            } else if (tab === 'stats') {
+                document.getElementById('tabStats').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white transition';
+                switchScreen('screenStats');
+                renderStatsSummary();
             } else {
                 document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
                 switchScreen('screenSetup');
@@ -3019,6 +3103,8 @@
         const BLACKJACK_SUITS = ['♠', '♥', '♦', '♣'];
         const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         const BLACKJACK_MAX_PLAYERS = 6;
+        const BLACKJACK_MIN_BET = 10;
+        const BLACKJACK_REBUY_AMOUNT = 500;
 
         function hostBlackjackLobby() {
             switchMainTab('blackjack');
@@ -3026,11 +3112,13 @@
                 isHost = true;
                 connections = [];
                 blackjackPlayers = [{
-                    id: myId, name: `${myName} #${myTag}`, cards: [], wins: 0,
-                    bet: 10, status: 'waiting', natural: false, color: myPlayerColor, badge: myPlayerBadge, conn: null
+                    id: myId, name: `${myName} #${myTag}`, cards: [], hands: [], wins: 0,
+                    bankroll: 1000, bet: BLACKJACK_MIN_BET, betLocked: false, rebuyUsed: false,
+                    status: 'waiting', natural: false, color: myPlayerColor, badge: myPlayerBadge, conn: null
                 }];
                 blackjackRoomActive = true;
                 blackjackState = null;
+                blackjackStatsRecordedKey = '';
                 blackjackDeck = [];
                 blackjackDealerId = 'bank';
                 document.getElementById('blackjackRoomCode').textContent = '#' + myTag;
@@ -3048,6 +3136,7 @@
                 isHost = false;
                 blackjackRoomActive = false;
                 blackjackState = null;
+                blackjackStatsRecordedKey = '';
                 blackjackPlayers = [];
                 blackjackDealerId = 'bank';
                 conn = peer.connect('wd-user-' + code);
@@ -3109,32 +3198,57 @@
             return total;
         }
 
-        function getPublicBlackjackPlayers(viewerId = null) {
+        function blackjackCardValue(card) {
+            if (!card || !BLACKJACK_RANKS.includes(card.rank)) return 0;
+            return card.rank === 'A' ? 11 : ['J', 'Q', 'K'].includes(card.rank) ? 10 : Number(card.rank);
+        }
+
+        function getCurrentBlackjackHand(player) {
+            if (!player || !Array.isArray(player.hands) || !player.hands.length) return null;
+            const index = blackjackState && blackjackState.currentPlayerId === player.id
+                ? blackjackState.currentHandIndex || 0
+                : 0;
+            return player.hands[index] || null;
+        }
+
+        function canSplitBlackjackHand(player, hand = getCurrentBlackjackHand(player)) {
+            return !!hand && player.hands.length === 1 && hand.cards.length === 2 &&
+                hand.cards.every(blackjackCardIsFaceUp) &&
+                blackjackCardValue(hand.cards[0]) === blackjackCardValue(hand.cards[1]) &&
+                player.bankroll >= hand.bet;
+        }
+
+        function getPublicBlackjackPlayers() {
             return blackjackPlayers.map(player => ({
-                id: player.id, name: player.name, cards: player.cards.map(card =>
-                    card.isFlipped === false && player.id !== viewerId
+                id: player.id, name: player.name,
+                cards: (player.cards || []).map(card => card.isFlipped === false
+                    ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
+                    : { ...card }),
+                hands: (player.hands || []).map(hand => ({
+                    ...hand,
+                    cards: hand.cards.map(card => card.isFlipped === false
                         ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
-                        : { ...card }
-                ),
+                        : { ...card })
+                })),
                 wins: player.wins, bet: player.bet, status: player.status, natural: player.natural,
+                bankroll: player.bankroll, betLocked: player.betLocked, rebuyUsed: player.rebuyUsed,
                 role: player.id === blackjackDealerId ? 'dealer' : 'punter',
                 color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
         }
 
-        function getPublicBlackjackState(viewerId = null) {
+        function getPublicBlackjackState() {
             if (!blackjackState) return null;
-            const dealerCards = blackjackState.dealerCards.map(card =>
-                card.isFlipped === false && viewerId !== blackjackDealerId
-                    ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
-                    : { ...card }
-            );
+            const dealerCards = blackjackState.dealerCards.map(card => card.isFlipped === false
+                ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
+                : { ...card });
             const visibleDealerCards = dealerCards.filter(blackjackCardIsFaceUp);
             return {
                 round: blackjackState.round,
                 phase: blackjackState.phase,
                 dealerId: blackjackDealerId,
                 currentPlayerId: blackjackState.currentPlayerId,
+                currentHandIndex: blackjackState.currentHandIndex || 0,
                 dealerCards,
                 dealerRevealed: blackjackState.dealerRevealed,
                 dealerTotal: blackjackHandValue(visibleDealerCards),
@@ -3195,23 +3309,112 @@
             const previousRound = blackjackState ? blackjackState.round : 0;
             blackjackState = {
                 round: previousRound + 1,
-                phase: 'dealing',
+                phase: 'betting',
                 currentPlayerId: null,
+                currentHandIndex: 0,
                 dealerCards: [],
                 dealerRevealed: false,
-                message: humanDealer
-                    ? `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} teilt die Karten aus.`
-                    : 'Die Bank teilt die Karten aus.'
+                message: 'Setzt euren Einsatz, bevor die Karten ausgeteilt werden.'
             };
             blackjackPlayers.forEach(player => {
                 player.cards = [];
-                player.bet = 10;
-                player.status = player.id === blackjackDealerId && humanDealer ? 'dealer' : 'playing';
+                player.hands = [];
+                player.bet = player.bankroll >= BLACKJACK_MIN_BET ? BLACKJACK_MIN_BET : 0;
+                player.betLocked = player.id === blackjackDealerId && humanDealer || player.bankroll < BLACKJACK_MIN_BET;
+                player.status = player.id === blackjackDealerId && humanDealer
+                    ? 'dealer'
+                    : player.bankroll < BLACKJACK_MIN_BET ? 'broke' : 'betting';
                 player.natural = false;
                 player.doublePending = false;
             });
-            if (!humanDealer) {
-                dealBlackjackCards();
+            syncBlackjackTable();
+        }
+
+        function placeBlackjackBet() {
+            const input = document.getElementById('blackjackBetInput');
+            const amount = input ? Number(input.value) : NaN;
+            if (!Number.isSafeInteger(amount) || amount < BLACKJACK_MIN_BET || amount % BLACKJACK_MIN_BET !== 0) {
+                showToast(`Der Einsatz muss mindestens ${BLACKJACK_MIN_BET} Chips betragen und in Zehnerschritten steigen.`, 'warning');
+                return;
+            }
+            if (isHost) processBlackjackBet(amount, myId);
+            else if (conn && conn.open) conn.send({ type: 'BLACKJACK_BET', amount, playerId: myId });
+        }
+
+        function processBlackjackBet(amount, playerId, senderConn = null) {
+            if (!isHost || !blackjackState || blackjackState.phase !== 'betting' ||
+                !Number.isSafeInteger(amount) || amount < BLACKJACK_MIN_BET ||
+                amount % BLACKJACK_MIN_BET !== 0) return;
+            const player = blackjackPlayers.find(entry => entry.id === playerId);
+            if (!player || player.id === blackjackDealerId || player.betLocked ||
+                (senderConn && !isBlackjackSender(playerId, senderConn)) ||
+                amount > player.bankroll) return;
+            player.bankroll -= amount;
+            player.bet = amount;
+            player.betLocked = true;
+            player.status = 'betting';
+            player.hands = [];
+            blackjackState.message = `${player.name} hat ${amount} Chips gesetzt.`;
+            advanceBlackjackBetting();
+        }
+
+        function advanceBlackjackBetting() {
+            if (!isHost || !blackjackState || blackjackState.phase !== 'betting') return;
+            const humanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
+            const punters = blackjackPlayers.filter(player => !humanDealer || player.id !== blackjackDealerId);
+            const fundedPunters = punters.filter(player => player.betLocked && player.bet >= BLACKJACK_MIN_BET);
+            if (!fundedPunters.length) {
+                blackjackState.message = punters.some(player => player.bankroll >= BLACKJACK_MIN_BET)
+                    ? 'Setzt euren Einsatz, bevor die Runde beginnt.'
+                    : 'Kein Punter hat genug Chips. Einmaliger Nachschub ist verfügbar.';
+                syncBlackjackTable();
+                return;
+            }
+            if (punters.some(player => player.bankroll >= BLACKJACK_MIN_BET && !player.betLocked)) {
+                syncBlackjackTable();
+                return;
+            }
+
+            punters.forEach(player => {
+                if (player.betLocked && player.bet >= BLACKJACK_MIN_BET) {
+                    player.hands = [{
+                        cards: [], bet: player.bet, status: 'playing',
+                        natural: false, doublePending: false, isSplit: false
+                    }];
+                    player.status = 'playing';
+                } else {
+                    player.status = 'broke';
+                }
+            });
+            blackjackState.phase = 'dealing';
+            blackjackState.message = humanDealer
+                ? `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} teilt die Karten aus.`
+                : 'Die Bank teilt die Karten aus.';
+            if (humanDealer) syncBlackjackTable();
+            else dealBlackjackCards();
+        }
+
+        function requestBlackjackRebuy() {
+            if (isHost) processBlackjackRebuy(myId);
+            else if (conn && conn.open) conn.send({ type: 'BLACKJACK_REBUY', playerId: myId });
+        }
+
+        function processBlackjackRebuy(playerId, senderConn = null) {
+            if (!isHost || (blackjackState && !['betting', 'settled'].includes(blackjackState.phase))) return;
+            const player = blackjackPlayers.find(entry => entry.id === playerId);
+            if (!player || player.bankroll >= BLACKJACK_MIN_BET || player.rebuyUsed ||
+                (blackjackState && blackjackState.phase === 'betting' &&
+                    player.betLocked && player.status !== 'broke') ||
+                (senderConn && !isBlackjackSender(playerId, senderConn))) return;
+            player.bankroll += BLACKJACK_REBUY_AMOUNT;
+            player.rebuyUsed = true;
+            player.bet = BLACKJACK_MIN_BET;
+            player.betLocked = false;
+            player.status = blackjackState && blackjackState.phase === 'betting' ? 'betting' : 'waiting';
+            if (blackjackState && blackjackState.phase === 'betting') {
+                blackjackState.message = `${player.name} hat einmalig ${BLACKJACK_REBUY_AMOUNT} Chips Nachschub erhalten.`;
+                advanceBlackjackBetting();
                 return;
             }
             syncBlackjackTable();
@@ -3224,14 +3427,15 @@
             if (humanDealer && dealerPlayerId !== blackjackDealerId) return;
             if (senderConn && !isBlackjackSender(dealerPlayerId, senderConn)) return;
 
-            const punters = blackjackPlayers.filter(player => !humanDealer || player.id !== blackjackDealerId);
-            punters.forEach(player => player.cards.push(drawBlackjackCard()));
+            const punters = blackjackPlayers.filter(player => player.status === 'playing');
+            punters.forEach(player => player.hands[0].cards.push(drawBlackjackCard()));
             blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
-            punters.forEach(player => player.cards.push(drawBlackjackCard()));
+            punters.forEach(player => player.hands[0].cards.push(drawBlackjackCard()));
             blackjackState.dealerCards.push(drawBlackjackCard());
             blackjackState.phase = 'playing';
             const currentPlayer = punters.find(player => player.status === 'playing');
             blackjackState.currentPlayerId = currentPlayer ? currentPlayer.id : null;
+            blackjackState.currentHandIndex = 0;
             if (!currentPlayer) {
                 beginBlackjackDealerTurn();
             } else {
@@ -3250,11 +3454,25 @@
                 const nextPlayer = blackjackPlayers[index];
                 if (nextPlayer.status === 'playing') {
                     blackjackState.currentPlayerId = nextPlayer.id;
+                    blackjackState.currentHandIndex = 0;
                     blackjackState.message = `${nextPlayer.name} ist am Zug. Drehe deine Karten um.`;
                     return;
                 }
             }
             beginBlackjackDealerTurn();
+        }
+
+        function advanceBlackjackHandOrPlayer(player) {
+            const nextHandIndex = (blackjackState.currentHandIndex || 0) + 1;
+            if (player.hands[nextHandIndex] && player.hands[nextHandIndex].status === 'playing') {
+                blackjackState.currentHandIndex = nextHandIndex;
+                blackjackState.message = `${player.name} spielt Hand ${nextHandIndex + 1}. Drehe deine Karten um.`;
+                return;
+            }
+            if (!player.hands.some(hand => hand.status === 'playing')) {
+                player.status = player.hands.every(hand => hand.status === 'bust') ? 'bust' : 'stood';
+            }
+            advanceBlackjackTurn(player.id);
         }
 
         function beginBlackjackDealerTurn() {
@@ -3333,17 +3551,29 @@
                     player.status = 'dealer';
                     return;
                 }
-                const total = blackjackHandValue(player.cards);
-                let result = 'push';
-                if (player.status === 'bust' || (dealerNatural && !player.natural)) result = 'lose';
-                else if (player.natural && !dealerNatural) result = 'win';
-                else if (dealerTotal > 21 || total > dealerTotal) result = 'win';
-                else if (total < dealerTotal) result = 'lose';
-                player.status = result;
-                if (result === 'win') {
-                    player.wins++;
-                    wins++;
+                if (!player.hands || !player.hands.length) {
+                    player.status = player.bankroll < BLACKJACK_MIN_BET ? 'broke' : 'waiting';
+                    return;
                 }
+                const results = [];
+                (player.hands || []).forEach(hand => {
+                    const total = blackjackHandValue(hand.cards);
+                    let result = 'push';
+                    if (hand.status === 'bust' || (dealerNatural && !hand.natural)) result = 'lose';
+                    else if (hand.natural && !dealerNatural) result = 'win';
+                    else if (dealerTotal > 21 || total > dealerTotal) result = 'win';
+                    else if (total < dealerTotal) result = 'lose';
+                    hand.status = result;
+                    results.push(result);
+                    if (result === 'win') {
+                        player.bankroll += hand.bet * (hand.natural ? 2.5 : 2);
+                        player.wins++;
+                        wins++;
+                    } else if (result === 'push') {
+                        player.bankroll += hand.bet;
+                    }
+                });
+                player.status = results.includes('win') ? 'win' : results.includes('lose') ? 'lose' : 'push';
             });
             blackjackState.phase = 'settled';
             blackjackState.currentPlayerId = null;
@@ -3391,7 +3621,7 @@
         }
 
         function blackjackPlayerAction(action) {
-            if (!blackjackRoomActive || !['hit', 'stand', 'double'].includes(action)) return;
+            if (!blackjackRoomActive || !['hit', 'stand', 'double', 'split'].includes(action)) return;
             if (isHost) {
                 processBlackjackAction(action, myId);
             } else if (conn && conn.open) {
@@ -3404,16 +3634,16 @@
             return !!player && player.conn === senderConn && senderConn && senderConn.open;
         }
 
-        function blackjackFlipCard(cardIndex, dealerHand = false) {
+        function blackjackFlipCard(cardIndex, dealerHand = false, handIndex = 0) {
             if (!blackjackRoomActive) return;
             if (isHost) {
-                processBlackjackCardFlip(myId, cardIndex, dealerHand);
+                processBlackjackCardFlip(myId, cardIndex, dealerHand, null, handIndex);
             } else if (conn && conn.open) {
-                conn.send({ type: 'BLACKJACK_FLIP_CARD', playerId: myId, cardIndex, dealerHand });
+                conn.send({ type: 'BLACKJACK_FLIP_CARD', playerId: myId, cardIndex, dealerHand, handIndex });
             }
         }
 
-        function processBlackjackCardFlip(playerId, cardIndex, dealerHand = false, senderConn = null) {
+        function processBlackjackCardFlip(playerId, cardIndex, dealerHand = false, senderConn = null, handIndex = 0) {
             if (!isHost || !blackjackState || !Number.isInteger(cardIndex) || cardIndex < 0) return;
             if (senderConn && !isBlackjackSender(playerId, senderConn)) return;
 
@@ -3437,33 +3667,36 @@
                 if (blackjackState.phase !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
                 const player = blackjackPlayers.find(entry => entry.id === playerId);
                 if (!player || player.status !== 'playing') return;
-                const card = player.cards[cardIndex];
+                if (!Number.isInteger(handIndex) || handIndex !== blackjackState.currentHandIndex) return;
+                const hand = player.hands[handIndex];
+                if (!hand || hand.status !== 'playing') return;
+                const card = hand.cards[cardIndex];
                 if (!card || card.isFlipped !== false) return;
                 card.isFlipped = true;
                 card.isNewlyFlipped = true;
-                if (player.cards.every(blackjackCardIsFaceUp)) {
-                    const total = blackjackHandValue(player.cards);
+                if (hand.cards.every(blackjackCardIsFaceUp)) {
+                    const total = blackjackHandValue(hand.cards);
                     if (total > 21) {
-                        player.status = 'bust';
-                        player.doublePending = false;
+                        hand.status = 'bust';
+                        hand.doublePending = false;
                         blackjackState.message = `${player.name} ist über 21.`;
-                        advanceBlackjackTurn(playerId);
+                        advanceBlackjackHandOrPlayer(player);
                     } else if (total === 21) {
-                        player.natural = player.cards.length === 2;
-                        player.status = 'stood';
-                        player.doublePending = false;
+                        hand.natural = !hand.isSplit && hand.cards.length === 2;
+                        hand.status = 'stood';
+                        hand.doublePending = false;
                         blackjackState.message = `${player.name} hat 21 erreicht.`;
-                        advanceBlackjackTurn(playerId);
-                    } else if (player.doublePending) {
-                        player.doublePending = false;
-                        player.status = 'stood';
+                        advanceBlackjackHandOrPlayer(player);
+                    } else if (hand.doublePending) {
+                        hand.doublePending = false;
+                        hand.status = 'stood';
                         blackjackState.message = `${player.name} hat verdoppelt.`;
-                        advanceBlackjackTurn(playerId);
+                        advanceBlackjackHandOrPlayer(player);
                     } else {
-                        blackjackState.message = `${player.name} ist am Zug (${total} Punkte).`;
+                        blackjackState.message = `${player.name} ist mit Hand ${handIndex + 1} am Zug (${total} Punkte).`;
                     }
                 } else {
-                    blackjackState.message = `${player.name}, drehe alle Karten um.`;
+                    blackjackState.message = `${player.name}, drehe alle Karten von Hand ${handIndex + 1} um.`;
                 }
             }
             syncBlackjackTable();
@@ -3474,26 +3707,38 @@
             const player = blackjackPlayers.find(entry => entry.id === playerId);
             if (!player || player.status !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
             if (senderConn && player.conn !== senderConn) return;
-            if (!player.cards.every(blackjackCardIsFaceUp)) return;
+            const hand = player.hands[blackjackState.currentHandIndex || 0];
+            if (!hand || hand.status !== 'playing' || !hand.cards.every(blackjackCardIsFaceUp)) return;
 
             if (action === 'hit') {
-                player.cards.push(drawBlackjackCard());
-                blackjackState.message = `${player.name} hat eine Karte gezogen. Drehe sie um.`;
+                hand.cards.push(drawBlackjackCard());
+                blackjackState.message = `${player.name} zieht eine Karte für Hand ${(blackjackState.currentHandIndex || 0) + 1}. Drehe sie um.`;
             } else if (action === 'stand') {
-                player.status = 'stood';
-                advanceBlackjackTurn(playerId);
-            } else if (action === 'double' && player.cards.length === 2) {
-                player.bet *= 2;
-                player.cards.push(drawBlackjackCard());
-                player.doublePending = true;
+                hand.status = 'stood';
+                advanceBlackjackHandOrPlayer(player);
+            } else if (action === 'double' && hand.cards.length === 2 && player.bankroll >= hand.bet) {
+                player.bankroll -= hand.bet;
+                hand.bet *= 2;
+                hand.cards.push(drawBlackjackCard());
+                hand.doublePending = true;
                 blackjackState.message = `${player.name} hat verdoppelt. Drehe die Karte um.`;
+            } else if (action === 'split' && canSplitBlackjackHand(player, hand)) {
+                const firstCard = hand.cards[0];
+                const secondCard = hand.cards[1];
+                player.bankroll -= hand.bet;
+                player.hands = [
+                    { cards: [firstCard, drawBlackjackCard()], bet: hand.bet, status: 'playing', natural: false, doublePending: false, isSplit: true },
+                    { cards: [secondCard, drawBlackjackCard()], bet: hand.bet, status: 'playing', natural: false, doublePending: false, isSplit: true }
+                ];
+                blackjackState.currentHandIndex = 0;
+                blackjackState.message = `${player.name} hat geteilt. Spiele Hand 1, danach Hand 2.`;
             } else {
                 return;
             }
             syncBlackjackTable();
         }
 
-        function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false) {
+        function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false, handIndex = 0) {
             const faceUp = blackjackCardIsFaceUp(card);
             const rank = card && typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) ? card.rank : '';
             const suit = card && ['♠', '♥', '♦', '♣'].includes(card.suit) ? card.suit : '';
@@ -3501,7 +3746,7 @@
             const redSuit = hasValue && (suit === '♥' || suit === '♦');
             const colorClass = redSuit ? 'text-rose-600' : 'text-slate-950';
             const label = faceUp && hasValue ? `${rank} ${suit}` : 'Verdeckte Karte';
-            const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand})"` : '';
+            const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand}, ${handIndex})"` : '';
             const newCardClass = card && card.isNewlyDealt ? 'is-new' : '';
             const animateFlip = faceUp && !!(card && card.isNewlyFlipped);
             return `<div class="blackjack-card-scene ${newCardClass}">
@@ -3560,72 +3805,142 @@
                 });
             }
 
-            const activePlayerId = state && state.phase === 'playing'
-                ? state.currentPlayerId
-                : state && humanDealer && (state.phase === 'dealing' || state.phase === 'dealer')
-                    ? blackjackDealerId
-                    : null;
+            let activePlayerId = null;
+            if (state && state.phase === 'playing') {
+                activePlayerId = state.currentPlayerId;
+            } else if (state && state.phase === 'betting') {
+                const pendingBet = blackjackPlayers.find(player =>
+                    player.id === myId && player.status === 'betting' && !player.betLocked
+                ) || blackjackPlayers.find(player => player.status === 'betting' && !player.betLocked);
+                activePlayerId = pendingBet ? pendingBet.id : null;
+            } else if (state && ['dealing', 'dealer'].includes(state.phase)) {
+                activePlayerId = humanDealer ? blackjackDealerId : 'bank';
+            } else if (state && state.phase === 'settled') {
+                const winner = blackjackPlayers.find(player => (player.hands || []).some(hand => hand.status === 'win'));
+                activePlayerId = winner ? winner.id : null;
+            }
             const hasActivePlayer = activePlayerId !== null &&
                 tablePlayers.some(player => player.id === activePlayerId);
             playersList.classList.toggle('has-active', hasActivePlayer);
+            const previousPositions = new Map(Array.from(playersList.children).map(box => [
+                box.dataset.playerId,
+                box.getBoundingClientRect()
+            ]));
+            tablePlayers.sort((left, right) =>
+                Number(right.id === activePlayerId) - Number(left.id === activePlayerId)
+            );
             playersList.innerHTML = tablePlayers.map(player => {
                 const isDealer = player.isDealer;
                 const isBank = player.isBank;
                 const isActive = player.id === activePlayerId;
                 const isMyDealer = isDealer && !isBank && player.id === myId;
-                const playerCards = isDealer ? visibleDealerCards : (player.cards || []);
-                const cardsReady = playerCards.length > 0 && playerCards.every(blackjackCardIsFaceUp);
                 const status = isDealer
                     ? !state ? 'Bereit' :
+                        state.phase === 'betting' ? 'Wartet auf Einsätze' :
                         state.phase === 'dealing' ? (isBank ? 'Bank teilt aus' : 'Teilt aus') :
                         state.phase === 'dealer' ? 'Am Zug' :
                         state.phase === 'playing' ? 'Wartet' :
                         state.phase === 'settled' ? 'Runde beendet' : 'Dealer'
-                    : player.status === 'playing' ? 'Spielt' :
+                    : player.status === 'betting' ? (player.betLocked ? 'Einsatz gesetzt' : 'Setzt Einsatz') :
+                        player.status === 'broke' ? 'Ohne Chips' :
+                        player.status === 'playing' ? 'Spielt' :
                         player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
                         player.status === 'bust' ? 'Über 21' :
                         player.status === 'win' ? 'Gewonnen' :
                         player.status === 'lose' ? 'Verloren' :
                         player.status === 'push' ? 'Unentschieden' : 'Bereit';
-                const cardMarkup = playerCards.length
-                    ? playerCards.map((card, index) => {
-                        const canFlip = !!card && card.isFlipped === false && (
-                            isDealer
-                                ? isMyDealer && state && state.phase === 'dealer'
-                                : player.id === myId && state && state.phase === 'playing' &&
-                                    state.currentPlayerId === myId
-                        );
-                        return blackjackCardMarkup(card, canFlip, index, isDealer);
+                const playerHands = isDealer
+                    ? (state && state.dealerCards.length ? [{
+                        cards: visibleDealerCards,
+                        bet: 0,
+                        status: state.phase === 'settled' ? 'stood' : 'playing',
+                        natural: false,
+                        isSplit: false
+                    }] : [])
+                    : (player.hands || []);
+                const handMarkup = playerHands.length
+                    ? playerHands.map((hand, handIndex) => {
+                        const isCurrentHand = !isDealer && isActive && state &&
+                            state.phase === 'playing' && (state.currentHandIndex || 0) === handIndex;
+                        const cardsReady = hand.cards.length > 0 && hand.cards.every(blackjackCardIsFaceUp);
+                        const canFlip = isDealer
+                            ? !!(isMyDealer && state && state.phase === 'dealer')
+                            : !!(player.id === myId && isCurrentHand && hand.status === 'playing');
+                        const cardMarkup = hand.cards.map((card, index) =>
+                            blackjackCardMarkup(card, canFlip && card.isFlipped === false, index, isDealer, handIndex)
+                        ).join('');
+                        const handTotal = hand.cards.some(blackjackCardIsFaceUp)
+                            ? blackjackHandValue(hand.cards)
+                            : '—';
+                        const handStatus = {
+                            playing: isCurrentHand ? 'Dein Zug' : 'Spielt',
+                            stood: hand.natural ? 'Blackjack!' : 'Hält',
+                            bust: 'Über 21',
+                            win: 'Gewonnen',
+                            lose: 'Verloren',
+                            push: 'Unentschieden'
+                        }[hand.status] || 'Bereit';
+                        let actions = '';
+                        if (isCurrentHand && player.id === myId && hand.status === 'playing' && cardsReady) {
+                            const canSplit = canSplitBlackjackHand(player, hand);
+                            actions = `<div class="mt-3 flex flex-wrap justify-center gap-2">
+                                <button onclick="blackjackPlayerAction('hit')" class="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-cyan-500">Karte ziehen</button>
+                                <button onclick="blackjackPlayerAction('stand')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-indigo-500">Halten</button>
+                                <button onclick="blackjackPlayerAction('double')" ${hand.cards.length === 2 && player.bankroll >= hand.bet ? '' : 'disabled'} class="rounded-xl bg-amber-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
+                                ${canSplit ? `<button onclick="blackjackPlayerAction('split')" class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-3 py-2 text-xs font-extrabold text-emerald-100 transition hover:bg-emerald-500/35">Splitten</button>` : ''}
+                            </div>`;
+                        } else if (isCurrentHand && player.id === myId && hand.status === 'playing' && !cardsReady) {
+                            actions = '<p class="mt-2 text-center text-[10px] text-amber-200/80">Decke zuerst deine Karten auf.</p>';
+                        }
+                        return `<section class="blackjack-hand-panel ${isCurrentHand ? 'is-current-hand' : ''} p-3">
+                            <div class="mb-2 flex items-center justify-between gap-2 text-[10px] font-bold">
+                                <span class="text-amber-100">${isDealer ? 'Dealer-Hand' : playerHands.length > 1 ? `Hand ${handIndex + 1}` : 'Spieler-Hand'}</span>
+                                <span class="${isCurrentHand ? 'text-emerald-200' : 'text-gray-400'}">${handStatus}</span>
+                            </div>
+                            <div class="flex min-h-24 flex-wrap items-center justify-center gap-2">${cardMarkup}</div>
+                            <div class="mt-2 flex justify-between text-[10px] font-semibold text-gray-300">
+                                <span>${isDealer ? `Dealerpunkte ${handTotal}` : `Punkte ${handTotal}`}</span>
+                                ${!isDealer ? `<span>Einsatz ${hand.bet} Chips</span>` : `<span>${state && state.dealerRevealed ? 'Offen' : 'Verdeckt'}</span>`}
+                            </div>
+                            ${actions}
+                        </section>`;
                     }).join('')
                     : `<span class="self-center text-xs italic text-gray-400">${isDealer ? 'Wartet auf Karten' : 'Noch keine Karten'}</span>`;
-                const visibleCards = playerCards.filter(blackjackCardIsFaceUp).length;
-                const handTotal = visibleCards ? blackjackHandValue(playerCards) : '—';
-                const totalLabel = isDealer
-                    ? `${cardsReady ? 'Dealerpunkte' : 'Offene Punkte'} ${handTotal}`
-                    : `Punkte ${handTotal}`;
+
+                let betControls = '';
+                if (!isDealer && state && state.phase === 'betting') {
+                    if (player.id === myId && !player.betLocked && player.bankroll >= BLACKJACK_MIN_BET) {
+                        betControls = `<div class="mt-3 flex flex-wrap items-end justify-center gap-2">
+                            <label class="text-[9px] font-bold uppercase tracking-wider text-amber-100/70">Einsatz (mind. ${BLACKJACK_MIN_BET})
+                                <input id="blackjackBetInput" type="number" min="${BLACKJACK_MIN_BET}" max="${player.bankroll}" step="${BLACKJACK_MIN_BET}" value="${Math.min(player.bet || BLACKJACK_MIN_BET, player.bankroll)}" class="mt-1 w-28 rounded-lg border border-amber-200/20 bg-slate-950 px-3 py-2 text-sm font-bold text-white">
+                            </label>
+                            <button onclick="placeBlackjackBet()" class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-emerald-500">Einsatz setzen</button>
+                        </div>`;
+                    } else if (player.betLocked) {
+                        betControls = `<p class="mt-3 text-center text-xs font-bold text-emerald-200">${player.bet > 0 ? `Einsatz ${player.bet} Chips gesetzt` : 'Wartet auf Nachschub'}</p>`;
+                    } else if (player.id !== myId) {
+                        betControls = '<p class="mt-3 text-center text-[10px] text-gray-400">Setzt den Einsatz ...</p>';
+                    }
+                }
+                const canRebuy = !isDealer && player.id === myId &&
+                    player.bankroll < BLACKJACK_MIN_BET && !player.rebuyUsed &&
+                    (!player.betLocked || player.status === 'broke') &&
+                    (!state || ['betting', 'settled'].includes(state.phase));
+                if (canRebuy) {
+                    betControls += `<div class="mt-3 text-center"><button onclick="requestBlackjackRebuy()" class="rounded-xl border border-amber-300/30 bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-100 transition hover:bg-amber-500/25">+${BLACKJACK_REBUY_AMOUNT} Chips Nachschub</button></div>`;
+                }
                 const displayName = isBank ? 'Bank / KI' : player.name;
                 const displayColor = isBank ? '#FBBF24' : playerDisplayColor(player);
                 const avatar = isBank ? '♠' : playerDisplayBadge(player);
                 let contextActions = '';
 
-                if (state && state.phase === 'playing' && !isDealer &&
-                    state.currentPlayerId === player.id) {
-                    const canAct = player.id === myId && cardsReady;
-                    contextActions = `<div class="blackjack-context-actions">
-                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-emerald-200/80">${player.id === myId ? 'Dein Zug' : 'Am Zug'}</p>
-                        <div class="flex flex-wrap justify-center gap-2">
-                            <button id="blackjackHitButton" onclick="blackjackPlayerAction('hit')" ${canAct ? '' : 'disabled'} class="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-cyan-600/20 transition-all duration-200 hover:bg-cyan-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Karte ziehen</button>
-                            <button id="blackjackStandButton" onclick="blackjackPlayerAction('stand')" ${canAct ? '' : 'disabled'} class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:bg-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Halten</button>
-                            <button id="blackjackDoubleButton" onclick="blackjackPlayerAction('double')" ${canAct && playerCards.length === 2 ? '' : 'disabled'} class="rounded-xl bg-amber-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg shadow-amber-600/20 transition-all duration-200 hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
-                        </div>
-                    </div>`;
-                } else if (humanDealer && isDealer && state && state.phase === 'dealing') {
+                if (humanDealer && isDealer && state && state.phase === 'dealing') {
                     contextActions = `<div class="blackjack-context-actions">
                         <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Du teilst aus' : 'Dealer teilt aus'}</p>
                         <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
                     </div>`;
                 } else if (humanDealer && isDealer && state && state.phase === 'dealer') {
-                    const canDealerAct = isMyDealer && cardsReady;
+                    const canDealerAct = isMyDealer && visibleDealerCards.length > 0 && visibleDealerCards.every(blackjackCardIsFaceUp);
                     contextActions = `<div class="blackjack-context-actions">
                         <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Dein Dealer-Zug' : 'Dealer ist am Zug'}</p>
                         <div class="flex flex-wrap justify-center gap-2">
@@ -3635,33 +3950,53 @@
                     </div>`;
                 }
 
-                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : ''}" style="--player-color:${displayColor}">
+                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
                     <div class="flex min-w-0 items-center gap-3">
                         <div class="blackjack-player-avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
                         <div class="min-w-0 flex-1">
                             <h3 class="truncate text-sm font-black" style="color:${displayColor}">${escapeHtml(displayName)}</h3>
-                            <p class="mt-0.5 text-[10px] text-gray-400">${isBank ? 'Automatischer Tischdealer' : player.id === myId ? 'Du am Tisch' : 'Mitspieler am Tisch'}</p>
+                            <p class="mt-0.5 text-[10px] text-gray-400">${isBank ? 'Automatischer Tischdealer' : player.id === myId ? 'Du am Tisch' : 'Mitspieler am Tisch'}${!isBank ? ` · ${player.bankroll || 0} Chips` : ''}</p>
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
                             <span class="rounded-full border border-amber-200/20 bg-amber-950/40 px-2 py-1 text-[9px] font-bold text-amber-100">${isDealer ? 'Dealer' : 'Punter'}</span>
                             <span class="rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[9px] font-bold ${isActive ? 'text-emerald-200' : 'text-gray-300'}">${status}</span>
                         </div>
                     </div>
-                    <div class="blackjack-hand-zone">
-                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-100/65">${isDealer ? 'Dealer-Hand' : 'Spieler-Hand'}</p>
-                        <div class="flex min-h-24 flex-wrap items-center justify-center gap-2">${cardMarkup}</div>
-                        <div class="mt-3 flex justify-between text-[10px] font-semibold text-gray-300">
-                            <span>${totalLabel}</span>
-                            <span>${isDealer ? (cardsReady ? 'Offen' : 'Verdeckt') : `Einsatz ${player.bet || 10}`}</span>
-                        </div>
+                    <div class="blackjack-hand-zone grid grid-cols-1 ${playerHands.length > 1 ? 'lg:grid-cols-2' : ''} gap-2">
+                        ${handMarkup}
                     </div>
+                    ${betControls}
                     ${contextActions}
                 </article>`;
             }).join('');
 
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                playersList.querySelectorAll('.blackjack-player-box[data-player-id]').forEach(box => {
+                    const previous = previousPositions.get(box.dataset.playerId);
+                    if (!previous) return;
+                    const current = box.getBoundingClientRect();
+                    const x = previous.left - current.left;
+                    const y = previous.top - current.top;
+                    const scaleX = current.width ? previous.width / current.width : 1;
+                    const scaleY = current.height ? previous.height / current.height : 1;
+                    if (Math.abs(x) < 1 && Math.abs(y) < 1 && Math.abs(scaleX - 1) < .02 && Math.abs(scaleY - 1) < .02) return;
+                    box.style.transformOrigin = 'top left';
+                    const animation = box.animate([
+                        { transform: `translate(${x}px, ${y}px) scale(${scaleX}, ${scaleY})` },
+                        { transform: 'translate(0, 0) scale(1, 1)' }
+                    ], { duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' });
+                    animation.onfinish = () => {
+                        box.style.transformOrigin = '';
+                        animation.cancel();
+                    };
+                });
+            }
+
             renderBlackjackDealerRole();
+            recordBlackjackRoundStats();
             document.getElementById('blackjackRoundLabel').textContent = state
                 ? `Runde ${state.round} · ${
+                    state.phase === 'betting' ? 'Einsatzphase' :
                     state.phase === 'dealing' ? 'Austeilen' :
                     state.phase === 'playing' ? 'läuft' :
                     state.phase === 'dealer' ? 'Dealerzug' : 'beendet'
@@ -3669,7 +4004,8 @@
                 : 'Warteraum';
             const currentPlayer = state && blackjackPlayers.find(player => player.id === state.currentPlayerId);
             const myTurn = !!currentPlayer && currentPlayer.id === myId && currentPlayer.status === 'playing' && state.phase === 'playing';
-            const needsPlayerFlip = myTurn && currentPlayer.cards.some(card => !blackjackCardIsFaceUp(card));
+            const currentHand = myTurn ? getCurrentBlackjackHand(currentPlayer) : null;
+            const needsPlayerFlip = !!currentHand && currentHand.cards.some(card => !blackjackCardIsFaceUp(card));
             const isMyDealer = myId === blackjackDealerId && humanDealer;
             const needsDealerFlip = !!state && state.phase === 'dealer' && isMyDealer &&
                 state.dealerCards.some(card => !blackjackCardIsFaceUp(card));
@@ -3683,12 +4019,12 @@
             const inviteSection = document.getElementById('blackjackFriendInviteSection');
             inviteSection.classList.toggle('hidden', !isHost || !!state);
             renderBlackjackFriendInvites();
-            blackjackPlayers.forEach(player => player.cards.forEach(card => {
+            blackjackPlayers.forEach(player => (player.hands || []).forEach(hand => hand.cards.forEach(card => {
                 if (card) {
                     card.isNewlyDealt = false;
                     card.isNewlyFlipped = false;
                 }
-            }));
+            })));
             if (state) state.dealerCards.forEach(card => {
                 if (card) {
                     card.isNewlyDealt = false;
@@ -5227,7 +5563,9 @@
                         blackjackPlayers.push({
                             id: peerId,
                             name: playerName,
-                            cards: [], wins: 0, bet: 10, status: 'waiting', natural: false,
+                            cards: [], hands: [], wins: 0, bet: BLACKJACK_MIN_BET,
+                            bankroll: 1000, betLocked: false, rebuyUsed: false,
+                            status: 'waiting', natural: false,
                             color: normalizePlayerColor(data.color),
                             badge: normalizePlayerBadge(data.badge),
                             conn: senderConn
@@ -5282,6 +5620,16 @@
                         processBlackjackAction(data.action, data.playerId, senderConn);
                     }
                     break;
+                case 'BLACKJACK_BET':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackBet(data.amount, data.playerId, senderConn);
+                    }
+                    break;
+                case 'BLACKJACK_REBUY':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackRebuy(data.playerId, senderConn);
+                    }
+                    break;
                 case 'BLACKJACK_DEAL':
                     if (isHost && isBlackjackSender(data.playerId, senderConn)) {
                         processBlackjackDealerAction('deal', data.playerId, senderConn);
@@ -5294,7 +5642,7 @@
                     break;
                 case 'BLACKJACK_FLIP_CARD':
                     if (isHost && isBlackjackSender(data.playerId, senderConn)) {
-                        processBlackjackCardFlip(data.playerId, data.cardIndex, !!data.dealerHand, senderConn);
+                        processBlackjackCardFlip(data.playerId, data.cardIndex, !!data.dealerHand, senderConn, data.handIndex);
                     }
                     break;
                 case 'BLACKJACK_FULL': {
@@ -6289,7 +6637,7 @@
         }
 
         function switchScreen(screenId) {
-            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenHangman', 'screenBlackjack', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenHangman', 'screenBlackjack', 'screenStats', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
