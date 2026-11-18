@@ -41,15 +41,18 @@
         .toast-error { border-color: rgba(248,113,113,.5); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(248,113,113,.16), inset 0 1px 0 rgba(255,255,255,.07); }
         .toast-success { border-color: rgba(52,211,153,.48); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(52,211,153,.16), inset 0 1px 0 rgba(255,255,255,.07); }
         .toast-warning { border-color: rgba(251,191,36,.46); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(251,191,36,.14), inset 0 1px 0 rgba(255,255,255,.07); }
+        .toast-info { border-color: rgba(96,165,250,.46); box-shadow: 0 20px 55px rgba(0,0,0,.48), 0 0 30px rgba(96,165,250,.14), inset 0 1px 0 rgba(255,255,255,.07); }
         .toast-error .toast-icon { color: #f87171; }
         .toast-success .toast-icon { color: #34d399; }
         .toast-warning .toast-icon { color: #fbbf24; }
+        .toast-info .toast-icon { color: #60a5fa; }
         .toast-in { animation: toastIn .48s cubic-bezier(.22, 1, .36, 1) both; }
         .toast-out { animation: toastOut .24s ease-in both; }
         .toast::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; transform-origin: left center; background: linear-gradient(90deg, rgba(129,140,248,.95), rgba(34,211,238,.85)); animation: toastProgress 4.2s linear both; }
         .toast-error::after { background: linear-gradient(90deg, #f87171, #fb7185); }
         .toast-success::after { background: linear-gradient(90deg, #34d399, #22d3ee); }
         .toast-warning::after { background: linear-gradient(90deg, #fbbf24, #fb923c); }
+        .toast-info::after { background: linear-gradient(90deg, #60a5fa, #22d3ee); }
         @keyframes toastIn { from { opacity: 0; transform: translateY(-24px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes toastOut { to { opacity: 0; transform: translateY(-12px) scale(.98); } }
         @keyframes toastProgress { to { transform: scaleX(0); } }
@@ -1139,6 +1142,8 @@
         let friendOnlineStatus = new Map();
         let friendProbes = new Map();
         let friendProbeTags = new WeakMap();
+        let pendingPeerConnectAttempts = new Set();
+        let lastPeerAttemptFailureAt = 0;
         let pongBallTrail = [];
         let pongHitParticles = [];
         let hangmanPlayers = [];
@@ -1283,14 +1288,15 @@
         }
 
         function showToast(message, type = 'error') {
-            const toastType = ['error', 'success', 'warning'].includes(type) ? type : 'error';
+            const toastType = ['error', 'success', 'warning', 'info'].includes(type) ? type : 'error';
             const container = document.getElementById('toastContainer');
             if (!container) return;
 
             const icons = {
                 error: 'fa-circle-exclamation',
                 success: 'fa-circle-check',
-                warning: 'fa-triangle-exclamation'
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-magnifying-glass'
             };
             const toast = document.createElement('div');
             toast.className = `toast toast-${toastType} toast-in`;
@@ -1326,7 +1332,7 @@
             container.appendChild(toast);
             if (toastType === 'error') playTone(235, 0.09, 'triangle', 0.025, 175);
             else if (toastType === 'warning') playTone(440, 0.08, 'sine', 0.022, 360);
-            else playChime(587, 784);
+            else if (toastType === 'success') playChime(587, 784);
         }
 
         window.alert = function(msg) {
@@ -1494,7 +1500,14 @@
                         peer.destroy();
                         peer = null;
                         initPeerAndSetup();
-                    } else if (err.type !== 'peer-unavailable') {
+                    } else if (err.type === 'peer-unavailable') {
+                        const attempts = Array.from(pendingPeerConnectAttempts);
+                        if (attempts.length) {
+                            attempts.forEach(attempt => attempt.fail(err));
+                        } else if (!friendProbes.size && Date.now() - lastPeerAttemptFailureAt > 1000) {
+                            showToast('Dieser Spieler ist derzeit nicht online.', 'error');
+                        }
+                    } else {
                         showStatus('Verbindungsfehler: ' + err.type, 'error');
                     }
                 });
@@ -1645,29 +1658,119 @@
             else peer.once('open', callback);
         }
 
-        function sendFriendRequest() {
+        function connectWithTimeout(targetTag, timeoutMs = 3500) {
+            const normalizedTag = String(targetTag).trim();
+            return new Promise((resolve, reject) => {
+                let connection = null;
+                let timeout = null;
+                let peerForOpen = null;
+                let peerOpenHandler = null;
+                let settled = false;
+                const attempt = {
+                    fail(error) {
+                        finish(error || new Error('peer-unavailable'));
+                    }
+                };
+
+                const finish = (error) => {
+                    if (settled) return;
+                    settled = true;
+                    if (timeout !== null) clearTimeout(timeout);
+                    if (peerForOpen && peerOpenHandler) {
+                        if (typeof peerForOpen.off === 'function') peerForOpen.off('open', peerOpenHandler);
+                        else if (typeof peerForOpen.removeListener === 'function') peerForOpen.removeListener('open', peerOpenHandler);
+                    }
+                    pendingPeerConnectAttempts.delete(attempt);
+
+                    if (error) {
+                        lastPeerAttemptFailureAt = Date.now();
+                        if (connection && typeof connection.close === 'function') connection.close();
+                        reject(error);
+                    } else {
+                        resolve(connection);
+                    }
+                };
+
+                pendingPeerConnectAttempts.add(attempt);
+                timeout = setTimeout(() => {
+                    const error = new Error('peer-unavailable');
+                    error.type = 'peer-unavailable';
+                    finish(error);
+                }, timeoutMs);
+
+                const startConnection = () => {
+                    if (settled) return;
+                    try {
+                        if (!peerForOpen || peerForOpen.destroyed || !peerForOpen.open) {
+                            const error = new Error('peer-unavailable');
+                            error.type = 'peer-unavailable';
+                            finish(error);
+                            return;
+                        }
+                        connection = peerForOpen.connect('wd-user-' + normalizedTag, { reliable: true });
+                        setupConnectionHandlers(connection);
+                        connection.on('open', () => finish());
+                        connection.on('error', error => finish(error));
+                        connection.on('close', () => {
+                            if (!settled) {
+                                const error = new Error('peer-unavailable');
+                                error.type = 'peer-unavailable';
+                                finish(error);
+                            }
+                        });
+                    } catch (error) {
+                        finish(error);
+                    }
+                };
+
+                try {
+                    if (!peer || peer.destroyed) {
+                        peer = null;
+                        initPeerAndSetup();
+                    }
+                    peerForOpen = peer;
+                    if (peerForOpen.open) {
+                        startConnection();
+                    } else {
+                        peerOpenHandler = startConnection;
+                        peerForOpen.once('open', peerOpenHandler);
+                    }
+                } catch (error) {
+                    finish(error);
+                }
+            });
+        }
+
+        function closeTemporaryConnection(connection) {
+            setTimeout(() => {
+                if (connection && connection.open) connection.close();
+            }, 500);
+        }
+
+        function showOfflineFriendToast(targetTag) {
+            lastPeerAttemptFailureAt = Date.now();
+            showToast('Spieler #' + targetTag + ' ist derzeit nicht online.', 'error');
+        }
+
+        async function sendFriendRequest() {
             const targetTag = document.getElementById('friendTagInput').value.trim();
-            if (!targetTag || targetTag.length !== 4) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            if (!/^\d{4}$/.test(targetTag)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
 
-            ensurePeerReady(() => {
-                const targetPeerId = 'wd-user-' + targetTag;
-                const c = peer.connect(targetPeerId, { reliable: true });
-                setupConnectionHandlers(c);
-
-                c.on('open', () => {
-                    c.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
-                    document.getElementById('friendTagInput').value = '';
-                    showToast('Freundschaftsanfrage gesendet!', 'success');
-                    closeAddFriendModal();
-                });
-                c.on('error', (err) => {
-                    const unavailable = err && err.type === 'peer-unavailable';
-                    alert(unavailable
-                        ? 'Spieler mit der ID #' + targetTag + ' ist nicht erreichbar.'
-                        : 'Spieler mit der ID #' + targetTag + ' wurde nicht gefunden oder ist offline.');
-                });
-            });
+            showToast('Suche Spieler #' + targetTag + '...', 'info');
+            let connection = null;
+            try {
+                connection = await connectWithTimeout(targetTag);
+                markFriendOnline(targetTag);
+                connection.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
+                document.getElementById('friendTagInput').value = '';
+                showToast('Freundschaftsanfrage an #' + targetTag + ' gesendet!', 'success');
+                closeAddFriendModal();
+                closeTemporaryConnection(connection);
+            } catch (error) {
+                if (connection && connection.open) connection.close();
+                showOfflineFriendToast(targetTag);
+            }
         }
 
         function acceptFriendRequest() {
@@ -1725,43 +1828,34 @@
             showToast('Deine 4-stellige ID #' + myTag + ' wurde kopiert!', 'success');
         }
 
+        async function sendLobbyInvitation(friendTag, type) {
+            const targetTag = String(friendTag).trim();
+            showToast('Suche Spieler #' + targetTag + '...', 'info');
+            let connection = null;
+            try {
+                connection = await connectWithTimeout(targetTag);
+                markFriendOnline(targetTag);
+                connection.send({ type, hostName: myName, hostTag: myTag });
+                const friend = friends.find(entry => String(entry.tag) === targetTag);
+                const recipient = friend ? friend.name : '#' + targetTag;
+                showToast('Einladung an ' + recipient + ' gesendet!', 'success');
+                closeTemporaryConnection(connection);
+            } catch (error) {
+                if (connection && connection.open) connection.close();
+                showOfflineFriendToast(targetTag);
+            }
+        }
+
         function inviteFriendToLobby(friendTag) {
-            ensurePeerReady(() => {
-                const targetPeerId = 'wd-user-' + friendTag;
-                const c = peer.connect(targetPeerId);
-                c.on('open', () => {
-                    markFriendOnline(friendTag);
-                    c.send({ type: 'LOBBY_INVITE', hostName: myName, hostTag: myTag });
-                    showToast('Einladung gesendet!', 'success');
-                });
-                c.on('error', () => {
-                    alert('Konnte Einladung nicht senden (Spieler offline).');
-                });
-            });
+            return sendLobbyInvitation(friendTag, 'LOBBY_INVITE');
         }
 
         function inviteFriendToPong(friendTag) {
-            ensurePeerReady(() => {
-                const c = peer.connect('wd-user-' + friendTag);
-                c.on('open', () => {
-                    markFriendOnline(friendTag);
-                    c.send({ type: 'PONG_LOBBY_INVITE', hostName: myName, hostTag: myTag });
-                    showToast('Pong-Einladung gesendet!', 'success');
-                });
-                c.on('error', () => alert('Pong-Einladung konnte nicht gesendet werden (Spieler offline).'));
-            });
+            return sendLobbyInvitation(friendTag, 'PONG_LOBBY_INVITE');
         }
 
         function inviteFriendToHangman(friendTag) {
-            ensurePeerReady(() => {
-                const c = peer.connect('wd-user-' + friendTag);
-                c.on('open', () => {
-                    markFriendOnline(friendTag);
-                    c.send({ type: 'HANGMAN_LOBBY_INVITE', hostName: myName, hostTag: myTag });
-                    showToast('Hangman-Einladung gesendet!', 'success');
-                });
-                c.on('error', () => alert('Hangman-Einladung konnte nicht gesendet werden (Spieler offline).'));
-            });
+            return sendLobbyInvitation(friendTag, 'HANGMAN_LOBBY_INVITE');
         }
 
         function acceptLobbyInvite() {
