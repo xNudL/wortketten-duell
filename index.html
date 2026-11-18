@@ -617,6 +617,24 @@
             flex: 0 0 auto;
             margin-top: .3rem;
         }
+        #blackjackMobileAction {
+            position: fixed;
+            right: 0;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + .75rem);
+            left: 0;
+            z-index: 49;
+            padding: 0 1rem;
+            pointer-events: none;
+        }
+        #blackjackMobileAction button { pointer-events: auto; }
+        @media (min-width: 641px) {
+            #blackjackMobileAction { display: none !important; }
+        }
+        @media (max-width: 640px) {
+            #screenBlackjack.blackjack-round-settled #blackjackFelt > div.relative.mt-5 {
+                display: none;
+            }
+        }
         @media (max-height: 760px) {
             #screenBlackjack.blackjack-round-active > .glass {
                 padding: .35rem;
@@ -1646,6 +1664,12 @@
 
     </main>
 
+    <div id="blackjackMobileAction" class="hidden">
+        <button id="blackjackMobileNextRound" onclick="startBlackjackRound()" class="mx-auto block w-full max-w-sm rounded-xl border border-emerald-200/30 bg-emerald-600 px-5 py-3.5 text-sm font-extrabold text-white shadow-[0_12px_36px_rgba(0,0,0,.55)] hover:bg-emerald-500 active:scale-95">
+            <i class="fa-solid fa-rotate-right mr-2" aria-hidden="true"></i>Nächste Runde
+        </button>
+    </div>
+
     <!-- MODAL: FREUNDSCHAFTSANFRAGE -->
     <div id="friendRequestModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl space-y-4">
@@ -1683,20 +1707,11 @@
         <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
             <div class="modal-header">
                 <span class="modal-icon modal-icon-violet"><i class="fa-solid fa-sliders"></i></span>
-                <h3 class="font-extrabold text-lg text-white">Spielregeln & Punktesystem</h3>
+                <h3 id="rulesModalTitle" class="font-extrabold text-lg text-white">Wortketten</h3>
                 <button type="button" onclick="closeRulesModal()" class="modal-close" aria-label="Regeln schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="space-y-2.5 text-xs text-gray-300 leading-relaxed">
-                <p><b>1. Ziel:</b> Verwandle das Startwort durch Ändern, Hinzufügen oder Entfernen von <b>1 Buchstaben</b> pro Zug ins Zielwort.</p>
-                <p><b>2. Fortschritts-Punkte:</b><br>
-                   • <b>+25 Pkt</b> wenn dein Wort den Weg zum Ziel verkürzt<br>
-                   • <b>-10 Pkt</b> bei Umwegen / Rückschritten (min. +5 Basis)<br>
-                   • <b>+15 Pkt</b> pro neuem grünen Ziel-Buchstaben</p>
-                <p><b>3. Combo & Tempo:</b><br>
-                   • Mehrere Treffer in Folge steigern deinen Multiplikator (bis <b>2.0x</b>)<br>
-                   • Bis zu <b>+15 Pkt</b> Tempo-Bonus<br>
-                   • Passen / Zeitablauf: <b>-15 Pkt</b> & Combo-Reset</p>
-                <p><b>4. Ziel-Bonus:</b> <b>+60 Pkt</b> fürs Zielwort + <b>+30 Pkt</b> Effizienz-Bonus bei optimaler Schrittzahl!</p>
+                <p id="rulesDescription">Verwandle das Startwort Zug für Zug in das Zielwort. Pro Zug darfst du genau einen Buchstaben ändern, hinzufügen oder entfernen.</p>
             </div>
             <button onclick="closeRulesModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Verstanden</button>
         </div>
@@ -3610,7 +3625,32 @@
             pendingInviteMode = 'words';
         }
 
+        let activeMainTab = 'words';
+        const MAIN_TAB_HELP = {
+            words: {
+                title: 'Wortketten',
+                description: 'Verwandle das Startwort Zug für Zug in das Zielwort. Pro Zug darfst du genau einen Buchstaben ändern, hinzufügen oder entfernen.'
+            },
+            pong: {
+                title: 'Pong',
+                description: 'Bewege deinen Schläger, um den Ball zurückzuspielen. Geht der Ball am gegnerischen Schläger vorbei, erhältst du einen Punkt.'
+            },
+            hangman: {
+                title: 'Hangman',
+                description: 'Errate das geheime Wort Buchstabe für Buchstabe, bevor deine Fehlversuche aufgebraucht sind.'
+            },
+            blackjack: {
+                title: 'Blackjack',
+                description: 'Komme mit deinen Karten möglichst nah an 21, ohne sie zu überschreiten. Ziehe Karten oder passe und gewinne gegen den Dealer.'
+            },
+            stats: {
+                title: 'Statistiken',
+                description: 'Hier siehst du deine Spielbilanz mit Partien, Siegen, Niederlagen und Bestwerten für die verfügbaren Modi.'
+            }
+        };
+
         function switchMainTab(tab) {
+            activeMainTab = Object.prototype.hasOwnProperty.call(MAIN_TAB_HELP, tab) ? tab : 'words';
             const leavingPong = !document.getElementById('screenPong').classList.contains('hidden') && tab !== 'pong';
             const leavingBlackjack = !document.getElementById('screenBlackjack').classList.contains('hidden') && tab !== 'blackjack' && blackjackRoomActive;
             const leavingWordGame = tab !== 'words' && (
@@ -4596,6 +4636,10 @@
 
         function renderBlackjackTable() {
             const state = blackjackState;
+            document.getElementById('screenBlackjack').classList.toggle(
+                'blackjack-round-settled',
+                !!state && state.phase === 'settled'
+            );
             if (!state) {
                 blackjackHandVisualSnapshot.clear();
                 blackjackBankrollSnapshot.clear();
@@ -4886,8 +4930,13 @@
                 ? `${state.message}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}${needsDealerFlip ? ' Klicke die verdeckte Dealer-Karte an, um sie aufzudecken.' : ''}`
                 : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass die Spielleitung die Runde startet.');
             const startButton = document.getElementById('blackjackStartButton');
-            startButton.classList.toggle('hidden', !isHost || !!(state && state.phase !== 'settled'));
+            const canStartRound = isHost && (!state || state.phase === 'settled');
+            startButton.classList.toggle('hidden', !canStartRound);
             startButton.textContent = state ? 'Nächste Runde' : 'Runde starten';
+            document.getElementById('blackjackMobileAction').classList.toggle(
+                'hidden',
+                !isHost || !state || state.phase !== 'settled'
+            );
             renderBlackjackDealerRoleChoice();
             renderBlackjackStartingBankrollChoice();
             const inviteSection = document.getElementById('blackjackFriendInviteSection');
@@ -7621,7 +7670,12 @@
             }
         }
 
-        function openRulesModal() { document.getElementById('rulesModal').classList.remove('hidden'); }
+        function openRulesModal() {
+            const help = MAIN_TAB_HELP[activeMainTab] || MAIN_TAB_HELP.words;
+            document.getElementById('rulesModalTitle').textContent = help.title;
+            document.getElementById('rulesDescription').textContent = help.description;
+            document.getElementById('rulesModal').classList.remove('hidden');
+        }
         function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
     </script>
 </body>
