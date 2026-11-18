@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wortketten-Duell | P2P Online & Stream Edition</title>
+    <title>Wortketten-Duell | P2P Multiplayer Edition</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -23,6 +23,8 @@
     </script>
     <!-- PeerJS CDN -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <!-- FontAwesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -64,7 +66,7 @@
             </div>
             <div>
                 <h1 class="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">WORTKETTEN DUELL</h1>
-                <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">P2P Stream & Multiplayer Edition</p>
+                <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">P2P Multiplayer Edition</p>
             </div>
         </div>
         
@@ -73,6 +75,9 @@
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
         </nav>
         <div class="flex items-center space-x-3">
+            <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+            </button>
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span id="connectionStatusText">Verbunden</span>
@@ -122,7 +127,7 @@
                 <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
                 
                 <div class="text-center max-w-lg mx-auto mb-6">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Online & Stream Ready</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">P2P Multiplayer Edition</span>
                     <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">Wähle deinen Modus</h2>
                     <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt der 4-stelligen ID eines Freundes bei.</p>
                 </div>
@@ -691,8 +696,95 @@
         let pongCountdown = 0;
         let pongCountdownTimer = null;
         let pongWinnerText = '';
+        let soundMuted = localStorage.getItem('wortketten_sound_muted') === 'true';
+        let audioContext = null;
+        let pongBallTrail = [];
+        let pongHitParticles = [];
+
+        function getAudioContext() {
+            if (!audioContext) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return null;
+                audioContext = new AudioContextClass();
+            }
+            if (audioContext.state === 'suspended') audioContext.resume();
+            return audioContext;
+        }
+
+        function playTone(frequency, duration, type = 'sine', volume = 0.08, endFrequency = null) {
+            if (soundMuted) return;
+            const context = getAudioContext();
+            if (!context) return;
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+            if (endFrequency) oscillator.frequency.exponentialRampToValueAtTime(endFrequency, context.currentTime + duration);
+            gain.gain.setValueAtTime(volume, context.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+            oscillator.connect(gain);
+            gain.connect(context.destination);
+            oscillator.start();
+            oscillator.stop(context.currentTime + duration);
+        }
+
+        function playWordSuccess(streak = 1) {
+            const base = 520 + Math.min(Math.max(streak - 1, 0), 8) * 55;
+            playTone(base, 0.12, 'sine', 0.07);
+            setTimeout(() => playTone(base * 1.25, 0.16, 'sine', 0.07), 90);
+        }
+
+        function playWordError() {
+            playTone(190, 0.22, 'triangle', 0.09, 85);
+        }
+
+        function playPongSound(kind) {
+            if (kind === 'paddle') {
+                playTone(460, 0.08, 'square', 0.045, 260);
+            } else if (kind === 'wall') {
+                playTone(300, 0.07, 'square', 0.035, 180);
+            } else if (kind === 'point') {
+                playTone(620, 0.2, 'square', 0.06, 220);
+            }
+        }
+
+        function toggleSound() {
+            soundMuted = !soundMuted;
+            localStorage.setItem('wortketten_sound_muted', String(soundMuted));
+            const button = document.getElementById('soundToggle');
+            const icon = button.querySelector('i');
+            icon.className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
+            button.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
+            button.title = soundMuted ? 'Ton einschalten' : 'Ton ausschalten';
+            if (!soundMuted) getAudioContext();
+        }
+
+        function celebrate() {
+            if (typeof window.confetti !== 'function') return;
+            window.confetti({ particleCount: 130, spread: 75, origin: { y: 0.65 } });
+        }
+
+        function addPongHitParticles(x, y) {
+            for (let i = 0; i < 10; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1.5 + Math.random() * 4;
+                pongHitParticles.push({
+                    x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    life: 1, color: ['#67e8f9', '#fff', '#a5f3fc'][i % 3]
+                });
+            }
+        }
+
+        function triggerPongEffect(kind, x, y, playSound = true) {
+            if (playSound) playPongSound(kind);
+            if (kind === 'paddle') addPongHitParticles(x, y);
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
+            const soundButton = document.getElementById('soundToggle');
+            soundButton.querySelector('i').className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
+            soundButton.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
+            soundButton.title = soundMuted ? 'Ton einschalten' : 'Ton ausschalten';
             if (!myName || !myTag) {
                 switchScreen('screenOnboarding');
             } else {
@@ -729,6 +821,7 @@
             if (wordInput) {
                 wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitWord(); });
                 wordInput.addEventListener('input', (e) => {
+                    playTone(330 + Math.random() * 90, 0.025, 'square', 0.018);
                     const val = e.target.value.toUpperCase();
                     updateLiveTypingPreviewLocally(val);
                     broadcastLiveTyping(val);
@@ -1111,6 +1204,8 @@
             pongRunning = false;
             pongState = createPongState();
             pongWinnerText = '';
+            pongBallTrail = [];
+            pongHitParticles = [];
             pongCountdown = 3;
             document.getElementById('pongStartButton').classList.add('hidden');
             broadcast({
@@ -1174,8 +1269,16 @@
             pongLastTickAt = timestamp;
             const b = pongState.ball;
             b.x += b.vx * frameScale; b.y += b.vy * frameScale;
-            if (b.y - b.r <= 0) { b.y = b.r; b.vy = Math.abs(b.vy); }
-            if (b.y + b.r >= 500) { b.y = 500 - b.r; b.vy = -Math.abs(b.vy); }
+            if (b.y - b.r <= 0) {
+                b.y = b.r; b.vy = Math.abs(b.vy);
+                triggerPongEffect('wall', b.x, b.y);
+                broadcast({ type: 'PONG_SOUND', kind: 'wall', x: b.x, y: b.y });
+            }
+            if (b.y + b.r >= 500) {
+                b.y = 500 - b.r; b.vy = -Math.abs(b.vy);
+                triggerPongEffect('wall', b.x, b.y);
+                broadcast({ type: 'PONG_SOUND', kind: 'wall', x: b.x, y: b.y });
+            }
 
             pongState.paddles.forEach(p => {
                 const player = pongPlayers[p.index];
@@ -1192,12 +1295,18 @@
 
             pongState.paddles.forEach(p => {
                 if (paddleHit(p, b)) {
-                    if (p.side === 'left' && b.vx < 0) { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
-                    if (p.side === 'right' && b.vx > 0) { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
+                    if ((p.side === 'left' && b.vx < 0) || (p.side === 'right' && b.vx > 0)) {
+                        if (p.side === 'left') { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
+                        else { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
+                        triggerPongEffect('paddle', b.x, b.y);
+                        broadcast({ type: 'PONG_SOUND', kind: 'paddle', x: b.x, y: b.y });
+                    }
                 }
             });
 
             if (b.x < -20 || b.x > 820) {
+                triggerPongEffect('point', b.x, b.y);
+                broadcast({ type: 'PONG_SOUND', kind: 'point', x: b.x, y: b.y });
                 let winnerText = '';
                 if (pongMaxPlayers === 4) {
                     if (b.x < 0) pongState.redScore++; else pongState.blueScore++;
@@ -1217,6 +1326,7 @@
                 if (winnerText) {
                     pongWinnerText = winnerText;
                     pongRunning = false;
+                    celebrate();
                     broadcast({
                         type: 'PONG_WIN',
                         winnerText,
@@ -1286,7 +1396,42 @@
             });
             ctx.shadowBlur = 0;
             const b = state.ball;
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+            if (pongBallTrail.length && Math.hypot(pongBallTrail[pongBallTrail.length - 1].x - b.x, pongBallTrail[pongBallTrail.length - 1].y - b.y) > 100) {
+                pongBallTrail = [];
+            }
+            pongBallTrail.push({ x: b.x, y: b.y });
+            if (pongBallTrail.length > 12) pongBallTrail.shift();
+            pongBallTrail.forEach((point, index) => {
+                const alpha = (index + 1) / pongBallTrail.length * 0.45;
+                const radius = b.r * (index + 1) / pongBallTrail.length;
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(103, 232, 249, ${alpha})`;
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#22d3ee';
+                ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+            pongHitParticles = pongHitParticles.filter(particle => particle.life > 0);
+            pongHitParticles.forEach(particle => {
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = particle.color;
+                ctx.fillRect(particle.x, particle.y, 3, 3);
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vx *= 0.96;
+                particle.vy *= 0.96;
+                particle.life -= 0.045;
+            });
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = '#67e8f9';
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
 
             ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px Plus Jakarta Sans'; ctx.textAlign = 'center';
             ctx.fillText(pongMaxPlayers === 4 ? `${state.blueScore}  ·  ${state.redScore}` : `${state.individualScore[0] || 0}  ·  ${state.individualScore[1] || 0}`, 400, 55);
@@ -1501,6 +1646,8 @@
                     pongRunning = false;
                     pongWinnerText = '';
                     pongState = data.state || createPongState();
+                    pongBallTrail = [];
+                    pongHitParticles = [];
                     pongPreviousSnapshot = pongState;
                     pongCurrentSnapshot = pongState;
                     pongSnapshotReceivedAt = performance.now();
@@ -1517,7 +1664,11 @@
                     pongPlayers = data.players || pongPlayers;
                     pongWinnerText = data.winnerText;
                     pongRunning = false;
+                    celebrate();
                     drawPong();
+                    break;
+                case 'PONG_SOUND':
+                    triggerPongEffect(data.kind, data.x, data.y);
                     break;
                 case 'PONG_COUNTDOWN':
                     pongCountdown = data.count;
@@ -1601,6 +1752,10 @@
                     if (isHost) doPass(data.playerId);
                     break;
                 case 'SYNC_GAME_STATE':
+                    if (data.wordChain.length > wordChain.length) {
+                        const localPlayer = (data.players || []).find(p => p.id === myId);
+                        playWordSuccess(localPlayer ? localPlayer.streak : 1);
+                    }
                     wordChain = data.wordChain;
                     currentTurnIndex = data.currentTurnIndex;
                     players = data.players;
@@ -1618,6 +1773,7 @@
                     break;
                 case 'FEEDBACK':
                     showFeedback(data.text, data.kind);
+                    if (data.kind === 'error' || (data.kind === 'warning' && data.text.indexOf('⚠️') === 0)) playWordError();
                     break;
                 case 'HOST_CLOSED':
                     clearInterval(timerInterval);
@@ -1805,7 +1961,14 @@
 
         function processWordSubmission(word, playerId, reply = null, force = false, checked = false) {
             document.getElementById('hostJokerBox').classList.add('hidden');
-            const say = (t, k) => reply ? (reply.open && reply.send({ type: 'FEEDBACK', text: t, kind: k })) : showFeedback(t, k);
+            const say = (t, k) => {
+                if (!reply) {
+                    showFeedback(t, k);
+                    if (k === 'error' || (k === 'warning' && t.indexOf('⚠️') === 0)) playWordError();
+                } else if (reply.open) {
+                    reply.send({ type: 'FEEDBACK', text: t, kind: k });
+                }
+            };
             const active = players[currentTurnIndex];
             if (!active || active.id !== playerId) return say('Du bist nicht am Zug.', 'error');
             word = String(word).toUpperCase().trim();
@@ -1875,6 +2038,7 @@
             const mult = getMultiplier(active.streak);
             const earned = Math.round(rawPts * mult);
             active.score += earned;
+            if (word !== targetWord) playWordSuccess(active.streak);
 
             const multLabel = mult > 1 ? ` · 🔥 x${mult.toFixed(1)}` : '';
             lastScoreSummary = `${active.name}: +${earned} Pkt (${reasons.join(' · ')}${multLabel})`;
@@ -2055,6 +2219,7 @@
             paint();
             timerInterval = setInterval(() => {
                 timeLeft--; paint();
+                if (timeLeft > 0 && timeLeft <= 5) playTone(880, 0.07, 'sine', 0.045, 620);
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     if (isHost && players[currentTurnIndex]) {
@@ -2067,6 +2232,9 @@
         function showRoundOver(d) {
             clearInterval(timerInterval);
             players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
+            const winner = players.find(p => p.name === d.winner);
+            playWordSuccess(winner ? winner.streak : 1);
+            celebrate();
             round = d.round;
             switchScreen('screenGameOver');
             const ranking = players.slice().sort((a, b) => b.score - a.score);
