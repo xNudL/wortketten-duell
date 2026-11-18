@@ -439,6 +439,25 @@
             box-shadow: 0 0 0 1px rgba(110,231,183,.16), 0 0 30px rgba(16,185,129,.2), 0 20px 34px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
         }
         .blackjack-player-box.is-compact { padding: .7rem; }
+        #mainContent.blackjack-round-active {
+            justify-content: flex-start;
+            padding-top: .5rem;
+            padding-bottom: .5rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackIntro,
+        #screenBlackjack.blackjack-round-active #blackjackDealerRolePanel {
+            display: none;
+        }
+        #screenBlackjack.blackjack-round-active > .glass {
+            padding-top: .75rem;
+            padding-bottom: .75rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackTable > .flex {
+            margin-bottom: .5rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackMessage {
+            margin-bottom: .75rem;
+        }
         #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
             opacity: .78;
             transform: scale(.97);
@@ -584,7 +603,7 @@
     </header>
 
     <!-- Main Container -->
-    <main class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-4 flex-grow flex flex-col justify-center relative">
+    <main id="mainContent" class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-4 flex-grow flex flex-col justify-center relative">
 
         <!-- ONBOARDING SCREEN -->
         <div id="screenOnboarding" class="space-y-5 animate-fade-in z-20">
@@ -926,7 +945,7 @@
         <!-- BLACKJACK MODE -->
         <div id="screenBlackjack" class="hidden space-y-5 animate-fade-in">
             <div class="glass rounded-3xl p-5 sm:p-8 shadow-2xl border border-border/80">
-                <div class="text-center max-w-lg mx-auto mb-5">
+                <div id="blackjackIntro" class="text-center max-w-lg mx-auto mb-5">
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-widest">Kartenspiel</span>
                     <h2 class="text-2xl sm:text-3xl font-black mt-3">♠ Blackjack</h2>
                     <p class="text-xs sm:text-sm text-gray-400 mt-1">Spiele gegen die Bank oder fordere einen Mitspieler in der Dealer-Rolle heraus.</p>
@@ -1574,7 +1593,6 @@
                 if (record.natural === true) player.natural = true;
                 if (record.doublePending === true) player.doublePending = true;
                 if (record.betLocked === true) player.betLocked = true;
-                if (record.rebuyUsed === true) player.rebuyUsed = true;
                 if (Array.isArray(record.cards)) player.cards = sanitizeBlackjackCards(record.cards);
                 if (Array.isArray(record.hands)) player.hands = sanitizeBlackjackHands(record.hands);
                 safeRecords.push(player);
@@ -3106,7 +3124,6 @@
         const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         const BLACKJACK_MAX_PLAYERS = 6;
         const BLACKJACK_MIN_BET = 10;
-        const BLACKJACK_REBUY_AMOUNT = 500;
 
         function hostBlackjackLobby() {
             switchMainTab('blackjack');
@@ -3115,7 +3132,7 @@
                 connections = [];
                 blackjackPlayers = [{
                     id: myId, name: `${myName} #${myTag}`, cards: [], hands: [], wins: 0,
-                    bankroll: 1000, bet: BLACKJACK_MIN_BET, betLocked: false, rebuyUsed: false,
+                    bankroll: 1000, bet: BLACKJACK_MIN_BET, betLocked: false,
                     status: 'waiting', natural: false, color: myPlayerColor, badge: myPlayerBadge, conn: null
                 }];
                 blackjackRoomActive = true;
@@ -3233,7 +3250,7 @@
                         : { ...card })
                 })),
                 wins: player.wins, bet: player.bet, status: player.status, natural: player.natural,
-                bankroll: player.bankroll, betLocked: player.betLocked, rebuyUsed: player.rebuyUsed,
+                bankroll: player.bankroll, betLocked: player.betLocked,
                 role: player.id === blackjackDealerId ? 'dealer' : 'punter',
                 color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
@@ -3307,6 +3324,10 @@
                 showToast('Ein menschlicher Dealer braucht mindestens einen Punter.', 'warning');
                 return;
             }
+            if (!punters.some(player => player.bankroll >= BLACKJACK_MIN_BET)) {
+                showToast('Alle Punter sind ausgeschieden. Niemand kann den Mindesteinsatz setzen.', 'warning');
+                return;
+            }
             blackjackDeck = createBlackjackDeck();
             const previousRound = blackjackState ? blackjackState.round : 0;
             blackjackState = {
@@ -3369,7 +3390,7 @@
             if (!fundedPunters.length) {
                 blackjackState.message = punters.some(player => player.bankroll >= BLACKJACK_MIN_BET)
                     ? 'Setzt euren Einsatz, bevor die Runde beginnt.'
-                    : 'Kein Punter hat genug Chips. Einmaliger Nachschub ist verfügbar.';
+                    : 'Kein Punter kann den Mindesteinsatz setzen. Spieler ohne ausreichende Chips schauen zu.';
                 syncBlackjackTable();
                 return;
             }
@@ -3395,31 +3416,6 @@
                 : 'Die Bank teilt die Karten aus.';
             if (humanDealer) syncBlackjackTable();
             else dealBlackjackCards();
-        }
-
-        function requestBlackjackRebuy() {
-            if (isHost) processBlackjackRebuy(myId);
-            else if (conn && conn.open) conn.send({ type: 'BLACKJACK_REBUY', playerId: myId });
-        }
-
-        function processBlackjackRebuy(playerId, senderConn = null) {
-            if (!isHost || (blackjackState && !['betting', 'settled'].includes(blackjackState.phase))) return;
-            const player = blackjackPlayers.find(entry => entry.id === playerId);
-            if (!player || player.bankroll >= BLACKJACK_MIN_BET || player.rebuyUsed ||
-                (blackjackState && blackjackState.phase === 'betting' &&
-                    player.betLocked && player.status !== 'broke') ||
-                (senderConn && !isBlackjackSender(playerId, senderConn))) return;
-            player.bankroll += BLACKJACK_REBUY_AMOUNT;
-            player.rebuyUsed = true;
-            player.bet = BLACKJACK_MIN_BET;
-            player.betLocked = false;
-            player.status = blackjackState && blackjackState.phase === 'betting' ? 'betting' : 'waiting';
-            if (blackjackState && blackjackState.phase === 'betting') {
-                blackjackState.message = `${player.name} hat einmalig ${BLACKJACK_REBUY_AMOUNT} Chips Nachschub erhalten.`;
-                advanceBlackjackBetting();
-                return;
-            }
-            syncBlackjackTable();
         }
 
         function dealBlackjackCards(dealerPlayerId = blackjackDealerId, senderConn = null) {
@@ -3536,6 +3532,9 @@
         function resolveBlackjackRound() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
+            const roundPlayerIds = new Set(blackjackPlayers
+                .filter(player => player.id !== blackjackDealerId && player.hands && player.hands.length)
+                .map(player => player.id));
             blackjackState.dealerRevealed = true;
             blackjackState.dealerCards.forEach(card => {
                 if (card && card.isFlipped === false) {
@@ -3575,13 +3574,21 @@
                         player.bankroll += hand.bet;
                     }
                 });
-                player.status = results.includes('win') ? 'win' : results.includes('lose') ? 'lose' : 'push';
+                player.status = player.bankroll < BLACKJACK_MIN_BET
+                    ? 'broke'
+                    : results.includes('win') ? 'win' : results.includes('lose') ? 'lose' : 'push';
             });
             blackjackState.phase = 'settled';
             blackjackState.currentPlayerId = null;
-            blackjackState.message = wins
+            const resultMessage = wins
                 ? (wins === 1 ? '1 Spieler hat die Runde gewonnen.' : `${wins} Spieler haben die Runde gewonnen.`)
                 : 'Die Runde ist beendet. Neue Runde?';
+            const eliminatedCount = blackjackPlayers.filter(player =>
+                roundPlayerIds.has(player.id) && player.bankroll < BLACKJACK_MIN_BET
+            ).length;
+            blackjackState.message = eliminatedCount
+                ? `${resultMessage} ${eliminatedCount === 1 ? 'Ein Spieler ist' : `${eliminatedCount} Spieler sind`} ausgeschieden und schauen zu.`
+                : resultMessage;
         }
 
         function finishManualBlackjackDealerTurn() {
@@ -3769,6 +3776,9 @@
         function renderBlackjackView() {
             const setup = document.getElementById('blackjackSetup');
             const table = document.getElementById('blackjackTable');
+            const roundActive = blackjackRoomActive && blackjackState !== null;
+            document.getElementById('screenBlackjack').classList.toggle('blackjack-round-active', roundActive);
+            document.getElementById('mainContent').classList.toggle('blackjack-round-active', roundActive);
             if (!blackjackRoomActive) {
                 setup.classList.remove('hidden');
                 table.classList.add('hidden');
@@ -3844,7 +3854,7 @@
                         state.phase === 'playing' ? 'Wartet' :
                         state.phase === 'settled' ? 'Runde beendet' : 'Dealer'
                     : player.status === 'betting' ? (player.betLocked ? 'Einsatz gesetzt' : 'Setzt Einsatz') :
-                        player.status === 'broke' ? 'Ohne Chips' :
+                        player.status === 'broke' ? 'Ausgeschieden · Zuschauer' :
                         player.status === 'playing' ? 'Spielt' :
                         player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
                         player.status === 'bust' ? 'Über 21' :
@@ -3919,17 +3929,10 @@
                             <button onclick="placeBlackjackBet()" class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-emerald-500">Einsatz setzen</button>
                         </div>`;
                     } else if (player.betLocked) {
-                        betControls = `<p class="mt-3 text-center text-xs font-bold text-emerald-200">${player.bet > 0 ? `Einsatz ${player.bet} Chips gesetzt` : 'Wartet auf Nachschub'}</p>`;
+                        betControls = `<p class="mt-3 text-center text-xs font-bold ${player.status === 'broke' ? 'text-rose-200' : 'text-emerald-200'}">${player.status === 'broke' ? 'Ausgeschieden · schaut zu' : `Einsatz ${player.bet} Chips gesetzt`}</p>`;
                     } else if (player.id !== myId) {
                         betControls = '<p class="mt-3 text-center text-[10px] text-gray-400">Setzt den Einsatz ...</p>';
                     }
-                }
-                const canRebuy = !isDealer && player.id === myId &&
-                    player.bankroll < BLACKJACK_MIN_BET && !player.rebuyUsed &&
-                    (!player.betLocked || player.status === 'broke') &&
-                    (!state || ['betting', 'settled'].includes(state.phase));
-                if (canRebuy) {
-                    betControls += `<div class="mt-3 text-center"><button onclick="requestBlackjackRebuy()" class="rounded-xl border border-amber-300/30 bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-100 transition hover:bg-amber-500/25">+${BLACKJACK_REBUY_AMOUNT} Chips Nachschub</button></div>`;
                 }
                 const displayName = isBank ? 'Bank / KI' : player.name;
                 const displayColor = isBank ? '#FBBF24' : playerDisplayColor(player);
@@ -5585,7 +5588,7 @@
                             id: peerId,
                             name: playerName,
                             cards: [], hands: [], wins: 0, bet: BLACKJACK_MIN_BET,
-                            bankroll: 1000, betLocked: false, rebuyUsed: false,
+                            bankroll: 1000, betLocked: false,
                             status: 'waiting', natural: false,
                             color: normalizePlayerColor(data.color),
                             badge: normalizePlayerBadge(data.badge),
@@ -5644,11 +5647,6 @@
                 case 'BLACKJACK_BET':
                     if (isHost && isBlackjackSender(data.playerId, senderConn)) {
                         processBlackjackBet(data.amount, data.playerId, senderConn);
-                    }
-                    break;
-                case 'BLACKJACK_REBUY':
-                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
-                        processBlackjackRebuy(data.playerId, senderConn);
                     }
                     break;
                 case 'BLACKJACK_DEAL':
