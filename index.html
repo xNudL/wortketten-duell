@@ -213,6 +213,24 @@
         .modal-close:hover { color: white; border-color: rgba(129,140,248,.4); background: rgba(99,102,241,.15); }
         .modal-close i { transition: transform .25s ease; }
         .modal-close:hover i { transform: rotate(90deg); }
+        #friendsModal > .friends-modal-panel {
+            max-height: min(88vh, 48rem);
+            overflow-y: auto;
+        }
+        .friends-own-id {
+            background: linear-gradient(110deg, rgba(99,102,241,.11), rgba(8,12,24,.6));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+        }
+        #friendListContainer > div {
+            border-color: rgba(180,193,255,.1);
+            background: rgba(6,10,22,.58);
+            transition: border-color .2s ease, background .2s ease, transform .2s ease;
+        }
+        #friendListContainer > div:hover {
+            transform: translateY(-1px);
+            border-color: rgba(129,140,248,.32);
+            background: rgba(22,28,50,.72);
+        }
         @keyframes modalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes modalPanelIn { from { opacity: 0; transform: scale(.94) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         #playerScoresBar { row-gap: .55rem; }
@@ -360,6 +378,10 @@
             <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
                 <i class="fa-solid fa-volume-high text-sm"></i>
             </button>
+            <button id="friendsButton" onclick="openFriendsModal()" class="hidden h-9 rounded-xl glass px-3 items-center justify-center gap-2 text-indigo-200 hover:text-white border border-indigo-400/20 hover:border-indigo-300/50 transition cursor-pointer" aria-label="Freundesliste öffnen" title="Freunde">
+                <i class="fa-solid fa-user-group text-sm"></i>
+                <span class="hidden sm:inline text-xs font-bold">Freunde</span>
+            </button>
             <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span id="connectionStatusText">Verbunden</span>
@@ -474,29 +496,6 @@
                     </div>
                 </div>
 
-                <!-- FREUNDESLISTE -->
-                <div class="glass rounded-2xl p-5 border border-border bg-dark/40">
-                    <div class="flex justify-between items-center mb-3">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-user-group text-indigo-400"></i>
-                            <h3 class="font-bold text-sm text-white">Deine Freundesliste</h3>
-                        </div>
-                        <button onclick="openAddFriendModal()" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/20">
-                            <i class="fa-solid fa-user-plus"></i>
-                            <span>Freund hinzufügen</span>
-                        </button>
-                    </div>
-                    <div class="mb-4 p-3 rounded-xl bg-darker/80 border border-border flex justify-between items-center">
-                        <div>
-                            <p class="text-[10px] text-gray-400 font-bold uppercase">Deine 4-stellige ID zum Weitergeben</p>
-                            <p id="myTagDisplay" class="text-sm font-mono font-black text-indigo-300">#----</p>
-                        </div>
-                        <button onclick="copyMyTag()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs px-2.5 py-1.5 rounded-lg transition cursor-pointer">
-                            <i class="fa-solid fa-copy mr-1"></i> ID kopieren
-                        </button>
-                    </div>
-                    <div id="friendListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
-                </div>
             </div>
         </div>
 
@@ -869,6 +868,33 @@
                 <p><b>4. Ziel-Bonus:</b> <b>+60 Pkt</b> fürs Zielwort + <b>+30 Pkt</b> Effizienz-Bonus bei optimaler Schrittzahl!</p>
             </div>
             <button onclick="closeRulesModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Verstanden</button>
+        </div>
+    </div>
+
+    <!-- MODAL: FRIENDS -->
+    <div id="friendsModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass friends-modal-panel rounded-3xl p-6 sm:p-7 max-w-xl w-full border border-indigo-400/20 shadow-2xl space-y-5">
+            <div class="modal-header">
+                <span class="modal-icon"><i class="fa-solid fa-user-group"></i></span>
+                <div class="min-w-0 flex-1">
+                    <h3 class="font-extrabold text-lg text-white">Deine Freunde</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Freunde, Online-Status und Einladungen</p>
+                </div>
+                <button type="button" onclick="closeFriendsModal()" class="modal-close" aria-label="Freundesliste schließen"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="friends-own-id flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-indigo-400/15">
+                <div>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Deine 4-stellige ID zum Weitergeben</p>
+                    <p id="myTagDisplay" class="mt-1 text-lg font-mono font-black tracking-widest text-indigo-200">#----</p>
+                </div>
+                <button onclick="copyMyTag()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-400/30 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer">
+                    <i class="fa-solid fa-copy mr-1"></i> ID kopieren
+                </button>
+            </div>
+            <button onclick="openAddFriendModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-600/25 transition-all duration-200 cursor-pointer">
+                <i class="fa-solid fa-user-plus mr-2"></i> Freund hinzufügen
+            </button>
+            <div id="friendListContainer" class="friends-list space-y-2 max-h-80 overflow-y-auto pr-1"></div>
         </div>
     </div>
 
@@ -1328,7 +1354,8 @@
                 ['friendRequestModal', rejectFriendRequest],
                 ['lobbyInviteModal', rejectLobbyInvite],
                 ['rulesModal', closeRulesModal],
-                ['addFriendModal', closeAddFriendModal]
+                ['addFriendModal', closeAddFriendModal],
+                ['friendsModal', closeFriendsModal]
             ];
             modalClosers.forEach(([id, close]) => {
                 const modal = document.getElementById(id);
@@ -1463,6 +1490,9 @@
             document.getElementById('displayMyTag').innerText = '#' + myTag;
             document.getElementById('userProfileBadge').classList.remove('hidden');
             document.getElementById('userProfileBadge').classList.add('flex');
+            const friendsButton = document.getElementById('friendsButton');
+            friendsButton.classList.remove('hidden');
+            friendsButton.classList.add('flex');
             renderFriendList();
             switchScreen('screenSetup');
         }
@@ -1580,6 +1610,11 @@
             `).join('');
         }
 
+        function openFriendsModal() {
+            renderFriendList();
+            document.getElementById('friendsModal').classList.remove('hidden');
+        }
+        function closeFriendsModal() { document.getElementById('friendsModal').classList.add('hidden'); }
         function openAddFriendModal() { document.getElementById('addFriendModal').classList.remove('hidden'); }
         function closeAddFriendModal() { document.getElementById('addFriendModal').classList.add('hidden'); }
 
