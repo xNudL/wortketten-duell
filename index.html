@@ -387,6 +387,10 @@
             <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
         </nav>
         <div class="flex items-center space-x-3">
+            <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="connectionStatusText">Verbunden</span>
+            </div>
             <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
                 <i class="fa-solid fa-volume-high text-sm"></i>
             </button>
@@ -394,10 +398,6 @@
                 <i class="fa-solid fa-user-group text-sm"></i>
                 <span class="hidden sm:inline text-xs font-bold">Freunde</span>
             </button>
-            <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="connectionStatusText">Verbunden</span>
-            </div>
             <div id="userProfileBadge" class="hidden items-center space-x-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-bold text-indigo-300">
                 <i class="fa-solid fa-user"></i>
                 <span id="displayMyName">---</span>
@@ -447,6 +447,34 @@
                     <h2 class="text-2xl sm:text-3xl font-black mt-3 tracking-tight">Wähle deinen Modus</h2>
                     <p class="text-xs sm:text-sm text-gray-400 mt-1">Erstelle eine Lobby oder tritt der 4-stelligen ID eines Freundes bei.</p>
                 </div>
+
+                <div id="statsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6" aria-label="Deine ewigen Statistiken">
+                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Wortketten</div>
+                        <div id="statsWordsSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
+                        <div id="statsWordsRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Pong</div>
+                        <div id="statsPongSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
+                        <div id="statsPongRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                    <div class="rounded-xl bg-darker/60 border border-border px-3 py-2 text-center">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Hangman</div>
+                        <div id="statsHangmanSummary" class="mt-1 text-[11px] font-semibold text-gray-200">0 Partien · 0 Siege</div>
+                        <div id="statsHangmanRecord" class="text-[10px] text-amber-300">🔥 Rekordserie 0</div>
+                    </div>
+                </div>
+
+                <button onclick="startDailyChallenge()" class="w-full mb-6 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 px-4 py-3 text-left transition hover:border-cyan-300/60 hover:shadow-lg hover:shadow-cyan-500/10 active:scale-[.99]">
+                    <span class="flex items-center justify-between gap-3">
+                        <span>
+                            <span class="block text-sm font-extrabold text-white">📅 Daily Challenge</span>
+                            <span class="block text-[11px] text-gray-400">Das gleiche Wortketten-Rätsel für alle — jeden Tag neu.</span>
+                        </span>
+                        <i class="fa-solid fa-arrow-right text-cyan-300"></i>
+                    </span>
+                </button>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <!-- Host Card -->
@@ -1022,6 +1050,9 @@
 
         extraDE.forEach(w => dictionaryDE.add(w));
         extraEN.forEach(w => dictionaryEN.add(w));
+        const DAILY_WORD_POOL = [...new Set([...dictionaryDE, ...dictionaryEN])]
+            .filter(word => /^[A-ZÄÖÜ]{3,8}$/.test(word))
+            .sort();
 
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
         const LEARNED_KEY = 'wortketten_learned_v1';
@@ -1115,6 +1146,7 @@
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
         let pendingInviteMode = 'words';
+        let pendingRoomJoin = null;
         let pongPlayers = [];
         let pongMaxPlayers = 2;
         let pongWinScore = 10;
@@ -1135,6 +1167,8 @@
         let pongViewPaused = false;
         let pongPauseCountdown = 0;
         let pongWinnerText = '';
+        let pongNextPowerUpAt = 0;
+        let pongStatsRecorded = false;
         let soundMuted = localStorage.getItem('wortketten_sound_muted') === 'true';
         let audioContext = null;
         let activeOscillators = new Set();
@@ -1154,8 +1188,84 @@
         let hangmanRound = 1;
         let hangmanState = null;
         let hangmanWord = '';
+        let hangmanMatchId = '';
+        let recordedHangmanRounds = new Set();
         let hangmanRoomActive = false;
         let hangmanGameStarted = false;
+        let isDailyChallenge = false;
+        let dailyChallengeDate = '';
+        let dailyChallengeSteps = 0;
+        let wordRoundStatsRecorded = false;
+
+        const GAME_STATS_KEY = 'wortketten_stats_v1';
+        const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
+
+        function emptyGameStats() {
+            return Object.fromEntries(GAME_STAT_MODES.map(mode => [mode, {
+                played: 0, wins: 0, losses: 0, currentStreak: 0, maxStreak: 0
+            }]));
+        }
+
+        function loadGameStats() {
+            const defaults = emptyGameStats();
+            try {
+                const saved = JSON.parse(localStorage.getItem(GAME_STATS_KEY) || '{}');
+                GAME_STAT_MODES.forEach(mode => {
+                    const entry = saved && saved[mode];
+                    if (!entry || typeof entry !== 'object') return;
+                    Object.keys(defaults[mode]).forEach(key => {
+                        const value = Number(entry[key]);
+                        if (Number.isFinite(value) && value >= 0) defaults[mode][key] = Math.floor(value);
+                    });
+                });
+            } catch (error) {
+                console.warn('Gespeicherte Spielstatistiken konnten nicht gelesen werden.', error);
+            }
+            return defaults;
+        }
+
+        let gameStats = loadGameStats();
+
+        function saveGameStats() {
+            try {
+                localStorage.setItem(GAME_STATS_KEY, JSON.stringify(gameStats));
+            } catch (error) {
+                console.warn('Spielstatistiken konnten nicht gespeichert werden.', error);
+                showToast('Spielstatistiken konnten nicht gespeichert werden.', 'warning');
+            }
+        }
+
+        function recordGameResult(mode, won) {
+            if (!GAME_STAT_MODES.includes(mode)) return;
+            const stats = gameStats[mode];
+            stats.played++;
+            if (won) {
+                stats.wins++;
+                stats.currentStreak++;
+                stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
+            } else {
+                stats.losses++;
+                stats.currentStreak = 0;
+            }
+            saveGameStats();
+            renderStatsSummary();
+        }
+
+        function renderStatsSummary() {
+            if (!gameStats) return;
+            const elements = {
+                words: ['statsWordsSummary', 'statsWordsRecord'],
+                pong: ['statsPongSummary', 'statsPongRecord'],
+                hangman: ['statsHangmanSummary', 'statsHangmanRecord']
+            };
+            Object.entries(elements).forEach(([mode, ids]) => {
+                const stats = gameStats[mode];
+                const summary = document.getElementById(ids[0]);
+                const record = document.getElementById(ids[1]);
+                if (summary) summary.textContent = `${stats.played} Partien · ${stats.wins} Siege · ${stats.losses} Niederlagen`;
+                if (record) record.textContent = `🔥 Rekordserie ${stats.maxStreak}`;
+            });
+        }
 
         function getAudioContext() {
             if (!audioContext || audioContext.state === 'closed') {
@@ -1412,6 +1522,8 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             installClientGuards();
+            pendingRoomJoin = getRoomJoinRequestFromUrl();
+            renderStatsSummary();
             const modalClosers = [
                 ['friendRequestModal', rejectFriendRequest],
                 ['lobbyInviteModal', rejectLobbyInvite],
@@ -1438,6 +1550,7 @@
                 switchScreen('screenOnboarding');
             } else {
                 initPeerAndSetup();
+                startPendingRoomJoin();
             }
 
             document.addEventListener('keydown', (e) => {
@@ -1507,6 +1620,38 @@
             localStorage.setItem('wortketten_my_name', myName);
             localStorage.setItem('wortketten_my_tag', myTag);
             initPeerAndSetup();
+            startPendingRoomJoin();
+        }
+
+        function getRoomJoinRequestFromUrl() {
+            const query = new URLSearchParams(window.location.search);
+            const hash = new URLSearchParams(window.location.hash.replace(/^#\/?/, ''));
+            const code = query.get('room') || hash.get('room');
+            if (!/^\d{4}$/.test(code || '')) return null;
+
+            const requestedMode = (query.get('mode') || query.get('game') || hash.get('mode') || hash.get('game') || 'words').toLowerCase();
+            const mode = ['pong', 'hangman'].includes(requestedMode) ? requestedMode : 'words';
+            return { code, mode };
+        }
+
+        function startPendingRoomJoin() {
+            if (!pendingRoomJoin || !myName || !myTag) return;
+            const { code, mode } = pendingRoomJoin;
+            pendingRoomJoin = null;
+
+            if (mode === 'pong') {
+                document.getElementById('pongRoomCodeInput').value = code;
+                switchMainTab('pong');
+                joinPongLobby(code);
+            } else if (mode === 'hangman') {
+                document.getElementById('hangmanRoomCodeInput').value = code;
+                switchMainTab('hangman');
+                joinHangmanLobby(code);
+            } else {
+                document.getElementById('roomCodeInput').value = code;
+                switchMainTab('words');
+                joinGame(code);
+            }
         }
 
         function changeMyName() {
@@ -2205,6 +2350,8 @@
             if (hangmanPlayers.length < 2) return alert('Für Hangman brauchst du mindestens 2 Spieler.');
             hangmanGameStarted = true;
             hangmanRound = 1;
+            hangmanMatchId = `${myId || myTag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            recordedHangmanRounds.clear();
             hangmanPlayers.forEach(player => { player.score = 0; player.roundPoints = 0; });
             startHangmanRound();
         }
@@ -2215,6 +2362,7 @@
             const setterIndex = hangmanMode === 'custom' ? (hangmanRound - 1) % hangmanPlayers.length : -1;
             const setter = setterIndex >= 0 ? hangmanPlayers[setterIndex] : null;
             hangmanState = {
+                matchId: hangmanMatchId,
                 mode: hangmanMode, maxErrors: hangmanMaxErrors, rounds: hangmanRounds,
                 round: hangmanRound, status: setter ? 'setting' : 'playing',
                 setterId: setter ? setter.id : null,
@@ -2237,6 +2385,7 @@
         function getPublicHangmanState() {
             if (!hangmanState) return null;
             const state = {
+                matchId: hangmanState.matchId,
                 mode: hangmanState.mode, maxErrors: hangmanState.maxErrors, rounds: hangmanState.rounds,
                 round: hangmanState.round, status: hangmanState.status, setterId: hangmanState.setterId,
                 turnIndex: hangmanState.turnIndex, mistakes: hangmanState.mistakes,
@@ -2373,6 +2522,8 @@
             if (hangmanRound >= hangmanRounds) {
                 hangmanPlayers.forEach(player => { player.score = 0; });
                 hangmanRound = 1;
+                hangmanMatchId = `${myId || myTag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                recordedHangmanRounds.clear();
             } else {
                 hangmanRound++;
             }
@@ -2416,6 +2567,15 @@
                 return;
             }
             if (state.status === 'over') {
+                const statRoundKey = state.matchId ? `${state.matchId}:${state.round}` : '';
+                if (statRoundKey && !recordedHangmanRounds.has(statRoundKey)) {
+                    const localPlayer = playersForView.find(player => player.id === myId);
+                    if (localPlayer) {
+                        const topRoundPoints = Math.max(...playersForView.map(player => Number(player.roundPoints) || 0));
+                        recordGameResult('hangman', localPlayer.roundPoints > 0 && localPlayer.roundPoints === topRoundPoints);
+                    }
+                    recordedHangmanRounds.add(statRoundKey);
+                }
                 document.getElementById('hangmanAnswer').innerText = `${state.solved ? 'Erratenes Wort' : 'Gesuchtes Wort'}: ${state.answer || hangmanWord}`;
                 document.getElementById('hangmanRoundScores').innerHTML = playersForView.slice().sort((a, b) => b.roundPoints - a.roundPoints).map(player =>
                     `<div class="flex justify-between rounded-lg bg-card px-3 py-2 text-xs"><span>${escapeHangmanHtml(player.name)}</span><span class="text-cyan-300">+${player.roundPoints} Runde · ${player.score} gesamt</span></div>`
@@ -2475,7 +2635,11 @@
                     { x: 759, y: 300, w: 16, h: 80, side: 'right', index: 3, botAimY: null, botThinkAt: 0 }
                 );
             }
-            return { ball: { x: 400, y: 250, r: 11, vx: 5, vy: 3.2 }, paddles, blueScore: 0, redScore: 0, individualScore: [0, 0, 0, 0] };
+            return {
+                ball: { x: 400, y: 250, r: 11, vx: 5, vy: 3.2 },
+                paddles, blueScore: 0, redScore: 0, individualScore: [0, 0, 0, 0],
+                powerUp: null, nextPowerUpAt: 0, activePowerUps: [], lastToucherId: null
+            };
         }
 
         function startPongGame() {
@@ -2497,8 +2661,12 @@
                 assignPongTeams();
                 renderPongLobby();
             }
+            pongPlayers.forEach(player => { player.score = 0; });
             pongRunning = false;
             pongState = createPongState();
+            pongStatsRecorded = false;
+            pongNextPowerUpAt = performance.now() + 7000 + Math.random() * 6000;
+            pongState.nextPowerUpAt = pongNextPowerUpAt;
             pongWinnerText = '';
             pongBallTrail = [];
             pongHitParticles = [];
@@ -2562,6 +2730,98 @@
             return ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w && ball.y + ball.r > paddle.y && ball.y - ball.r < paddle.y + paddle.h;
         }
 
+        function updatePongPowerUpEffects(timestamp) {
+            const active = pongState.activePowerUps || [];
+            pongState.activePowerUps = active.filter(effect => {
+                if (timestamp < effect.expiresAt) return true;
+                if (effect.type === 'slow') {
+                    pongState.ball.vx /= 0.72;
+                    pongState.ball.vy /= 0.72;
+                } else if (effect.type === 'paddle') {
+                    pongState.paddles.filter(paddle => pongPlayers[paddle.index] && pongPlayers[paddle.index].id === effect.playerId)
+                        .forEach(paddle => {
+                            paddle.h = 80;
+                            paddle.y = Math.max(0, Math.min(500 - paddle.h, paddle.y + 20));
+                        });
+                }
+                return false;
+            });
+        }
+
+        function recordPongMatchResult(playersSnapshot) {
+            if (pongStatsRecorded) return;
+            const localPlayer = (playersSnapshot || pongPlayers).find(player => player.id === myId);
+            if (!localPlayer) return;
+            pongStatsRecorded = true;
+            recordGameResult('pong', Number(localPlayer.score) >= pongWinScore);
+        }
+
+        function finishPongMatch(winnerText) {
+            pongWinnerText = winnerText;
+            pongRunning = false;
+            pongHostLoop = null;
+            const playersSnapshot = pongPlayers.map(player => ({
+                id: player.id, name: player.name, score: player.score, team: player.team, isBot: !!player.isBot
+            }));
+            recordPongMatchResult(playersSnapshot);
+            celebrate();
+            broadcast({ type: 'PONG_WIN', winnerText, state: pongState, players: playersSnapshot });
+            drawPong();
+            return true;
+        }
+
+        function applyPongPowerUp(powerUp, timestamp) {
+            const recipient = pongPlayers.find(player => player.id === pongState.lastToucherId);
+            if (!recipient) return false;
+            const active = pongState.activePowerUps || (pongState.activePowerUps = []);
+            const duration = 6000;
+            const existing = active.find(effect => effect.type === powerUp.type && effect.playerId === recipient.id);
+            let winnerText = '';
+
+            if (powerUp.type === 'paddle') {
+                if (existing) existing.expiresAt = timestamp + duration;
+                else {
+                    active.push({ type: 'paddle', playerId: recipient.id, expiresAt: timestamp + duration });
+                    pongState.paddles.filter(paddle => pongPlayers[paddle.index] && pongPlayers[paddle.index].id === recipient.id)
+                        .forEach(paddle => {
+                            paddle.y = Math.max(0, Math.min(500 - 120, paddle.y - 20));
+                            paddle.h = 120;
+                        });
+                }
+            } else if (powerUp.type === 'slow') {
+                if (existing) existing.expiresAt = timestamp + duration;
+                else {
+                    pongState.ball.vx *= 0.72;
+                    pongState.ball.vy *= 0.72;
+                    active.push({ type: 'slow', playerId: recipient.id, expiresAt: timestamp + duration });
+                }
+            } else if (powerUp.type === 'point') {
+                const playerIndex = pongPlayers.findIndex(player => player.id === recipient.id);
+                if (pongMaxPlayers === 4) {
+                    const team = recipient.team;
+                    if (team === 'Blau') pongState.blueScore++;
+                    else pongState.redScore++;
+                    const score = team === 'Blau' ? pongState.blueScore : pongState.redScore;
+                    pongPlayers.filter(player => player.team === team).forEach(player => { player.score = score; });
+                    if (score >= pongWinScore) winnerText = `${team} gewinnt!`;
+                } else if (playerIndex >= 0) {
+                    pongState.individualScore[playerIndex]++;
+                    recipient.score = pongState.individualScore[playerIndex];
+                    if (recipient.score >= pongWinScore) winnerText = `${recipient.name} gewinnt!`;
+                }
+            }
+
+            const labels = { paddle: 'Vergrößerter Schläger', slow: 'Verlangsamter Ball', point: 'Extrapunkt' };
+            if (recipient.id === myId) showToast(`Power-up: ${labels[powerUp.type] || 'Bonus'}!`, 'success');
+            broadcast({ type: 'PONG_POWERUP', playerId: recipient.id, powerUpType: powerUp.type });
+            if (powerUp.type === 'point') {
+                triggerPongEffect('point', powerUp.x, powerUp.y);
+                broadcast({ type: 'PONG_SOUND', kind: 'point', x: powerUp.x, y: powerUp.y });
+            }
+            if (winnerText) return finishPongMatch(winnerText);
+            return false;
+        }
+
         function pongHostTick(timestamp) {
             if (!isHost || !pongRunning || pongPaused || !pongState) {
                 pongHostLoop = null;
@@ -2572,6 +2832,17 @@
             pongLastTickAt = timestamp;
             const b = pongState.ball;
             b.x += b.vx * frameScale; b.y += b.vy * frameScale;
+            updatePongPowerUpEffects(timestamp);
+            if (!pongState.powerUp && pongState.lastToucherId && timestamp >= pongState.nextPowerUpAt) {
+                const types = ['paddle', 'slow', 'point'];
+                pongState.powerUp = {
+                    type: types[Math.floor(Math.random() * types.length)],
+                    x: 300 + Math.random() * 200,
+                    y: 100 + Math.random() * 300
+                };
+                pongState.nextPowerUpAt = timestamp + 8000 + Math.random() * 7000;
+                pongNextPowerUpAt = pongState.nextPowerUpAt;
+            }
             if (b.y - b.r <= 0) {
                 b.y = b.r; b.vy = Math.abs(b.vy);
                 triggerPongEffect('wall', b.x, b.y);
@@ -2596,11 +2867,18 @@
                 p.y += Math.max(-maxStep, Math.min(maxStep, p.botAimY - p.y));
             });
 
+            if (pongState.powerUp && Math.hypot(b.x - pongState.powerUp.x, b.y - pongState.powerUp.y) <= b.r + 15) {
+                const collectedPowerUp = pongState.powerUp;
+                pongState.powerUp = null;
+                if (applyPongPowerUp(collectedPowerUp, timestamp)) return;
+            }
+
             pongState.paddles.forEach(p => {
                 if (paddleHit(p, b)) {
                     if ((p.side === 'left' && b.vx < 0) || (p.side === 'right' && b.vx > 0)) {
                         if (p.side === 'left') { b.x = p.x + p.w + b.r; b.vx = Math.abs(b.vx) * 1.03; }
                         else { b.x = p.x - b.r; b.vx = -Math.abs(b.vx) * 1.03; }
+                        pongState.lastToucherId = pongPlayers[p.index] ? pongPlayers[p.index].id : null;
                         triggerPongEffect('paddle', b.x, b.y);
                         broadcast({ type: 'PONG_SOUND', kind: 'paddle', x: b.x, y: b.y });
                     }
@@ -2627,17 +2905,7 @@
                     }
                 }
                 if (winnerText) {
-                    pongWinnerText = winnerText;
-                    pongRunning = false;
-                    pongHostLoop = null;
-                    celebrate();
-                    broadcast({
-                        type: 'PONG_WIN',
-                        winnerText,
-                        state: pongState,
-                        players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, isBot: !!p.isBot }))
-                    });
-                    drawPong();
+                    finishPongMatch(winnerText);
                     return;
                 }
                 b.x = 400; b.y = 250; b.vx = (Math.random() > .5 ? 5 : -5); b.vy = (Math.random() > .5 ? 3.2 : -3.2);
@@ -2650,6 +2918,10 @@
             if (timestamp - pongLastDrawAt >= 16) {
                 pongLastDrawAt = timestamp;
                 drawPong();
+            }
+            if (!pongRunning) {
+                pongHostLoop = null;
+                return;
             }
             pongHostLoop = requestAnimationFrame(pongHostTick);
         }
@@ -2699,6 +2971,30 @@
                 ctx.fillRect(p.x, p.y, p.w, p.h);
             });
             ctx.shadowBlur = 0;
+            if (state.powerUp) {
+                const powerUpStyles = {
+                    paddle: { symbol: '↕', color: '#a78bfa' },
+                    slow: { symbol: '❄', color: '#67e8f9' },
+                    point: { symbol: '+1', color: '#fbbf24' }
+                };
+                const style = powerUpStyles[state.powerUp.type] || powerUpStyles.point;
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(15, 23, 42, .94)';
+                ctx.shadowBlur = 22;
+                ctx.shadowColor = style.color;
+                ctx.arc(state.powerUp.x, state.powerUp.y, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = style.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = style.color;
+                ctx.font = 'bold 20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(style.symbol, state.powerUp.x, state.powerUp.y);
+                ctx.textBaseline = 'alphabetic';
+            }
             const b = state.ball;
             if (pongBallTrail.length && Math.hypot(pongBallTrail[pongBallTrail.length - 1].x - b.x, pongBallTrail[pongBallTrail.length - 1].y - b.y) > 100) {
                 pongBallTrail = [];
@@ -2931,6 +3227,7 @@
             }
 
             isHost = false;
+            isDailyChallenge = false;
             stopWordTimer();
             stopPongGame();
             stopAllSounds();
@@ -3030,6 +3327,7 @@
                     hangmanRoomActive = true;
                     hangmanGameStarted = true;
                     hangmanState = data.state;
+                    hangmanMatchId = data.state.matchId || hangmanMatchId;
                     hangmanMode = data.state.mode;
                     hangmanMaxErrors = data.state.maxErrors;
                     hangmanRounds = data.state.rounds;
@@ -3099,8 +3397,10 @@
                     pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
                     pongWinScore = data.winScore || pongWinScore;
                     pongRunning = false;
+                    pongStatsRecorded = false;
                     pongWinnerText = '';
                     pongState = data.state || createPongState();
+                    pongNextPowerUpAt = pongState.nextPowerUpAt || 0;
                     pongBallTrail = [];
                     pongHitParticles = [];
                     pongPreviousSnapshot = pongState;
@@ -3119,6 +3419,7 @@
                     pongState = data.state;
                     pongPlayers = data.players || pongPlayers;
                     pongWinnerText = data.winnerText;
+                    recordPongMatchResult(pongPlayers);
                     pongRunning = false;
                     pongCountdown = 0;
                     pongPaused = false;
@@ -3152,6 +3453,13 @@
                 case 'PONG_SOUND':
                     triggerPongEffect(data.kind, data.x, data.y);
                     break;
+                case 'PONG_POWERUP': {
+                    if (data.playerId === myId) {
+                        const labels = { paddle: 'Vergrößerter Schläger', slow: 'Verlangsamter Ball', point: 'Extrapunkt' };
+                        showToast(`Power-up: ${labels[data.powerUpType] || 'Bonus'}!`, 'success');
+                    }
+                    break;
+                }
                 case 'PONG_COUNTDOWN':
                     pongCountdown = data.count;
                     if (pongCountdown === 0) pongRunning = true;
@@ -3207,6 +3515,8 @@
                     updateLobbyUI();
                     break;
                 case 'START_GAME':
+                    isDailyChallenge = false;
+                    wordRoundStatsRecorded = false;
                     wordChain = data.wordChain;
                     settings = data.settings || settings;
                     round = data.round || 1;
@@ -3307,6 +3617,7 @@
         const pubPlayers = () => players.map(p => ({ id: p.id, name: p.name, score: p.score, streak: p.streak || 0, isHost: p.isHost }));
 
         function wordPool() {
+            if (isDailyChallenge) return DAILY_WORD_POOL.slice();
             let words;
             if (gameMode === 'de') words = [...dictionaryDE];
             else if (gameMode === 'en') words = [...dictionaryEN];
@@ -3366,8 +3677,89 @@
             return ['HAUS', 'MAUS', 1];
         }
 
+        function hashDailyDate(dateKey) {
+            let hash = 2166136261;
+            for (const char of dateKey) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+            return hash >>> 0;
+        }
+
+        function getDailyChallengePair(dateKey = new Date().toDateString()) {
+            const pool = DAILY_WORD_POOL;
+            if (pool.length < 3) return null;
+            const seed = hashDailyDate(dateKey);
+            const startOffset = seed % pool.length;
+
+            for (let attempt = 0; attempt < pool.length; attempt++) {
+                const start = pool[(startOffset + attempt) % pool.length];
+                const distances = new Map([[start, 0]]);
+                const queue = [start];
+                for (let index = 0; index < queue.length; index++) {
+                    const word = queue[index];
+                    const distance = distances.get(word);
+                    if (distance >= 5) continue;
+                    for (const candidate of pool) {
+                        if (!distances.has(candidate) && checkWordDifference(word, candidate)) {
+                            distances.set(candidate, distance + 1);
+                            queue.push(candidate);
+                        }
+                    }
+                }
+                const targets = [...distances.entries()]
+                    .filter(([, distance]) => distance >= 2 && distance <= 5)
+                    .map(([word, steps]) => ({ word, steps }));
+                if (targets.length) {
+                    const target = targets[(seed + attempt) % targets.length];
+                    return { start, target: target.word, steps: target.steps };
+                }
+            }
+            return null;
+        }
+
+        function startDailyChallenge() {
+            if (!myName || !myTag) {
+                showToast('Erstelle zuerst dein Spielerprofil.', 'warning');
+                return;
+            }
+            const date = new Date();
+            const pair = getDailyChallengePair(date.toDateString());
+            if (!pair) {
+                showToast('Für die heutige Daily Challenge wurde kein Wortpaar gefunden.', 'error');
+                return;
+            }
+
+            isDailyChallenge = true;
+            dailyChallengeDate = date.toLocaleDateString('de-DE');
+            dailyChallengeSteps = 0;
+            wordRoundStatsRecorded = false;
+            isHost = true;
+            gameMode = 'all';
+            settings = { rounds: 1, diff: 'inf', inf: true, keep: false, wordLength: 0 };
+            const localId = myId || 'daily-' + myTag;
+            players = [{ id: localId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true }];
+            round = 1;
+            wordChain = [pair.start];
+            targetWord = pair.target;
+            optimalSteps = pair.steps;
+            lastScoreSummary = '';
+            currentTurnIndex = 0;
+            startGameUI();
+        }
+
+        function copyDailyChallengeResult() {
+            const result = `🟩 Wortketten Daily · ${dailyChallengeDate}\n🟩 Gelöst in ${dailyChallengeSteps} Schritten`;
+            if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+                showToast('Die Zwischenablage ist in diesem Browser nicht verfügbar.', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(result)
+                .then(() => showToast('Daily-Ergebnis kopiert!', 'success'))
+                .catch(() => showToast('Das Ergebnis konnte nicht kopiert werden.', 'error'));
+        }
+
         function startOnlineGame(newMatch = true) {
             if (!isHost) return;
+            isDailyChallenge = false;
+            wordRoundStatsRecorded = false;
             if (newMatch) {
                 round = 1;
                 players.forEach(p => { p.score = 0; p.streak = 0; });
@@ -3397,7 +3789,9 @@
 
             document.getElementById('lblStartWord').innerText = wordChain[0];
             document.getElementById('lblTargetWord').innerHTML = paintTarget();
-            document.getElementById('roundLabel').innerText = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
+            document.getElementById('roundLabel').innerText = isDailyChallenge
+                ? `Daily Challenge · ${dailyChallengeDate} · Optimum ${optimalSteps} Schritte`
+                : `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
 
             const logEl = document.getElementById('lastScoreLog');
             if (lastScoreSummary) {
@@ -3417,9 +3811,9 @@
                     <i class="fa-solid fa-arrow-right text-xs text-indigo-400"></i>
                 </div>`).join('') + `<div class="target-tile px-3 py-2 lg:px-5 lg:py-3 rounded-xl border-2 border-dashed text-emerald-300 font-mono font-black text-sm sm:text-base lg:text-2xl tracking-widest">${paintTarget()}</div>`;
 
-            document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost);
+            document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost || isDailyChallenge);
             const active = players[currentTurnIndex];
-            const myTurn = active && active.id === myId;
+            const myTurn = isDailyChallenge || (active && active.id === myId);
             document.getElementById('currentTurnName').innerText = active ? active.name : '---';
             document.getElementById('gameFeedback').innerText = '';
             document.getElementById('liveTypingBox').classList.add('hidden');
@@ -3443,7 +3837,8 @@
             const input = document.getElementById('wordInput');
             const word = input.value.trim().toUpperCase();
             if (!word) return;
-            if (isHost) processWordSubmission(word, myId);
+            if (isDailyChallenge) processWordSubmission(word, players[0].id);
+            else if (isHost) processWordSubmission(word, myId);
             else if (conn && conn.open) conn.send({ type: 'SUBMIT_WORD', word, playerId: myId });
             input.value = '';
             broadcastLiveTyping('');
@@ -3474,13 +3869,13 @@
             if (wordChain.includes(word)) return say('♻️ Dieses Wort wurde schon benutzt.', 'error');
 
             if (!force && word !== targetWord && !wordPool().includes(word)) {
-                if (!checked) {
+                if (!checked && !isDailyChallenge) {
                     say('🔎 Prüfe Wort im Online-Wörterbuch …', 'warning');
                     checkOnline(word).then(ok => processWordSubmission(word, playerId, reply, ok, true));
                     return;
                 }
                 lastRejected = { word, playerId };
-                if (isHost) document.getElementById('hostJokerBox').classList.remove('hidden');
+                if (isHost && !isDailyChallenge) document.getElementById('hostJokerBox').classList.remove('hidden');
                 return say(`⚠️ "${word}" ist nicht im gewählten Wörterbuch.`, 'warning');
             }
 
@@ -3546,6 +3941,7 @@
             const data = {
                 type: 'ROUND_OVER',
                 winner: winner.name,
+                winnerId: winner.id,
                 lastEarned,
                 lastScoreSummary,
                 target: targetWord,
@@ -3726,6 +4122,14 @@
         function showRoundOver(d) {
             stopWordTimer();
             stopAllSounds();
+            if (!wordRoundStatsRecorded) {
+                const localPlayer = (d.players || []).find(player => player.id === myId) ||
+                    (isDailyChallenge ? (d.players || [])[0] : null);
+                const winnerId = d.winnerId || (d.players || []).find(player => player.name === d.winner)?.id;
+                if (localPlayer) recordGameResult('words', localPlayer.id === winnerId);
+                wordRoundStatsRecorded = true;
+                if (isDailyChallenge) dailyChallengeSteps = Math.max(0, d.chain.length - 1);
+            }
             players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
             const winner = players.find(p => p.name === d.winner);
             playWordSuccess(winner ? winner.streak : 1);
@@ -3742,9 +4146,12 @@
                 </div>`).join('');
             const btn = (fn, txt, cls) => `<button onclick="${fn}" class="w-full ${cls} text-white font-bold py-3.5 rounded-xl transition text-sm cursor-pointer">${txt}</button>`;
             let html = '';
-            if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
+            if (isDailyChallenge) {
+                html += btn('copyDailyChallengeResult()', '📋 Daily-Ergebnis teilen', 'bg-cyan-600 hover:bg-cyan-500');
+                html += btn('startDailyChallenge()', '🔁 Heutige Challenge nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500');
+            } else if (isHost) html += d.final ? btn('startOnlineGame(true)', '🔁 Nochmal spielen', 'bg-emerald-600 hover:bg-emerald-500') : btn('nextRound()', '▶ Nächste Runde', 'bg-emerald-600 hover:bg-emerald-500');
             else html += '<p class="text-xs text-gray-400 italic">Warte auf den Host...</p>';
-            if (isHost) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
+            if (isHost && !isDailyChallenge) html += btn('hostBackToLobby(true)', '↩ Zurück zur Lobby (alle bleiben)', 'bg-amber-600 hover:bg-amber-500');
             html += btn('leaveLobby()', 'Zurück zum Menü', 'bg-indigo-600 hover:bg-indigo-500');
             document.getElementById('roundOverActions').innerHTML = html;
         }
@@ -3778,8 +4185,16 @@
         }
 
         function copyInviteLink() {
-            navigator.clipboard.writeText(myTag);
-            showToast('Deine Raum-ID #' + myTag + ' wurde kopiert!', 'success');
+            const inviteUrl = new URL(window.location.href);
+            ['room', 'mode', 'game'].forEach(parameter => inviteUrl.searchParams.delete(parameter));
+            inviteUrl.hash = 'room=' + encodeURIComponent(myTag);
+            if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+                showToast('Die Zwischenablage ist in diesem Browser nicht verfügbar.', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(inviteUrl.href)
+                .then(() => showToast('Einladungslink für Raum #' + myTag + ' kopiert!', 'success'))
+                .catch(() => showToast('Der Einladungslink konnte nicht kopiert werden.', 'error'));
         }
 
         function showStatus(text, type) {
