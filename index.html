@@ -12,10 +12,10 @@
             theme: {
                 extend: {
                     colors: {
-                        darker: '#0b0f19',
-                        dark: '#111827',
-                        card: '#1f2937',
-                        border: '#374151'
+                        darker: '#070914',
+                        dark: '#0c1020',
+                        card: '#121a2d',
+                        border: '#28324a'
                     }
                 }
             }
@@ -78,6 +78,252 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        :root {
+            color-scheme: dark;
+            --surface-glass: rgba(15, 20, 37, .76);
+            --surface-deep: rgba(8, 12, 24, .78);
+            --line-glass: rgba(180, 193, 255, .12);
+            --glow-indigo: rgba(99, 102, 241, .22);
+            --glow-cyan: rgba(34, 211, 238, .16);
+        }
+        body {
+            position: relative;
+            z-index: 0;
+            background-color: #070914;
+            background-image: radial-gradient(ellipse at 12% 8%, rgba(91, 67, 196, .16), transparent 38%), radial-gradient(ellipse at 88% 20%, rgba(24, 136, 176, .10), transparent 34%), linear-gradient(145deg, #070914 0%, #0a0d1a 52%, #080b16 100%);
+            background-attachment: fixed;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -18%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: .7;
+            background: radial-gradient(ellipse at 24% 26%, rgba(99,102,241,.14), transparent 28%), radial-gradient(ellipse at 78% 66%, rgba(34,211,238,.09), transparent 30%), radial-gradient(ellipse at 55% 8%, rgba(168,85,247,.08), transparent 25%);
+            filter: blur(42px);
+            animation: ambientDrift 24s ease-in-out infinite alternate;
+        }
+        @keyframes ambientDrift {
+            from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+            to { transform: translate3d(1.5%, 1%, 0) scale(1.04); }
+        }
+        header, main { position: relative; z-index: 1; }
+        header.glass {
+            background: rgba(8, 11, 23, .78);
+            border-color: rgba(180, 193, 255, .10);
+            box-shadow: 0 16px 42px rgba(0, 0, 0, .28);
+            backdrop-filter: blur(24px) saturate(145%);
+        }
+        .glass {
+            background: linear-gradient(145deg, rgba(20, 26, 46, .78), rgba(9, 13, 27, .84));
+            border-color: var(--line-glass);
+            box-shadow: 0 18px 55px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255,255,255,.035);
+            backdrop-filter: blur(22px) saturate(135%);
+        }
+        main > div > .glass,
+        main .glass.rounded-3xl {
+            border-color: rgba(180, 193, 255, .13);
+            box-shadow: 0 22px 65px rgba(0, 0, 0, .3), 0 0 42px rgba(91, 67, 196, .055), inset 0 1px 0 rgba(255,255,255,.045);
+        }
+        button {
+            transition: all .2s cubic-bezier(.2, .8, .2, 1);
+        }
+        button:active:not(:disabled) { transform: scale(.95); }
+        button:focus-visible {
+            outline: 2px solid rgba(129, 140, 248, .9);
+            outline-offset: 3px;
+        }
+        button[class*="bg-indigo-"]:hover:not(:disabled),
+        button[class*="bg-violet-"]:hover:not(:disabled) {
+            box-shadow: 0 8px 26px rgba(99, 102, 241, .28);
+        }
+        button[class*="bg-cyan-"]:hover:not(:disabled) {
+            box-shadow: 0 8px 26px rgba(34, 211, 238, .22);
+        }
+        button[class*="bg-emerald-"]:hover:not(:disabled) {
+            box-shadow: 0 8px 26px rgba(16, 185, 129, .2);
+        }
+        nav button {
+            transition: all .22s ease;
+        }
+        nav button[class*="bg-indigo-600"],
+        nav button[class*="bg-cyan-600"] {
+            box-shadow: 0 4px 18px rgba(99, 102, 241, .22);
+        }
+        input, textarea, select {
+            border-color: rgba(180, 193, 255, .14);
+            background-color: rgba(6, 9, 20, .72);
+            transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: rgba(129, 140, 248, .9) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .16), 0 0 24px rgba(99, 102, 241, .13);
+        }
+        [id$="Modal"] {
+            background: rgba(3, 5, 14, .82) !important;
+            -webkit-backdrop-filter: blur(18px) saturate(120%) !important;
+            backdrop-filter: blur(18px) saturate(120%) !important;
+        }
+        [id$="Modal"]:not(.hidden) { animation: modalBackdropIn .24s ease-out both; }
+        [id$="Modal"] > .glass {
+            position: relative;
+            max-height: min(90vh, 52rem);
+            overflow-y: auto;
+            border-color: rgba(180, 193, 255, .18);
+            background: linear-gradient(145deg, rgba(22, 28, 50, .96), rgba(8, 12, 25, .97));
+            box-shadow: 0 30px 100px rgba(0, 0, 0, .58), 0 0 50px rgba(99, 102, 241, .12), inset 0 1px 0 rgba(255,255,255,.06);
+        }
+        [id$="Modal"]:not(.hidden) > .glass { animation: modalPanelIn .42s cubic-bezier(.2, 1.35, .45, 1) both; }
+        [id$="Modal"] .modal-header {
+            display: flex;
+            align-items: center;
+            gap: .85rem;
+            text-align: left;
+        }
+        .modal-icon {
+            width: 2.8rem;
+            height: 2.8rem;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(129,140,248,.28);
+            border-radius: 1rem;
+            color: #a5b4fc;
+            background: rgba(99,102,241,.14);
+            box-shadow: 0 0 28px rgba(99,102,241,.15);
+        }
+        .modal-icon-cyan { color: #67e8f9; background: rgba(34,211,238,.12); border-color: rgba(34,211,238,.28); box-shadow: 0 0 28px rgba(34,211,238,.12); }
+        .modal-icon-violet { color: #c4b5fd; background: rgba(139,92,246,.14); border-color: rgba(139,92,246,.3); box-shadow: 0 0 28px rgba(139,92,246,.15); }
+        .modal-close {
+            width: 2.25rem;
+            height: 2.25rem;
+            margin-left: auto;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: .85rem;
+            color: #9ca3af;
+            background: rgba(255,255,255,.04);
+        }
+        .modal-close:hover { color: white; border-color: rgba(129,140,248,.4); background: rgba(99,102,241,.15); }
+        .modal-close i { transition: transform .25s ease; }
+        .modal-close:hover i { transform: rotate(90deg); }
+        @keyframes modalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalPanelIn { from { opacity: 0; transform: scale(.94) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        #playerScoresBar { row-gap: .55rem; }
+        .player-score-card, .lobby-player-pill {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+            transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+        }
+        .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host {
+            border-color: rgba(129,140,248,.65) !important;
+            background: linear-gradient(110deg, rgba(99,102,241,.22), rgba(34,211,238,.07)) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 0 0 1px rgba(99,102,241,.14), 0 0 22px rgba(99,102,241,.15);
+            animation: activeCardPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes activeCardPulse {
+            50% { box-shadow: 0 0 0 1px rgba(99,102,241,.24), 0 0 30px rgba(99,102,241,.28); }
+        }
+        .player-score-card.is-active::after {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 2px;
+            background: linear-gradient(#818cf8, #22d3ee);
+            box-shadow: 0 0 12px rgba(34,211,238,.55);
+        }
+        .score-chip {
+            border: 1px solid rgba(129,140,248,.18);
+            background: rgba(8,12,24,.7);
+        }
+        .streak-badge {
+            position: relative;
+            overflow: hidden;
+            border-radius: 999px;
+            background: linear-gradient(110deg, rgba(245,158,11,.2), rgba(251,191,36,.08));
+            box-shadow: inset 0 0 12px rgba(251,191,36,.08);
+        }
+        .streak-badge::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,.18) 48%, transparent 72%);
+            transform: translateX(-120%);
+            animation: badgeShimmer 3.4s ease-in-out infinite;
+        }
+        @keyframes badgeShimmer { 55%, 100% { transform: translateX(120%); } }
+        #timerDisplay {
+            position: relative;
+            width: 3.35rem !important;
+            height: 3.35rem !important;
+            flex: 0 0 auto;
+            border-radius: 1.15rem !important;
+            border-color: rgba(129,140,248,.35) !important;
+            background: linear-gradient(145deg, rgba(24,31,56,.98), rgba(8,12,25,.98)) !important;
+            box-shadow: 0 0 24px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.08) !important;
+            font-size: 1.1rem;
+            transition: color .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+        #timerDisplay::before {
+            content: "";
+            position: absolute;
+            inset: 3px;
+            border: 1px solid rgba(129,140,248,.13);
+            border-radius: .9rem;
+            pointer-events: none;
+        }
+        #timerDisplay.timer-critical {
+            color: #fca5a5 !important;
+            border-color: rgba(248,113,113,.75) !important;
+            box-shadow: 0 0 0 3px rgba(239,68,68,.08), 0 0 28px rgba(239,68,68,.3), inset 0 0 18px rgba(239,68,68,.12) !important;
+            animation: timerAlarm .8s ease-in-out infinite alternate;
+        }
+        @keyframes timerAlarm { to { transform: scale(1.04); filter: brightness(1.25); } }
+        #turnBanner {
+            border-color: rgba(129,140,248,.2);
+            background: linear-gradient(90deg, rgba(99,102,241,.1), rgba(8,12,24,.7), rgba(34,211,238,.06));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+        }
+        #wordChainContainer { perspective: 900px; }
+        .word-tile, .target-tile {
+            border-radius: 1rem !important;
+            background: linear-gradient(145deg, rgba(35,44,75,.96), rgba(14,19,37,.98)) !important;
+            border-color: rgba(155,168,255,.24) !important;
+            box-shadow: 0 10px 24px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.07);
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+        .word-tile:hover, .target-tile:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,.3), 0 0 18px rgba(99,102,241,.12); }
+        .word-tile.is-current { border-color: rgba(129,140,248,.72) !important; box-shadow: 0 0 25px rgba(99,102,241,.22), inset 0 1px 0 rgba(255,255,255,.1); }
+        .target-tile { background: linear-gradient(145deg, rgba(6,78,59,.34), rgba(9,22,32,.98)) !important; border-color: rgba(52,211,153,.48) !important; box-shadow: 0 0 24px rgba(16,185,129,.08); }
+        #lastScoreLog:not(.hidden) {
+            position: relative;
+            z-index: 2;
+            padding: .6rem 1rem;
+            border-radius: 1rem;
+            background: linear-gradient(105deg, rgba(16,185,129,.15), rgba(8,12,24,.88));
+            box-shadow: 0 12px 30px rgba(0,0,0,.22), 0 0 22px rgba(16,185,129,.08);
+        }
+        #lastScoreLog.score-log-in:not(.hidden) { animation: scoreLogFloat .38s cubic-bezier(.2,1.2,.35,1) both; }
+        @keyframes scoreLogFloat { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        #lobbyPlayerList > span, #pongPlayerList > span, #hangmanPlayerList > span, #hangmanScoreboard > span {
+            padding: .55rem .85rem;
+            border-radius: 1rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+        #lobbyPlayerList > span:hover, #pongPlayerList > span:hover, #hangmanPlayerList > span:hover, #hangmanScoreboard > span:hover { transform: translateY(-2px); }
+        @media (prefers-reduced-motion: reduce) {
+            body::before, .streak-badge::after, #timerDisplay.timer-critical, .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host { animation: none; }
+            [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
+            *, *::before, *::after { scroll-behavior: auto !important; }
         }
     </style>
 </head>
@@ -572,11 +818,12 @@
 
     <!-- MODAL: FREUNDSCHAFTSANFRAGE -->
     <div id="friendRequestModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl text-center space-y-4">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto text-lg border border-indigo-500/30">
-                <i class="fa-solid fa-user-plus"></i>
+        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl space-y-4">
+            <div class="modal-header">
+                <span class="modal-icon"><i class="fa-solid fa-user-plus"></i></span>
+                <h3 class="font-extrabold text-base text-white">Neue Freundschaftsanfrage</h3>
+                <button type="button" class="modal-close" onclick="rejectFriendRequest()" aria-label="Anfrage schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <h3 class="font-extrabold text-base text-white">Neue Freundschaftsanfrage</h3>
             <p id="friendRequestText" class="text-xs text-gray-300"><b>Spieler</b> möchte dich als Freund hinzufügen.</p>
             <div class="flex space-x-2 pt-2">
                 <button onclick="rejectFriendRequest()" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Ablehnen</button>
@@ -587,11 +834,12 @@
 
     <!-- MODAL: LOBBY EINLADUNG -->
     <div id="lobbyInviteModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-indigo-500/50 shadow-2xl text-center space-y-4">
-            <div class="w-12 h-12 rounded-2xl bg-violet-600/20 text-violet-400 flex items-center justify-center mx-auto text-lg border border-violet-500/30">
-                <i class="fa-solid fa-envelope-open-text"></i>
+        <div class="glass rounded-3xl p-6 max-w-sm w-full border border-cyan-500/40 shadow-2xl space-y-4">
+            <div class="modal-header">
+                <span class="modal-icon modal-icon-cyan"><i class="fa-solid fa-envelope-open-text"></i></span>
+                <h3 class="font-extrabold text-base text-white">Lobby-Einladung</h3>
+                <button type="button" class="modal-close" onclick="rejectLobbyInvite()" aria-label="Einladung schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <h3 class="font-extrabold text-base text-white">Lobby-Einladung</h3>
             <p id="lobbyInviteText" class="text-xs text-gray-300"><b>Host</b> lädt dich in seine Lobby ein!</p>
             <div class="flex space-x-2 pt-2">
                 <button onclick="rejectLobbyInvite()" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Ablehnen</button>
@@ -603,9 +851,10 @@
     <!-- MODAL: RULES -->
     <div id="rulesModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
-            <div class="flex justify-between items-center">
+            <div class="modal-header">
+                <span class="modal-icon modal-icon-violet"><i class="fa-solid fa-sliders"></i></span>
                 <h3 class="font-extrabold text-lg text-white">Spielregeln & Punktesystem</h3>
-                <button onclick="closeRulesModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeRulesModal()" class="modal-close" aria-label="Regeln schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="space-y-2.5 text-xs text-gray-300 leading-relaxed">
                 <p><b>1. Ziel:</b> Verwandle das Startwort durch Ändern, Hinzufügen oder Entfernen von <b>1 Buchstaben</b> pro Zug ins Zielwort.</p>
@@ -626,9 +875,10 @@
     <!-- MODAL: ADD FRIEND -->
     <div id="addFriendModal" class="fixed inset-0 bg-darker/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4">
-            <div class="flex justify-between items-center">
+            <div class="modal-header">
+                <span class="modal-icon"><i class="fa-solid fa-user-plus"></i></span>
                 <h3 class="font-extrabold text-lg text-white">Freund hinzufügen</h3>
-                <button onclick="closeAddFriendModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeAddFriendModal()" class="modal-close" aria-label="Freundesdialog schließen"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="space-y-3">
                 <div>
@@ -1074,6 +1324,23 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             installClientGuards();
+            const modalClosers = [
+                ['friendRequestModal', rejectFriendRequest],
+                ['lobbyInviteModal', rejectLobbyInvite],
+                ['rulesModal', closeRulesModal],
+                ['addFriendModal', closeAddFriendModal]
+            ];
+            modalClosers.forEach(([id, close]) => {
+                const modal = document.getElementById(id);
+                modal.addEventListener('click', event => {
+                    if (event.target === modal) close();
+                });
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key !== 'Escape') return;
+                const openModal = modalClosers.find(([id]) => !document.getElementById(id).classList.contains('hidden'));
+                if (openModal) openModal[1]();
+            });
             const soundButton = document.getElementById('soundToggle');
             soundButton.querySelector('i').className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
             soundButton.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
@@ -1552,7 +1819,7 @@
                         : i === 1 ? 'border-rose-400/50 bg-rose-500/20 text-rose-200'
                         : 'border-amber-400/50 bg-amber-500/20 text-amber-200')
                     : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
-                return `<span class="px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="font-mono text-white ml-1">${p.score || 0} P</span></span>`;
+                return `<span class="lobby-player-pill ${p.id === myId ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${p.name}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="score-chip font-mono text-white ml-1">${p.score || 0} P</span></span>`;
             }).join('');
             document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
@@ -1724,7 +1991,7 @@
             const modeLabel = hangmanMode === 'custom' ? 'Eigenes Wort · Wortgeber wechselt' : 'Zufallswort';
             info.innerText = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
             playerList.innerHTML = hangmanPublicPlayers().map((player, index) =>
-                `<span class="px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)}${index === 0 ? ' · Host' : ''}</span>`
+                `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)}${index === 0 ? ' · Host' : ''}</span>`
             ).join('');
             document.getElementById('hangmanStartButton').classList.toggle('hidden', !isHost);
             document.getElementById('hangmanWaitingMessage').classList.toggle('hidden', isHost);
@@ -1933,13 +2200,16 @@
             const setter = playersForView.find(player => player.id === state.setterId);
             const isSetter = state.setterId === myId;
             const isMyTurn = state.status === 'playing' && currentPlayer && currentPlayer.id === myId && !isSetter;
+            const activePlayerIndex = state.status === 'setting'
+                ? playersForView.findIndex(player => player.id === state.setterId)
+                : state.turnIndex;
             document.getElementById('hangmanRoundLabel').innerText = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}`;
             document.getElementById('hangmanTurnLabel').innerText = state.status === 'setting'
                 ? `Wortgeber: ${setter ? setter.name : '---'}`
                 : state.status === 'over' ? (state.solved ? 'Wort erraten!' : 'Keine Leben mehr')
                 : `Am Zug: ${currentPlayer ? currentPlayer.name : '---'}${isMyTurn ? ' · Du bist dran' : ''}`;
             document.getElementById('hangmanScoreboard').innerHTML = playersForView.map((player, index) =>
-                `<span class="px-3 py-1.5 rounded-xl ${index === state.turnIndex && state.status === 'playing' ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)} <span class="text-cyan-300">${player.score} P</span></span>`
+                `<span class="lobby-player-pill ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)} <span class="score-chip text-cyan-300">${player.score} P</span></span>`
             ).join('');
             document.getElementById('hangmanLives').innerText = `${Math.max(0, state.maxErrors - state.mistakes)} / ${state.maxErrors}`;
             document.getElementById('hangmanLivesBar').style.width = `${Math.max(0, (state.maxErrors - state.mistakes) / state.maxErrors * 100)}%`;
@@ -2926,11 +3196,11 @@
 
         function renderGame() {
             document.getElementById('playerScoresBar').innerHTML = players.map((p, idx) => `
-                <div class="px-3 py-1.5 rounded-xl border ${idx === currentTurnIndex ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-darker/60 border-border text-gray-400'} flex items-center space-x-2">
+                <div class="player-score-card px-3 py-1.5 rounded-xl border ${idx === currentTurnIndex ? 'is-active bg-indigo-600/20 border-indigo-500 text-white' : 'bg-darker/60 border-border text-gray-400'} flex items-center space-x-2">
                     <span class="w-2 h-2 rounded-full ${idx === currentTurnIndex ? 'bg-indigo-400 animate-pulse' : 'bg-gray-600'}"></span>
                     <span class="text-xs font-bold">${p.name}</span>
-                    ${(p.streak && p.streak >= 2) ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">🔥 x${getMultiplier(p.streak).toFixed(1)}</span>` : ''}
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-darker font-mono font-bold text-indigo-300">${p.score} P</span>
+                    ${(p.streak && p.streak >= 2) ? `<span class="streak-badge text-[10px] px-2 py-0.5 rounded-full text-amber-200 border border-amber-400/30 font-bold">🔥 x${getMultiplier(p.streak).toFixed(1)}</span>` : ''}
+                    <span class="score-chip text-[10px] px-2 py-0.5 rounded-full bg-darker/80 font-mono font-bold text-indigo-200">${p.score} P</span>
                 </div>`).join('');
 
             document.getElementById('lblStartWord').innerText = wordChain[0];
@@ -2941,15 +3211,19 @@
             if (lastScoreSummary) {
                 logEl.innerText = lastScoreSummary;
                 logEl.classList.remove('hidden');
+                logEl.classList.remove('score-log-in');
+                void logEl.offsetWidth;
+                logEl.classList.add('score-log-in');
             } else {
                 logEl.classList.add('hidden');
+                logEl.classList.remove('score-log-in');
             }
 
             document.getElementById('wordChainContainer').innerHTML = wordChain.map((w, i) => `
                 <div class="flex items-center space-x-1.5 tile-in">
-                    <div class="px-3 py-2 lg:px-5 lg:py-3 rounded-xl ${i === wordChain.length - 1 ? 'bg-indigo-600 border-indigo-400' : 'bg-card border-border'} border font-mono font-black text-sm sm:text-base lg:text-2xl text-white tracking-widest shadow-lg">${paintWord(w)}</div>
+                    <div class="word-tile px-3 py-2 lg:px-5 lg:py-3 ${i === wordChain.length - 1 ? 'is-current' : ''} border font-mono font-black text-sm sm:text-base lg:text-2xl text-white tracking-widest shadow-lg">${paintWord(w)}</div>
                     <i class="fa-solid fa-arrow-right text-xs text-indigo-400"></i>
-                </div>`).join('') + `<div class="px-3 py-2 lg:px-5 lg:py-3 rounded-xl border-2 border-dashed border-emerald-500/60 text-emerald-400 font-mono font-black text-sm sm:text-base lg:text-2xl tracking-widest">${paintTarget()}</div>`;
+                </div>`).join('') + `<div class="target-tile px-3 py-2 lg:px-5 lg:py-3 rounded-xl border-2 border-dashed text-emerald-300 font-mono font-black text-sm sm:text-base lg:text-2xl tracking-widest">${paintTarget()}</div>`;
 
             document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost);
             const active = players[currentTurnIndex];
@@ -3233,6 +3507,7 @@
             if (settings.inf) {
                 timeLeft = 0;
                 disp.innerText = '∞';
+                disp.classList.remove('timer-critical');
                 disp.classList.remove('text-red-400'); disp.classList.add('text-violet-400');
                 return;
             }
@@ -3241,6 +3516,7 @@
                 disp.innerText = timeLeft;
                 disp.classList.toggle('text-red-400', timeLeft <= 5);
                 disp.classList.toggle('text-violet-400', timeLeft > 5);
+                disp.classList.toggle('timer-critical', timeLeft <= 5);
             };
             paint();
             timerInterval = setInterval(() => {
@@ -3295,7 +3571,7 @@
             document.getElementById('lobbyPlayerCount').innerText = players.length;
             const list = document.getElementById('lobbyPlayerList');
             list.innerHTML = players.map(p => `
-                <span class="px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">
+                <span class="lobby-player-pill ${p.isHost ? 'is-host' : ''} px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">
                     ${p.name} ${p.isHost ? '👑' : ''}
                 </span>
             `).join('');
