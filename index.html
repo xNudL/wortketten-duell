@@ -1625,11 +1625,6 @@
                     </button>
                     <div id="gameFeedback" class="text-xs font-medium text-center min-h-[18px] text-red-400"></div>
                     
-                    <div id="hostJokerBox" class="hidden text-center pt-2">
-                        <button onclick="hostForceAccept()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3.5 py-1.5 rounded-lg transition cursor-pointer">
-                            <i class="fa-solid fa-crown mr-1"></i> Trotzdem zählen (Spielleiter-Joker)
-                        </button>
-                    </div>
                 </div>
 
                 <button id="btnBackLobby" onclick="hostBackToLobby()" class="hidden mt-5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer">
@@ -1766,7 +1761,7 @@
 
     <!-- JavaScript Game Logic -->
     <script>
-        const dictionaryDE = new Set("BAD BAHN BALD BALL BAND BART BASE BAUM BEIN BETT BIER BILD BLAU BLUT BRAND BRAU BUND DEIN DOSE FALL FAST FEIN FELL FLUG GALL GLAS GRAB GRAD GRAS GRAU GUT HAAR HALL HALT HAND HART HASE HAT HAUS HAUT HEIL HEIM HELL HOSE HUND HUT JAHR KALT KEIN KIND KLAN KLAR KLUG KOST KRAS LAG LAND LAST LAUS LAUT LEER LIED LOSE MAST MAUS MEER MEIN MILD MUND MUT NASE NETT NOT PAAR PLAN POST RAD RAT RAUM RAUS REIM REIN RIND ROSE ROST ROT RUND SAG SAND SEIL SEIN SIEB SPIEL STAND STAUB TAG TEIL TIER TOR TOT TRAUM VASE VIEL VIER WAHR WALD WALL WAND WART WEIN WELL WETT WILD WIND WUT ZAHN ZART ZIEL".split(" "));
+        const dictionaryDE = new Set("BAD BAHN BALD BALL BAND BART BASE BAUM BEIN BETT BIER BILD BLAU BLUT BRAND BRAU BUND DEIN DOSE FALL FAST FEIN FELL FLUG GALL GLAS GRAB GRAD GRAS GRAU GUT HAAR HALL HALT HAND HART HASE HAT HAUS HAUT HEIL HEIM HELL HOSE HUND HUT JAHR KALT KEIN KIND KLAN KLAR KLUG KOST LAG LAND LAST LAUS LAUT LEER LIED LOSE MAST MAUS MEER MEIN MILD MUND MUT NASE NETT NOT PAAR PLAN POST RAD RAT RAUM RAUS REIM REIN RIND ROSE ROST ROT RUND SAG SAND SEIL SEIN SIEB SPIEL STAND STAUB TAG TEIL TIER TOR TOT TRAUM VASE VIEL VIER WAHR WALD WALL WAND WART WEIN WELL WILD WIND WUT ZAHN ZART ZIEL".split(" "));
         const dictionaryEN = new Set("BAG BALE BALL BAND BAT BEAR BED BEG BELL BEST BET BIG BILL BOIL BOOK BOW BOWL BOWS BOYS BULL BUNT CALL CAP CAST CAT CATS CELL COOK COOL COST CUP CUT DEAR DIG DOG DOT DULL FADE FAIL FALL FAST FAT FEAR FED FELL FILE FIND FINE FIRE FOIL FOOD FULL GALE GEAR GET GILL GIRL GOOD HALL HAND HAT HELL HIP HIRE HIT HOLE HOOD HOOK HOP HOT HUNT HURT JADE JET KIND LAND LED LET LINE LOOK MADE MALE MALL MAP MAT MET MILE MIND MINE MOLE MOOD NEST NET NINE NUT PALE PANS PANT PAST PAT PEAR PEST PET PILE PINE PINS PLANT POLE POND POOL POST PULL PUNT PUP PUT RAT RED REST ROLE ROOK SALE SAND SAT SELL SET SOLE TALE TALL TELL TEST TILE TIP TIRE TOOL TOP WADE WALL WAND WED WELL WEST WET WIND WINE WIRE WOOD WOOL".split(" "));
 
         const extraDE = [
@@ -1787,7 +1782,7 @@
             "MEHL", "MILCH", "MOND", "MOOS", "MORD", "MUND", "MUT", "NACHT", "NADEL", "NAGEL", "NAHT",
             "NAME", "NASE", "NASS", "NEBEL", "NEST", "NETZ", "NEU", "NOT", "OFEN", "OHR", "OST",
             "PAAR", "PACK", "PFAD", "PFLUG", "POST", "RAD", "RAND", "RANG", "RAT", "RAUCH", "RAUM",
-            "RAUS", "REGEN", "REIH", "REIS", "RIND", "RING", "ROCK", "ROSE", "ROT", "RUHE", "RUND",
+            "RAUS", "REGEN", "REIS", "RIND", "RING", "ROCK", "ROSE", "ROT", "RUHE", "RUND",
             "SAAL", "SACK", "SAFT", "SAND", "SATZ", "SAU", "SCHAF", "SEE", "SEIL", "SEIN", "SOHN",
             "SORT", "SPAT", "STAB", "STADT", "STAHL", "STEIN", "STERN", "STIER", "STROM", "STUHL",
             "TAG", "TAL", "TANK", "TANZ", "TASSE", "TEE", "TEIL", "TIER", "TISCH", "TON", "TOR",
@@ -1804,7 +1799,7 @@
             "WACHS", "WANGE", "WASSER", "WEBER", "WEIN", "WIESE", "WITZ", "WOLF", "WOLKE", "WUNDE", "WUT",
             "ZANGE", "ZIEL", "ZIMT", "ZINN", "ZIRKUS", "ZWEI", "ROST", "RAST", "RASE", "HASS", "HAST",
             "HALM", "HANG", "HEIM", "HEIL", "HEIZ", "HOCH", "HOLD", "HUPE", "KOHLE", "LIEB", "LIEF",
-            "LEHM", "LEIH", "MARK", "MARS", "MASS", "MATT", "MIET", "MILD", "MINE", "NAHE", "NAHM",
+            "LEHM", "LEIH", "MARK", "MARS", "MASS", "MATT", "MILD", "MINE", "NAHE", "NAHM",
             "NICK", "NOCH", "NULL", "OBEN", "OPER", "PEST", "PFAHL", "PFOTE", "PIER", "PIPE", "POL",
             "PUMPE", "PUPPE", "RABE", "REBE", "RENN", "RINNE", "RIPPE", "ROLL", "SAGE", "SALBE", "SAUM",
             "SCHON", "SICH", "SIEG", "SOLL", "SPANN", "STAAT", "SUCHE", "TEER", "THEMA", "TIEF", "TIPP",
@@ -1957,7 +1952,7 @@
         }
 
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
-        const LEARNED_KEY = 'wortketten_learned_v1';
+        const LEARNED_KEY = 'wortketten_learned_v2';
         const savedLearned = readStoredJson(LEARNED_KEY, {});
         const learned = {
             de: Array.isArray(savedLearned && savedLearned.de)
@@ -1979,17 +1974,19 @@
         }
 
         async function jget(url) {
-            const c = new AbortController(), t = setTimeout(() => c.abort(), 4500);
-            try { const r = await fetch(url, { signal: c.signal }); return r.ok ? await r.json() : null; }
-            catch (e) { return null; } finally { clearTimeout(t); }
-        }
-
-        async function jpost(url, body) {
-            const c = new AbortController(), t = setTimeout(() => c.abort(), 4500);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 4500);
             try {
-                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: c.signal });
-                return r.ok ? await r.json() : null;
-            } catch (e) { return null; } finally { clearTimeout(t); }
+                const response = await fetch(url, { signal: controller.signal });
+                if (response.status === 404) return null;
+                if (!response.ok) throw new Error(`Wörterbuch antwortete mit HTTP ${response.status}.`);
+                return await response.json();
+            } catch (error) {
+                console.warn('Wörterbuchabfrage fehlgeschlagen.', error);
+                return undefined;
+            } finally {
+                clearTimeout(timeout);
+            }
         }
 
         function looksLikeWord(word) {
@@ -2001,41 +1998,106 @@
             return true;
         }
 
-        async function existsDE(w) {
-            const l = w.toLowerCase(), c = l[0].toUpperCase() + l.slice(1);
-            const d = await jget('https://de.wiktionary.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageprops&titles=' + encodeURIComponent(c + '|' + l));
-            const pages = d && d.query && d.query.pages ? Object.values(d.query.pages) : [];
-            const exact = pages.find(p => p.title && p.title.toLowerCase() === l && !('missing' in p));
-            if (!exact) return false;
+        function hasWiktionaryWordEntry(wikitext, language) {
+            if (typeof wikitext !== 'string') return false;
+            const headings = [...wikitext.matchAll(/^(={2,6})\s*(.*?)\s*\1\s*$/gm)];
+            const languageTemplate = new RegExp(
+                `\\{\\{\\s*Sprache\\s*\\|\\s*${language}(?:\\s*\\||\\s*\\}\\})`,
+                'i'
+            );
+            const languageSection = headings.find(heading =>
+                heading[1].length === 2 &&
+                (languageTemplate.test(heading[2]) || heading[2].trim().toLowerCase() === language.toLowerCase())
+            );
+            if (!languageSection) return false;
 
-            const page = await jget('https://de.wiktionary.org/w/api.php?action=parse&format=json&origin=*&prop=wikitext&page=' + encodeURIComponent(exact.title));
-            const text = page && page.parse && page.parse.wikitext ? (page.parse.wikitext['*'] || '') : '';
-            if (!/(==+\s*Deutsch\s*==+|Wortart|Deutsch)/i.test(text)) return false;
-
-            const spelling = await jpost('https://languagetool.org/api/v2/check', { text: l, language: 'de-DE', enabledOnly: 'TYPOS' });
-            if (spelling && Array.isArray(spelling.matches) && spelling.matches.length) return false;
-            return true;
+            const nextLanguageSection = headings.find(heading =>
+                heading[1].length === 2 && heading.index > languageSection.index
+            );
+            const sectionEnd = nextLanguageSection ? nextLanguageSection.index : wikitext.length;
+            const section = wikitext.slice(languageSection.index + languageSection[0].length, sectionEnd);
+            const wordClass = new RegExp(
+                `\\{\\{\\s*Wortart\\s*\\|\\s*[^|}]+\\s*\\|\\s*${language}(?:\\s*\\||\\s*\\}\\})`,
+                'i'
+            );
+            const primaryDefinition = section.match(/^\s*(?:#(?!:)|:\s*\[1\])\s*(.+)$/im);
+            const isEverydayDefinition = primaryDefinition && !/\{\{\s*K\s*\|/i.test(primaryDefinition[1]);
+            return wordClass.test(section) &&
+                /\{\{\s*Bedeutungen\s*\}\}/i.test(section) &&
+                !!isEverydayDefinition;
         }
 
         async function existsEN(w) {
             const l = w.toLowerCase();
             const dictionary = await jget('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(l));
-            if (Array.isArray(dictionary) && dictionary.some(entry => String(entry.word || '').toLowerCase() === l)) return true;
+            if (Array.isArray(dictionary) && dictionary.some(entry =>
+                String(entry.word || '').toLowerCase() === l &&
+                Array.isArray(entry.meanings) &&
+                entry.meanings.some(meaning =>
+                    typeof meaning.partOfSpeech === 'string' &&
+                    Array.isArray(meaning.definitions) &&
+                    meaning.definitions.some(definition =>
+                        typeof definition.definition === 'string' && definition.definition.trim().length > 0
+                    )
+                )
+            )) return true;
 
-            // Datamuse wird nur als Lexikon-Fallback verwendet: exakt und mit Wortart-/Definitionsdaten.
+            const dictionaryAvailable = dictionary !== undefined;
             const datamuse = await jget('https://api.datamuse.com/words?max=10&sp=' + encodeURIComponent(l) + '&md=d');
-            return Array.isArray(datamuse) && datamuse.some(entry =>
+            if (Array.isArray(datamuse)) return datamuse.some(entry =>
                 entry.word === l &&
-                ((entry.tags && entry.tags.some(tag => /^(n|v|adj|adv)$/.test(tag))) ||
-                 (Array.isArray(entry.defs) && entry.defs.length > 0))
+                Array.isArray(entry.defs) &&
+                entry.defs.some(definition => /^(n|v|adj|adv)\t\S/.test(definition))
             );
+            return dictionaryAvailable ? false : null;
+        }
+
+        async function existsDE(w) {
+            const lower = w.toLowerCase();
+            const capitalized = lower[0].toUpperCase() + lower.slice(1);
+            const result = await jget(
+                'https://de.wiktionary.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageprops&titles=' +
+                encodeURIComponent(capitalized + '|' + lower)
+            );
+            if (result === undefined) return null;
+            const pages = result && result.query && result.query.pages
+                ? Object.values(result.query.pages)
+                : [];
+            const exact = pages.find(page =>
+                page.title && page.title.toLowerCase() === lower && !('missing' in page)
+            );
+            if (!exact) return false;
+
+            const page = await jget(
+                'https://de.wiktionary.org/w/api.php?action=parse&format=json&origin=*&prop=wikitext&page=' +
+                encodeURIComponent(exact.title)
+            );
+            if (page === undefined) return null;
+            const wikitext = page && page.parse && page.parse.wikitext && page.parse.wikitext['*'];
+            if (typeof wikitext !== 'string') return null;
+            return hasWiktionaryWordEntry(wikitext, 'Deutsch');
         }
 
         async function checkOnline(word) {
-            if (!looksLikeWord(word)) return false;
-            if (gameMode !== 'en' && await existsDE(word)) { learnWord('de', word); return true; }
-            if (gameMode !== 'de' && await existsEN(word)) { learnWord('en', word); return true; }
-            return false;
+            if (!looksLikeWord(word)) return 'invalid';
+            let unavailable = false;
+            if (gameMode !== 'en') {
+                const germanResult = await existsDE(word);
+                if (germanResult === true) {
+                    learnWord('de', word);
+                    return 'valid';
+                }
+                if (germanResult === null) unavailable = true;
+            }
+            if (gameMode !== 'de') {
+                const englishResult = await existsEN(word);
+                if (englishResult === true) {
+                    learnWord('en', word);
+                    return 'valid';
+                }
+                if (englishResult === null) unavailable = true;
+            }
+            return unavailable ? 'unavailable' : 'invalid';
         }
 
         const DEFAULT_PLAYER_COLOR = '#818cf8';
@@ -7147,7 +7209,7 @@
             inf: {min:4,max:5,time:0,label:'Unendlich ♾️'}
         };
         let settings = { dictionaryMode: 'all', rounds: 3, diff: 'medium', inf: false, keep: false, wordLength: 0 };
-        let round = 1, lastRejected = null;
+        let round = 1;
         const pubPlayers = () => players.map(p => ({
             id: p.id, name: p.name, score: p.score, streak: p.streak || 0,
             isHost: p.isHost, color: playerDisplayColor(p), badge: playerDisplayBadge(p)
@@ -7271,7 +7333,6 @@
             document.getElementById('currentTurnName').textContent = active ? active.name : '---';
             document.getElementById('gameFeedback').textContent = '';
             document.getElementById('liveTypingBox').classList.add('hidden');
-            document.getElementById('hostJokerBox').classList.add('hidden');
             const controls = document.getElementById('activePlayerControls');
             controls.style.opacity = myTurn ? '1' : '0.4';
             controls.style.pointerEvents = myTurn ? 'auto' : 'none';
@@ -7305,9 +7366,8 @@
             broadcastLiveTyping('');
         }
 
-        function processWordSubmission(word, playerId, reply = null, force = false, checked = false) {
+        function processWordSubmission(word, playerId, reply = null, dictionaryResult = null) {
             if (reply && !players.some(player => player.id === playerId && player.conn === reply)) return;
-            document.getElementById('hostJokerBox').classList.add('hidden');
             const say = (t, k) => {
                 if (!reply) {
                     showFeedback(t, k);
@@ -7330,15 +7390,26 @@
             if (lockC) return say(`🔒 Der gefundene Buchstabe „${lockC}“ muss im Wort bleiben!`, 'error');
             if (wordChain.includes(word)) return say('♻️ Dieses Wort wurde schon benutzt.', 'error');
 
-            if (!force && word !== targetWord && !wordPool().includes(word)) {
-                if (!checked) {
+            if (!wordPool().includes(word)) {
+                if (dictionaryResult === null) {
+                    if (!looksLikeWord(word)) {
+                        return say(`❌ "${word}" ist kein gültiges Wort im gewählten Wörterbuch.`, 'error');
+                    }
                     say('🔎 Prüfe Wort im Online-Wörterbuch …', 'warning');
-                    checkOnline(word).then(ok => processWordSubmission(word, playerId, reply, ok, true));
+                    checkOnline(word)
+                        .then(result => processWordSubmission(word, playerId, reply, result))
+                        .catch(error => {
+                            console.error('Die Wortprüfung ist fehlgeschlagen.', error);
+                            processWordSubmission(word, playerId, reply, 'unavailable');
+                        });
                     return;
                 }
-                lastRejected = { word, playerId };
-                if (isHost) document.getElementById('hostJokerBox').classList.remove('hidden');
-                return say(`⚠️ "${word}" ist nicht im gewählten Wörterbuch.`, 'warning');
+                if (dictionaryResult === 'unavailable') {
+                    return say('❌ Das Wörterbuch ist gerade nicht erreichbar. Bitte versuche es erneut.', 'error');
+                }
+                if (dictionaryResult !== 'valid') {
+                    return say(`❌ "${word}" ist nicht als gültiges Wort im gewählten Wörterbuch belegt.`, 'error');
+                }
             }
 
             // ===== NEUES KOMPETITIVES PUNKTESYSTEM =====
@@ -7415,12 +7486,6 @@
             };
             broadcast(data);
             showRoundOver(data);
-        }
-
-        function hostForceAccept() {
-            if (!lastRejected) return;
-            if (!confirm(`"${lastRejected.word}" trotzdem zählen?`)) return;
-            processWordSubmission(lastRejected.word, lastRejected.playerId, null, true);
         }
 
         function foundIdx(w, t) {
