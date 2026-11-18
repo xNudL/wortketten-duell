@@ -1416,6 +1416,7 @@
                         </select>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Kategorie für Zufallswörter</label>
                         <select id="hangmanCategorySelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="mixed">Gemischt</option>
                             <option value="gaming">Gaming</option>
                             <option value="anime">Anime</option>
                             <option value="geography">Geografie</option>
@@ -1504,7 +1505,9 @@
                             </form>
                             <div id="hangmanGuessArea" class="hidden w-full text-center">
                                 <p id="hangmanHint" class="text-sm text-cyan-300 min-h-5 mb-3"></p>
+                                <p id="hangmanSetterSolution" class="hidden mb-3 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-base font-bold text-amber-200" aria-live="polite"></p>
                                 <div id="hangmanWordDisplay" class="flex flex-wrap justify-center gap-2 min-h-12 mb-4 font-mono text-2xl sm:text-3xl font-black text-white tracking-wider"></div>
+                                <div id="hangmanGuessedSummary" class="mb-3 text-xs text-gray-300"></div>
                                 <div id="hangmanKeyboard" class="space-y-2 mb-4"></div>
                                 <button id="hangmanSolveButton" onclick="toggleHangmanSolve()" class="text-xs font-bold text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg px-3 py-2 transition">Ganzes Wort lösen</button>
                                 <form id="hangmanSolveForm" class="hidden mt-2 flex gap-2" onsubmit="event.preventDefault(); solveHangmanWord();">
@@ -2194,16 +2197,163 @@
         const PLAYER_BADGE_KEY = 'wortketten_player_badge';
         const PLAYER_BADGES = { star: '✦', bolt: '⚡', crown: '♛', diamond: '◆', comet: '☄' };
         const HANGMAN_CATEGORY_LABELS = {
+            mixed: 'Gemischt',
             gaming: 'Gaming',
             anime: 'Anime',
             geography: 'Geografie',
             music: 'Musik'
         };
         const HANGMAN_CATEGORY_WORDS = {
-            gaming: ['MINECRAFT', 'TETRIS', 'ZELDA', 'PACMAN', 'FORTNITE', 'PORTAL', 'OVERWATCH', 'STARCRAFT', 'SONIC', 'HALO'],
-            anime: ['NARUTO', 'ONEPIECE', 'BLEACH', 'DEATHNOTE', 'SAILORMOON', 'DEMONSLAYER', 'JUJUTSU', 'ATTACKONTITAN', 'DRAGONBALL', 'SPIRITEDAWAY'],
-            geography: ['DEUTSCHLAND', 'OESTERREICH', 'SCHWEIZ', 'BERLIN', 'TOKIO', 'MADRID', 'AMAZONAS', 'HIMALAYA', 'AUSTRALIEN', 'KANADA'],
-            music: ['GITARRE', 'KLAVIER', 'SCHLAGZEUG', 'VIOLINE', 'JAZZ', 'ROCK', 'TECHNO', 'KONZERT', 'MELODIE', 'SYNTHESIZER']
+            mixed: [
+                { word: 'TASTATUR', hint: 'Ein wichtiges Eingabegerät mit vielen Tasten.' },
+                { word: 'MONITOR', hint: 'Bildschirm, auf dem Programme und Bilder erscheinen.' },
+                { word: 'ROUTER', hint: 'Ein Gerät verteilt das Internet zu vielen Geräten.' },
+                { word: 'PROCESSOR', hint: 'Die wichtigste Recheneinheit eines Computers.' },
+                { word: 'DATENBANK', hint: 'Eine organisierte Sammlung von Informationen.' },
+                { word: 'DOWNLOAD', hint: 'Daten werden aus dem Internet auf ein Gerät übertragen.' },
+                { word: 'SMARTPHONE', hint: 'Ein kleines, alltagstaugliches Mobiltelefon.' },
+                { word: 'CONTROLLER', hint: 'Ein Eingabegerät zum Steuern von Spielen.' },
+                { word: 'MINECRAFT', hint: 'Ein Blockspiel aus Erkundung und Kreativität.' },
+                { word: 'TETRIS', hint: 'Ein Klassiker, in dem fallende Steine passen müssen.' },
+                { word: 'PORTAL', hint: 'Ein Spiel mit Wissenschaft, Rätseln und Dimensionen.' },
+                { word: 'HALO', hint: 'Bekannte Sci-Fi-Spielreihe mit Rüstung und Weltraumkampf.' },
+                { word: 'SONIC', hint: 'Ein schneller, blau gefärbter Videospielheld.' },
+                { word: 'FORTNITE', hint: 'Beliebtes Spiel mit Bauen und Battle Royale.' },
+                { word: 'REGENBOGEN', hint: 'Farbiges Licht erscheint nach einem Schauer.' },
+                { word: 'GEWITTER', hint: 'Wetterereignis mit Blitz und Donner.' },
+                { word: 'NEBEL', hint: 'Tiefhängende Wolken beeinträchtigen die Sicht.' },
+                { word: 'SONNENSCHEIN', hint: 'Warmes Licht kommt direkt vom Himmel.' },
+                { word: 'WINDSTILLE', hint: 'Die Luft bewegt sich fast überhaupt nicht.' },
+                { word: 'SCHNEEFLOCKE', hint: 'Ein kleiner Eisstern fällt vom Winterhimmel.' },
+                { word: 'GLETCHER', hint: 'Eine riesige, langsam bewegte Eisfläche.' },
+                { word: 'WALD', hint: 'Ein Gebiet mit vielen Bäumen und Wildtieren.' },
+                { word: 'PALME', hint: 'Eine tropische Pflanze mit hohem Stamm und Blättern oben.' },
+                { word: 'ORCHIDEE', hint: 'Eine Zierpflanze mit besonders auffälligen Blüten.' },
+                { word: 'LIBELL', hint: 'Ein großes Insekt mit dünnem Körper und zwei Flügelpaaren.' },
+                { word: 'FRUEHLING', hint: 'Eine Jahreszeit mit Wachstum und mildem Wetter.' },
+                { word: 'KUECHENMESSER', hint: 'Ein scharfes Werkzeug zum Schneiden in der Küche.' },
+                { word: 'PFANNKUCHEN', hint: 'Ein flacher Teig wird in der Pfanne gebacken.' },
+                { word: 'SCHOKOLADE', hint: 'Eine süße Leckerei aus Kakao.' },
+                { word: 'SPAGHETTI', hint: 'Lange, dünne Nudeln aus Hartweizengrieß.' },
+                { word: 'SANDWICH', hint: 'Belag wird zwischen zwei Brotscheiben gelegt.' },
+                { word: 'OFENGEMUeSE', hint: 'Gemüse wird auf dem Blech im Ofen gegart.' },
+                { word: 'ESSIG', hint: 'Eine saure Würzflüssigkeit für Salate und Speisen.' },
+                { word: 'KERZE', hint: 'Ein Docht leuchtet, wenn er entzündet wird.' },
+                { word: 'KALENDER', hint: 'Auf diesem Blatt oder Gerät stehen Tage und Termine.' },
+                { word: 'SCHLUESSEL', hint: 'Ein Gegenstand öffnet oder schließt ein Schloss.' },
+                { word: 'SCHIRM', hint: 'Spendet bei Regen oder Sonne Schutz von oben.' },
+                { word: 'TEEKANN', hint: 'Ein Gefäß, aus dem heißes Wasser in Tassen kommt.' },
+                { word: 'Rucksack', hint: 'Ein Behältnis wird mit Riemen auf dem Rücken getragen.' },
+                { word: 'UHRZEIGER', hint: 'Dieser Teil bewegt sich auf dem Zifferblatt.' },
+                { word: 'HANDTUCH', hint: 'Ein Stoffteil hilft beim Abtrocknen.' },
+                { word: 'WAESCHETROCKNER', hint: 'Ein Haushaltsgerät macht nasse Kleidung trocken.' },
+                { word: 'FLUGHAFEN', hint: 'Hier starten und landen Flugzeuge.' },
+                { word: 'BAHNHOF', hint: 'Züge halten an diesem zentralen Reisepunkt.' },
+                { word: 'FERNBUS', hint: 'Ein großes Straßenfahrzeug verbindet entfernte Städte.' },
+                { word: 'REISEPASS', hint: 'Dieses Dokument bestätigt die Identität im Ausland.' },
+                { word: 'WOHNANHÄNGER', hint: 'Ein rollendes Zuhause wird hinter einem Auto gezogen.' },
+                { word: 'BERGBAHN', hint: 'Dieses Verkehrsmittel fährt steile Strecken hinauf.' },
+                { word: 'LEUCHTTURM', hint: 'Ein hoher Bau warnet Schiffe vor gefährlichen Küsten.' },
+                { word: 'WAHRSAGER', hint: 'Diese Person behauptet, die Zukunft zu erkennen.' },
+                { word: 'ARZTHELFERIN', hint: 'Eine medizinische Fachkraft unterstützt Praxisabläufe.' },
+                { word: 'BIERBRAUER', hint: 'Eine Person stellt ein alkoholisches Getränk her.' },
+                { word: 'FEUERWEHR', hint: 'Eine Hilfseinheit löscht Brände und rettet Menschen.' },
+                { word: 'GARTENBAUER', hint: 'Diesen Beruf übt aus, wer Grünflächen gestaltet.' },
+                { word: 'MECHANIKER', hint: 'Diese Fachkraft repariert und wartet Maschinen.' },
+                { word: 'FOTOGRAF', hint: 'Eine Person hält besondere Momente mit einer Kamera fest.' },
+                { word: 'PILOT', hint: 'Diese Person steuert ein Flugzeug.' },
+                { word: 'BUCHHALTER', hint: 'Dieser Beruf verwaltet Zahlen und Rechnungen.' },
+                { word: 'FUSSBALL', hint: 'Beliebter Mannschaftssport mit einem runden Ball.' },
+                { word: 'HANDBALL', hint: 'Sport, bei dem ein Team den Ball mit den Händen wirft.' },
+                { word: 'TENNIS', hint: 'Zwei Spieler schlagen einen kleinen Ball über ein Netz.' },
+                { word: 'SCHWIMM', hint: 'Sportliche Bewegung im Wasser mit verschiedenen Stilen.' },
+                { word: 'BOGENSCHIESSEN', hint: 'Eine Zielscheibe wird mit Pfeilen getroffen.' },
+                { word: 'SKATEBOARD', hint: 'Ein kleines Brett mit Rollen dient zum Fahren und Tricks.' },
+                { word: 'MOTORRAD', hint: 'Ein zweirädriges Fahrzeug wird mit Motor angetrieben.' },
+                { word: 'MARATHON', hint: 'Ein sehr langer Lauf über eine feste Distanz.' },
+                { word: 'VOLLEYBALL', hint: 'Teams schlagen einen Ball über ein hohes Netz.' },
+                { word: 'FORMELRennen', hint: 'Rennwagen fahren mit Höchsttempo auf einer Strecke.' },
+                { word: 'STARWARS', hint: 'Science-Fiction-Saga mit Sternenreichen und Lichtschwertern.' },
+                { word: 'BATMAN', hint: 'Ein maskierter Held verteidigt eine nächtliche Großstadt.' },
+                { word: 'SPIDERMA', hint: 'Der Name enthält einen Hinweis auf Spinne und Held.' },
+                { word: 'HARRYPOTTER', hint: 'Ein junger Zauberlehrling besucht eine bekannte Schule.' },
+                { word: 'DISNEYFILM', hint: 'Animierte Unterhaltung aus einem bekannten Studio.' },
+                { word: 'NARUTO', hint: 'Ein junger Ninja träumt davon, Dorfchef zu werden.' },
+                { word: 'ONEPIECE', hint: 'Anime über einen Strohhut-Piraten und seine Crew.' },
+                { word: 'DRAGONBALL', hint: 'Anime um Krieger, Kugeln und Überlieferung.' },
+                { word: 'BLEACH', hint: 'Ein Schüler erhält Kräfte eines Seelenhüters.' },
+                { word: 'ATTACKONTITAN', hint: 'Menschen verteidigen Mauern gegen riesige Wesen.' },
+                { word: 'GITARRE', hint: 'Ein Saiteninstrument wird gezupft oder angeschlagen.' },
+                { word: 'KLAVIER', hint: 'Ein großes Instrument wird über eine weiße und schwarze Tastatur gespielt.' },
+                { word: 'SCHLAGZEUG', hint: 'Trommeln und Becken bilden den Rhythmus einer Band.' },
+                { word: 'VIOLINE', hint: 'Ein kleines Streichinstrument spielt hohe Töne.' },
+                { word: 'JAZZ', hint: 'Eine Musikrichtung lebt von Swing und Improvisation.' },
+                { word: 'ROCK', hint: 'Eine Gitarrenmusikrichtung mit oft kraftvollem Rhythmus.' },
+                { word: 'KONZERT', hint: 'Musiker treten vor Publikum live auf.' },
+                { word: 'MELODIE', hint: 'Eine Folge von Tönen bildet eine erkennbare Weise.' },
+                { word: 'SYNTHESIZER', hint: 'Dieses elektronische Instrument erzeugt künstliche Klänge.' },
+                { word: 'BERLIN', hint: 'Die deutsche Hauptstadt liegt an der Spree.' },
+                { word: 'TOKIO', hint: 'Die Hauptstadt Japans ist eine riesige Megacity.' },
+                { word: 'MADRID', hint: 'Spanische Hauptstadt mit viel Sonne und Kultur.' },
+                { word: 'AMAZONAS', hint: 'Ein großer Strom fließt durch den südamerikanischen Regenwald.' },
+                { word: 'HIMALAYA', hint: 'Dieses Gebirge enthält den höchsten Berg der Erde.' },
+                { word: 'AUSTRALIEN', hint: 'Ein Kontinent zugleich ist eine Inselnation mit dem Känguru.' },
+                { word: 'KANADA', hint: 'Ein großer nordamerikanischer Staat mit Ahornsymbol.' },
+                { word: 'DEUTSCHLAND', hint: 'Mitteleuropäisches Land mit Bundesländern.' },
+                { word: 'OESTERREICH', hint: 'Alpenland mit Wien als Hauptstadt.' },
+                { word: 'SCHWEIZ', hint: 'Mitteleuropäisches Land der Berge und Neutralität.' },
+                { word: 'EINKAUFSZETTEL', hint: 'Eine kleine Liste zeigt, was eingekauft werden soll.' },
+                { word: 'WECKER', hint: 'Ein Gerät erinnert zu einer bestimmten Uhrzeit.' },
+                { word: 'GESCHIRRSPUELER', hint: 'Dieses Haushaltsgerät reinigt Teller und Besteck.' }
+            ],
+            gaming: [
+                { word: 'MINECRAFT', hint: 'Baue, erkunde und gestalte eine Welt aus Blöcken.' },
+                { word: 'TETRIS', hint: 'Falling-Block-Puzzleklassiker mit vollständigen Reihen.' },
+                { word: 'ZELDA', hint: 'Abenteuerreihe um einen Held, der eine Prinzessin sucht.' },
+                { word: 'PACMAN', hint: 'Ein gelber Kreiskreatur sammelt Punkte in einem Labyrinth.' },
+                { word: 'FORTNITE', hint: 'Multiplayer-Spiel mit Bauen und Battle Royale.' },
+                { word: 'PORTAL', hint: 'Physikrätsel mit Verbindungen zwischen zwei Orten.' },
+                { word: 'OVERWATCH', hint: 'Team-Shooter mit Helden verschiedener Rollen.' },
+                { word: 'STARCRAFT', hint: 'Bekannte Echtzeit-Strategie im Weltraum.' },
+                { word: 'SONIC', hint: 'Ein schneller blaues Videospielmaskottchen.' },
+                { word: 'HALO', hint: 'Sci-Fi-Shooter mit einem gepanzerten Master Chief.' }
+            ],
+            anime: [
+                { word: 'NARUTO', hint: 'Ein junger Ninja träumt davon, Dorfchef zu werden.' },
+                { word: 'ONEPIECE', hint: 'Strohhut-Piraten suchen einen großen Schatz.' },
+                { word: 'BLEACH', hint: 'Ein Jugendlicher übernimmt die Aufgabe eines Seelenhüters.' },
+                { word: 'DEATHNOTE', hint: 'Ein mysteriöses Notizbuch kann Schicksale bestimmen.' },
+                { word: 'SAILORMOON', hint: 'Magische Kriegerinnen im Namen des Mondes kämpfen gegen Böse.' },
+                { word: 'DEMONSLAYER', hint: 'Ein Schwertkämpfer jagt Wesen und sucht Heilung für seine Schwester.' },
+                { word: 'JUJUTSU', hint: 'Schüler bekämpfen Flüche mit übernatürlicher Energie.' },
+                { word: 'ATTACKONTITAN', hint: 'Menschen hinter Mauern werden von riesigen Wesen bedroht.' },
+                { word: 'DRAGONBALL', hint: 'Kampfkünstler suchen magische Kugeln und beschützen die Erde.' },
+                { word: 'SPIRITEDAWAY', hint: 'Ein Mädchen gerät in eine Welt voller Geister und Zauber.' }
+            ],
+            geography: [
+                { word: 'DEUTSCHLAND', hint: 'Mitteleuropäisches Land mit Berlin als Hauptstadt.' },
+                { word: 'OESTERREICH', hint: 'Alpenland mit Wien als Hauptstadt.' },
+                { word: 'SCHWEIZ', hint: 'Mitteleuropäisches Land der Berge und Seen.' },
+                { word: 'BERLIN', hint: 'Hauptstadt Deutschlands mit Geschichte und Fernsehturm.' },
+                { word: 'TOKIO', hint: 'Hauptstadt Japans und eine riesige Megacity.' },
+                { word: 'MADRID', hint: 'Spanische Hauptstadt mit Sonne und Kultur.' },
+                { word: 'AMAZONAS', hint: 'Großer südamerikanischer Strom durch Regenwald.' },
+                { word: 'HIMALAYA', hint: 'Gebirge mit dem höchsten Berg der Erde.' },
+                { word: 'AUSTRALIEN', hint: 'Kontinent und Inselstaat im Süden.' },
+                { word: 'KANADA', hint: 'Großer nordamerikanischer Staat mit Ahornblatt.' }
+            ],
+            music: [
+                { word: 'GITARRE', hint: 'Ein Saiteninstrument, das gezupft oder angeschlagen wird.' },
+                { word: 'KLAVIER', hint: 'Instrument mit einer Tastatur aus weißen und schwarzen Tasten.' },
+                { word: 'SCHLAGZEUG', hint: 'Trommeln und Becken bilden den Rhythmus einer Band.' },
+                { word: 'VIOLINE', hint: 'Ein kleines Saiteninstrument wird mit einem Bogen gespielt.' },
+                { word: 'JAZZ', hint: 'Musikrichtung mit Swing, Rhythmus und Improvisation.' },
+                { word: 'ROCK', hint: 'Gitarrenorientierte Musikrichtung mit kräftigem Sound.' },
+                { word: 'TECHNO', hint: 'Elektronische Tanzmusik mit treibendem Beat.' },
+                { word: 'KONZERT', hint: 'Musiker treten vor einem Publikum live auf.' },
+                { word: 'MELODIE', hint: 'Eine erkennbare Folge musikalischer Töne.' },
+                { word: 'SYNTHESIZER', hint: 'Elektronisches Tasteninstrument erzeugt künstliche Klänge.' }
+            ]
         };
         const HANGMAN_REACTIONS = ['GG', 'GLHF', '🔥', '😂', 'EZ'];
 
@@ -2343,6 +2493,7 @@
             const mistakes = safeNonNegativeInteger(value.mistakes, 0, maxErrors + 1);
             const setterId = value.setterId === null ? null : value.setterId;
             const answer = value.status === 'over' ? sanitizeWord(value.answer, 3, 16) : '';
+            const secretWord = sanitizeWord(value.secretWord, 3, 16) || '';
             if (!matchId || !round || round > rounds || mistakes > maxErrors ||
                 (value.setterId !== null && !players.some(player => player.id === setterId)) ||
                 guessedLetters.some(letter => !letter) ||
@@ -2370,6 +2521,7 @@
                 solved: value.solved === true,
                 revealedWord,
                 players,
+                ...(secretWord ? { secretWord } : {}),
                 ...(value.status === 'over' ? { answer } : {})
             };
         }
@@ -2575,12 +2727,13 @@
         let pongHitParticles = [];
         let hangmanPlayers = [];
         let hangmanMode = 'custom';
-        let hangmanCategory = 'gaming';
+        let hangmanCategory = 'mixed';
         let hangmanMaxErrors = 6;
         let hangmanRounds = 3;
         let hangmanRound = 1;
         let hangmanState = null;
         let hangmanWord = '';
+        let recentHangmanWords = [];
         let hangmanMatchId = '';
         let recordedHangmanRounds = new Set();
         let hangmanRoomActive = false;
@@ -5439,7 +5592,7 @@
                 connections = [];
                 hangmanMode = document.getElementById('hangmanModeSelect').value;
                 const selectedCategory = document.getElementById('hangmanCategorySelect').value;
-                hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, selectedCategory) ? selectedCategory : 'gaming';
+                hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, selectedCategory) ? selectedCategory : 'mixed';
                 hangmanMaxErrors = +document.getElementById('hangmanMaxErrorsSelect').value;
                 hangmanRounds = +document.getElementById('hangmanRoundsSelect').value;
                 hangmanRound = 1;
@@ -5677,11 +5830,22 @@
                 players: hangmanPublicPlayers()
             };
             if (!setter) {
-                const pool = HANGMAN_CATEGORY_WORDS[hangmanCategory].filter(word => /^[A-ZÄÖÜ]{3,16}$/.test(word));
+                const pool = HANGMAN_CATEGORY_WORDS[hangmanCategory].filter(entry =>
+                    entry && /^[A-ZÄÖÜ]{3,16}$/.test(entry.word) &&
+                    typeof entry.hint === 'string' && entry.hint.trim()
+                );
                 if (!pool.length) return alert('Es ist kein passendes Zufallswort im Wörterbuch verfügbar.');
-                hangmanWord = pool[Math.floor(Math.random() * pool.length)];
+                let availablePool = pool.filter(entry => !recentHangmanWords.includes(entry.word));
+                if (!availablePool.length) {
+                    recentHangmanWords = [];
+                    availablePool = pool;
+                }
+                const selected = availablePool[Math.floor(Math.random() * availablePool.length)];
+                hangmanWord = selected.word.toUpperCase();
+                recentHangmanWords.push(hangmanWord);
+                if (recentHangmanWords.length > 20) recentHangmanWords.shift();
                 hangmanState.wordLength = hangmanWord.length;
-                hangmanState.hint = HANGMAN_CATEGORY_LABELS[hangmanCategory];
+                hangmanState.hint = selected.hint.trim();
             }
             broadcast({ type: 'HANGMAN_START', state: getPublicHangmanState() });
             renderHangmanView();
@@ -5709,7 +5873,19 @@
         function publishHangmanState() {
             if (!hangmanState) return;
             hangmanState.players = hangmanPublicPlayers();
-            broadcast({ type: 'HANGMAN_STATE', state: getPublicHangmanState() });
+            const publicState = getPublicHangmanState();
+            if (isHost) {
+                hangmanPlayers.forEach(player => {
+                    if (!player.conn || !player.conn.open) return;
+                    const stateForPlayer = { ...publicState };
+                    if (hangmanState.status === 'playing' && player.id === hangmanState.setterId) {
+                        stateForPlayer.secretWord = hangmanWord;
+                    }
+                    player.conn.send({ type: 'HANGMAN_STATE', state: stateForPlayer });
+                });
+            } else {
+                broadcast({ type: 'HANGMAN_STATE', state: publicState });
+            }
             renderHangmanView();
         }
 
@@ -5858,7 +6034,7 @@
             const activePlayerIndex = state.status === 'setting'
                 ? playersForView.findIndex(player => player.id === state.setterId)
                 : state.turnIndex;
-            const categoryLabel = state.mode === 'random' ? ` · ${HANGMAN_CATEGORY_LABELS[state.category] || HANGMAN_CATEGORY_LABELS.gaming}` : '';
+            const categoryLabel = state.mode === 'random' ? ` · ${HANGMAN_CATEGORY_LABELS[state.category] || HANGMAN_CATEGORY_LABELS.mixed}` : '';
             document.getElementById('hangmanRoundLabel').textContent = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}${categoryLabel}`;
             document.getElementById('hangmanTurnLabel').textContent = state.status === 'setting'
                 ? `Wortgeber: ${setter ? setter.name : '---'}`
@@ -5904,17 +6080,39 @@
                 return;
             }
             document.getElementById('hangmanHint').textContent = state.hint ? `Hinweis: ${state.hint}` : '';
+            const setterSolution = document.getElementById('hangmanSetterSolution');
+            if (isSetter) {
+                const solution = state.secretWord || hangmanWord;
+                setterSolution.textContent = solution ? `Gesuchtes Wort: ${solution}` : '';
+                setterSolution.classList.toggle('hidden', !solution);
+            } else {
+                setterSolution.textContent = '';
+                setterSolution.classList.add('hidden');
+            }
             const wordDisplay = document.getElementById('hangmanWordDisplay');
             wordDisplay.replaceChildren();
             Array.from({ length: Math.min(16, state.wordLength) }, (_, index) => {
                 const letter = (state.revealedWord || [])[index] || '';
                 wordDisplay.appendChild(createTextElement('span', 'min-w-7 border-b-2 border-indigo-400 pb-1', letter || '_'));
             });
+            const revealedLetters = (state.revealedWord || []).filter(Boolean);
+            const correctLetters = state.guessedLetters.filter(letter => revealedLetters.includes(letter));
+            const wrongLetters = state.guessedLetters.filter(letter => !revealedLetters.includes(letter));
+            const guessedSummary = document.getElementById('hangmanGuessedSummary');
+            guessedSummary.innerHTML = `
+                <div><span class="font-bold text-emerald-300">Richtig:</span> ${correctLetters.length ? correctLetters.join(' · ') : '—'}</div>
+                <div class="mt-1"><span class="font-bold text-red-300">Falsch:</span> ${wrongLetters.length ? wrongLetters.join(' · ') : '—'}</div>
+            `;
             const rows = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNMÄÖÜ'];
             document.getElementById('hangmanKeyboard').innerHTML = rows.map(row =>
                 `<div class="flex justify-center gap-1">${[...row].map(letter => {
                     const used = state.guessedLetters.includes(letter);
-                    return `<button type="button" ${!isMyTurn || used ? 'disabled' : ''} onclick="guessHangmanLetter('${letter}')" class="w-7 h-8 sm:w-9 sm:h-9 rounded-lg border text-xs sm:text-sm font-bold transition ${used ? 'bg-gray-800 border-border text-gray-600' : 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200 hover:bg-indigo-600/50 disabled:opacity-40 disabled:cursor-not-allowed'}">${letter}</button>`;
+                    const solution = state.secretWord || hangmanWord;
+                    const correct = !!solution && [...solution].includes(letter);
+                    const letterState = used
+                        ? (correct ? 'bg-emerald-600/30 border-emerald-400/60 text-emerald-200' : 'bg-red-600/25 border-red-400/60 text-red-300')
+                        : 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200 hover:bg-indigo-600/50';
+                    return `<button type="button" ${!isMyTurn || used ? 'disabled' : ''} onclick="guessHangmanLetter('${letter}')" aria-label="Buchstabe ${letter}" class="w-7 h-8 sm:w-9 sm:h-9 rounded-lg border text-xs sm:text-sm font-bold transition ${letterState} disabled:opacity-70 disabled:cursor-not-allowed">${letter}</button>`;
                 }).join('')}</div>`
             ).join('');
             document.getElementById('hangmanSolveButton').disabled = !isMyTurn;
@@ -6970,7 +7168,7 @@
                     hangmanRounds = safeState.rounds;
                     hangmanRound = safeState.round;
                     hangmanPlayers = safeState.players;
-                    hangmanWord = '';
+                    hangmanWord = safeState.secretWord || '';
                     renderHangmanView();
                     break;
                 }
