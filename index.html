@@ -453,6 +453,7 @@
             min-height: 0;
             flex-direction: column;
             margin-top: 0;
+            overflow: hidden;
         }
         #screenBlackjack.blackjack-round-active #blackjackIntro,
         #screenBlackjack.blackjack-round-active #blackjackDealerRolePanel {
@@ -494,22 +495,19 @@
             display: grid;
             flex: 1 1 0%;
             min-height: 0;
-            grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
             grid-auto-rows: max-content;
-            align-content: center;
+            align-content: start;
             align-items: start;
             gap: .4rem;
         }
         #screenBlackjack.blackjack-round-active .blackjack-player-box.is-active {
-            grid-column: auto;
-            width: auto;
-            justify-self: stretch;
+            grid-column: 1 / -1;
+            width: min(100%, 48rem);
+            justify-self: center;
             transform: none;
             padding: .45rem;
             border-radius: .9rem;
-        }
-        #screenBlackjack.blackjack-round-active .blackjack-player-box.has-split-hands.is-active {
-            grid-column: span 2;
         }
         #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact {
             transform: none;
@@ -541,11 +539,22 @@
             line-height: 1.1;
         }
         #screenBlackjack.blackjack-round-active .blackjack-hand-zone {
-            min-height: 0;
+            min-height: auto;
             gap: .3rem;
-            margin: .3rem 0 0;
-            padding: .3rem;
+            margin: .4rem 0 0;
+            padding: .45rem;
             border-radius: .65rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-card-scene {
+            width: 3.4rem;
+            height: 5.1rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box:not(.is-active) .blackjack-card-scene {
+            width: 2.7rem;
+            height: 4.05rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel .min-h-24 {
+            min-height: 0;
         }
         #screenBlackjack.blackjack-round-active .blackjack-hand-panel {
             padding: .4rem;
@@ -599,10 +608,6 @@
             #screenBlackjack.blackjack-round-active .blackjack-player-box.is-active,
             #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact {
                 padding: .3rem;
-            }
-            #screenBlackjack.blackjack-round-active .blackjack-hand-zone {
-                margin-top: .2rem;
-                padding: .2rem;
             }
             #screenBlackjack.blackjack-round-active .blackjack-hand-panel {
                 padding: .3rem;
@@ -4003,9 +4008,10 @@
             if (state && state.phase === 'playing') {
                 activePlayerId = state.currentPlayerId;
             } else if (state && state.phase === 'betting') {
-                const pendingBet = blackjackPlayers.find(player =>
-                    player.id === myId && player.status === 'betting' && !player.betLocked
-                ) || blackjackPlayers.find(player => player.status === 'betting' && !player.betLocked);
+                const localPlayer = blackjackPlayers.find(player => player.id === myId);
+                const pendingBet = localPlayer && !localPlayer.betLocked
+                    ? localPlayer
+                    : blackjackPlayers.find(player => player.status === 'betting' && !player.betLocked);
                 activePlayerId = pendingBet ? pendingBet.id : null;
             } else if (state && ['dealing', 'dealer'].includes(state.phase)) {
                 activePlayerId = humanDealer ? blackjackDealerId : 'bank';
