@@ -743,6 +743,24 @@
             background: rgba(0,0,0,.14);
             transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
         }
+        .blackjack-action-controls {
+            transition: opacity .5s ease-out, transform .5s ease-out, filter .5s ease-out;
+        }
+        .blackjack-action-controls.is-exiting {
+            pointer-events: none;
+            animation: blackjackActionExit .5s ease-out both;
+        }
+        @keyframes blackjackActionExit {
+            to { opacity: 0; transform: translateY(-5px) scale(.94); filter: blur(1px); }
+        }
+        .blackjack-turn-pause {
+            opacity: 0;
+            animation: blackjackTurnPauseIn .3s ease-out .12s both;
+        }
+        @keyframes blackjackTurnPauseIn {
+            from { opacity: 0; transform: translateY(3px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .blackjack-hand-panel.is-current-hand {
             border-color: rgba(110,231,183,.58);
             box-shadow: 0 0 18px rgba(16,185,129,.12);
@@ -1098,6 +1116,9 @@
             .blackjack-hand-panel.has-tension,
             .blackjack-hand-panel.is-21-impact,
             .blackjack-hand-panel.animate-shake { animation: none; }
+            .blackjack-action-controls { transition: none; }
+            .blackjack-action-controls.is-exiting { display: none; animation: none; }
+            .blackjack-turn-pause { opacity: 1; animation: none; }
             .blackjack-chip-float { display: none; }
             .blackjack-player-box.is-active, #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active), .blackjack-hand-panel.is-current-hand { transform: none; }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
@@ -2368,6 +2389,8 @@
                 dealerCards: sanitizeBlackjackCards(value.dealerCards),
                 dealerRevealed: value.dealerRevealed === true,
                 dealComplete: value.dealComplete === true,
+                turnTransition: value.turnTransition === true,
+                turnTransitionControls: value.turnTransitionControls === true,
                 message: sanitizePlainText(value.message, 180)
             };
         }
@@ -2571,6 +2594,8 @@
         let blackjackDealerId = 'bank';
         let blackjackDealerTimer = null;
         let blackjackDealerTurnToken = 0;
+        let blackjackTurnPauseTimer = null;
+        let blackjackTurnPauseToken = 0;
         let blackjackLobbyReturnTimer = null;
         let blackjackAudioSnapshot = null;
         let blackjackStatsRecordedKey = '';
@@ -3830,6 +3855,7 @@
         const BLACKJACK_STARTING_BANKROLLS = [100, 500, 1000, 2500, 5000];
         const BLACKJACK_BOT_DELAY_MS = 800;
         const BLACKJACK_CARD_REVEAL_DELAY_MS = 450;
+        const BLACKJACK_TURN_PAUSE_MS = 1350;
 
         function hostBlackjackLobby() {
             const startingBankroll = Number(document.getElementById('blackjackStartingBankrollSelect').value);
@@ -3983,6 +4009,8 @@
                 dealerCards,
                 dealerRevealed: blackjackState.dealerRevealed,
                 dealComplete: blackjackState.dealComplete === true,
+                turnTransition: blackjackState.turnTransition === true,
+                turnTransitionControls: blackjackState.turnTransitionControls === true,
                 dealerTotal: blackjackHandValue(visibleDealerCards),
                 message: blackjackState.message
             };
@@ -4065,6 +4093,8 @@
                 phase: 'betting',
                 currentPlayerId: null,
                 currentHandIndex: 0,
+                turnTransition: false,
+                turnTransitionControls: false,
                 dealerCards: [],
                 dealerRevealed: false,
                 dealComplete: false,
@@ -4206,6 +4236,9 @@
         }
 
         function advanceBlackjackTurn(previousPlayerId = blackjackState.currentPlayerId, previousIndexOverride = null) {
+            cancelBlackjackTurnPause();
+            blackjackState.turnTransition = false;
+            blackjackState.turnTransitionControls = false;
             const playerCount = blackjackPlayers.length;
             const previousIndex = previousIndexOverride === null
                 ? blackjackPlayers.findIndex(player => player.id === previousPlayerId)
@@ -4223,22 +4256,55 @@
             beginBlackjackDealerTurn();
         }
 
-        function advanceBlackjackHandOrPlayer(player) {
-            const nextHandIndex = (blackjackState.currentHandIndex || 0) + 1;
-            if (player.hands[nextHandIndex] && player.hands[nextHandIndex].status === 'playing') {
-                blackjackState.currentHandIndex = nextHandIndex;
-                blackjackState.message = `${player.name} spielt Hand ${nextHandIndex + 1}. Drehe deine Karten um.`;
-                return;
+        function cancelBlackjackTurnPause() {
+            if (blackjackTurnPauseTimer !== null) {
+                clearTimeout(blackjackTurnPauseTimer);
+                blackjackTurnPauseTimer = null;
             }
-            if (!player.hands.some(hand => hand.status === 'playing')) {
-                player.status = player.hands.every(hand => hand.status === 'bust') ? 'bust' : 'stood';
-            }
-            advanceBlackjackTurn(player.id);
+            blackjackTurnPauseToken++;
+        }
+
+        function advanceBlackjackHandOrPlayer(player, transitionControls = false) {
+            if (!isHost || !blackjackRoomActive || !blackjackState ||
+                blackjackState.phase !== 'playing' || blackjackState.turnTransition) return;
+            cancelBlackjackTurnPause();
+            blackjackState.turnTransition = true;
+            blackjackState.turnTransitionControls = transitionControls;
+            const round = blackjackState.round;
+            const playerId = player.id;
+            const endedHandIndex = blackjackState.currentHandIndex || 0;
+            const pauseToken = blackjackTurnPauseToken;
+            blackjackTurnPauseTimer = setTimeout(() => {
+                blackjackTurnPauseTimer = null;
+                if (pauseToken !== blackjackTurnPauseToken || !isHost || !blackjackRoomActive ||
+                    !blackjackState || blackjackState.round !== round ||
+                    blackjackState.phase !== 'playing' || blackjackState.currentPlayerId !== playerId ||
+                    (blackjackState.currentHandIndex || 0) !== endedHandIndex ||
+                    !blackjackState.turnTransition) return;
+
+                blackjackState.turnTransition = false;
+                blackjackState.turnTransitionControls = false;
+                const currentPlayer = blackjackPlayers.find(entry => entry.id === playerId);
+                if (!currentPlayer) return;
+                const nextHandIndex = endedHandIndex + 1;
+                if (currentPlayer.hands[nextHandIndex] && currentPlayer.hands[nextHandIndex].status === 'playing') {
+                    blackjackState.currentHandIndex = nextHandIndex;
+                    blackjackState.message = `${currentPlayer.name} spielt Hand ${nextHandIndex + 1}. Drehe deine Karten um.`;
+                } else {
+                    if (!currentPlayer.hands.some(hand => hand.status === 'playing')) {
+                        currentPlayer.status = currentPlayer.hands.every(hand => hand.status === 'bust') ? 'bust' : 'stood';
+                    }
+                    advanceBlackjackTurn(currentPlayer.id);
+                }
+                syncBlackjackTable();
+            }, BLACKJACK_TURN_PAUSE_MS);
         }
 
         function beginBlackjackDealerTurn() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
+            blackjackState.turnTransition = false;
+            blackjackState.turnTransitionControls = false;
             blackjackState.dealComplete = false;
             if (blackjackDealerId !== 'bank' && blackjackPlayers.some(player => player.id === blackjackDealerId)) {
                 blackjackState.phase = 'dealer';
@@ -4261,6 +4327,7 @@
         }
 
         function cancelBlackjackDealerTurn() {
+            cancelBlackjackTurnPause();
             if (blackjackDealerTimer !== null) {
                 clearTimeout(blackjackDealerTimer);
                 blackjackDealerTimer = null;
@@ -4356,6 +4423,7 @@
         function returnBlackjackToWaitingRoom() {
             if (!isHost || !blackjackRoomActive || !blackjackState ||
                 blackjackState.phase !== 'settled' || getBlackjackEligiblePunters().length) return;
+            cancelBlackjackDealerTurn();
             cancelBlackjackLobbyReturn();
             blackjackState = null;
             blackjackDeck = [];
@@ -4396,6 +4464,8 @@
         function resolveBlackjackRound() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
+            blackjackState.turnTransition = false;
+            blackjackState.turnTransitionControls = false;
             const roundPlayerIds = new Set(blackjackPlayers
                 .filter(player => player.id !== blackjackDealerId && player.hands && player.hands.length)
                 .map(player => player.id));
@@ -4582,7 +4652,8 @@
         }
 
         function processBlackjackAction(action, playerId, senderConn = null) {
-            if (!isHost || !blackjackState || blackjackState.phase !== 'playing') return;
+            if (!isHost || !blackjackState || blackjackState.phase !== 'playing' ||
+                blackjackState.turnTransition) return;
             const player = blackjackPlayers.find(entry => entry.id === playerId);
             if (!player || player.status !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
             if (senderConn && player.conn !== senderConn) return;
@@ -4594,7 +4665,7 @@
                 blackjackState.message = `${player.name} zieht eine Karte für Hand ${(blackjackState.currentHandIndex || 0) + 1}. Drehe sie um.`;
             } else if (action === 'stand') {
                 hand.status = 'stood';
-                advanceBlackjackHandOrPlayer(player);
+                advanceBlackjackHandOrPlayer(player, true);
             } else if (action === 'double' && hand.cards.length === 2 && player.bankroll >= hand.bet) {
                 player.bankroll -= hand.bet;
                 hand.bet *= 2;
@@ -4867,6 +4938,8 @@
                         state.phase === 'dealer' ? 'Am Zug' :
                         state.phase === 'playing' ? 'Wartet' :
                         state.phase === 'settled' ? 'Runde beendet' : 'Dealer'
+                    : state && state.turnTransition && state.currentPlayerId === player.id
+                    ? 'Zug beendet'
                     : player.status === 'betting' ? (player.betLocked ? 'Einsatz gesetzt' : 'Setzt Einsatz') :
                         player.status === 'broke' ? 'Ausgeschieden · Zuschauer' :
                         player.status === 'playing' ? 'Spielt' :
@@ -4939,9 +5012,28 @@
                             push: 'Unentschieden'
                         }[hand.status] || 'Bereit';
                         let actions = '';
-                        if (isCurrentHand && player.id === myId && hand.status === 'playing' && cardsReady) {
+                        const isTurnTransitionHand = !!(state && state.turnTransition && isCurrentHand &&
+                            player.id === state.currentPlayerId && handIndex === (state.currentHandIndex || 0));
+                        if (isCurrentHand && player.id === myId && isTurnTransitionHand) {
+                            const pauseMessage = '<p class="blackjack-turn-pause mt-2 text-center text-[10px] text-gray-400" role="status">Zug abgeschlossen · der nächste Zug beginnt gleich.</p>';
+                            if (state.turnTransitionControls) {
+                                const canSplit = canSplitBlackjackHand(player, hand);
+                                const canDouble = hand.cards.length === 2 && player.bankroll >= hand.bet;
+                                actions = `<div class="mt-3">
+                                    <div class="blackjack-action-controls is-exiting flex flex-wrap justify-center gap-2" aria-hidden="true">
+                                        <button disabled class="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-extrabold text-white">Karte ziehen</button>
+                                        <button disabled class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white">Halten</button>
+                                        ${canDouble ? '<button disabled class="rounded-xl bg-amber-600 px-3 py-2 text-xs font-extrabold text-white">Verdoppeln</button>' : ''}
+                                        ${canSplit ? '<button disabled class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-3 py-2 text-xs font-extrabold text-emerald-100">Splitten</button>' : ''}
+                                    </div>
+                                    ${pauseMessage}
+                                </div>`;
+                            } else {
+                                actions = `<div class="mt-3">${pauseMessage}</div>`;
+                            }
+                        } else if (isCurrentHand && player.id === myId && hand.status === 'playing' && cardsReady) {
                             const canSplit = canSplitBlackjackHand(player, hand);
-                            actions = `<div class="mt-3 flex flex-wrap justify-center gap-2">
+                            actions = `<div class="blackjack-action-controls mt-3 flex flex-wrap justify-center gap-2">
                                 <button onclick="blackjackPlayerAction('hit')" class="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-cyan-500">Karte ziehen</button>
                                 <button onclick="blackjackPlayerAction('stand')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-indigo-500">Halten</button>
                                 <button onclick="blackjackPlayerAction('double')" ${hand.cards.length === 2 && player.bankroll >= hand.bet ? '' : 'disabled'} class="rounded-xl bg-amber-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
