@@ -53,6 +53,7 @@
         .toast-success::after { background: linear-gradient(90deg, #34d399, #22d3ee); }
         .toast-warning::after { background: linear-gradient(90deg, #fbbf24, #fb923c); }
         .toast-info::after { background: linear-gradient(90deg, #60a5fa, #22d3ee); }
+        .toast-progress-reset::after { animation: none; }
         @keyframes toastIn { from { opacity: 0; transform: translateY(-24px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes toastOut { to { opacity: 0; transform: translateY(-12px) scale(.98); } }
         @keyframes toastProgress { to { transform: scaleX(0); } }
@@ -1287,7 +1288,7 @@
             if (kind === 'paddle') addPongHitParticles(x, y);
         }
 
-        function showToast(message, type = 'error') {
+        function showToast(message, type = 'error', toastId = null) {
             const toastType = ['error', 'success', 'warning', 'info'].includes(type) ? type : 'error';
             const container = document.getElementById('toastContainer');
             if (!container) return;
@@ -1298,8 +1299,33 @@
                 warning: 'fa-triangle-exclamation',
                 info: 'fa-magnifying-glass'
             };
+
+            const existingToast = toastId
+                ? Array.from(container.children).find(item => item.dataset.toastId === String(toastId))
+                : null;
+            if (existingToast) {
+                clearTimeout(existingToast._removeTimeout);
+                clearTimeout(existingToast._removeTransitionTimeout);
+                existingToast._removeTimeout = null;
+                existingToast._removeTransitionTimeout = null;
+                existingToast.classList.remove('toast-out', 'toast-error', 'toast-success', 'toast-warning', 'toast-info');
+                existingToast.classList.add(`toast-${toastType}`);
+                existingToast.setAttribute('role', toastType === 'error' ? 'alert' : 'status');
+                const existingIcon = existingToast.querySelector('.toast-icon');
+                existingIcon.className = `toast-icon fa-solid ${icons[toastType]}`;
+                existingToast.querySelector('.toast-message').textContent = String(message);
+                existingToast.classList.add('toast-progress-reset');
+                void existingToast.offsetWidth;
+                existingToast.classList.remove('toast-progress-reset');
+                existingToast._dismiss = () => dismissToast(existingToast);
+                existingToast._removeTimeout = setTimeout(existingToast._dismiss, 4200);
+                playToastSound(toastType);
+                return;
+            }
+
             const toast = document.createElement('div');
             toast.className = `toast toast-${toastType} toast-in`;
+            if (toastId) toast.dataset.toastId = String(toastId);
             toast.setAttribute('role', toastType === 'error' ? 'alert' : 'status');
 
             const icon = document.createElement('i');
@@ -1307,7 +1333,7 @@
             icon.setAttribute('aria-hidden', 'true');
 
             const text = document.createElement('span');
-            text.className = 'min-w-0 flex-1 text-sm font-semibold leading-5';
+            text.className = 'toast-message min-w-0 flex-1 text-sm font-semibold leading-5';
             text.textContent = String(message);
 
             const closeButton = document.createElement('button');
@@ -1316,23 +1342,28 @@
             closeButton.setAttribute('aria-label', 'Benachrichtigung schließen');
             closeButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
 
-            const dismiss = () => {
-                if (toast.classList.contains('toast-out')) return;
-                toast.classList.remove('toast-in');
-                toast.classList.add('toast-out');
-                setTimeout(() => toast.remove(), 220);
-            };
-            const removeTimeout = setTimeout(dismiss, 4200);
-            closeButton.addEventListener('click', () => {
-                clearTimeout(removeTimeout);
-                dismiss();
-            });
+            toast._dismiss = () => dismissToast(toast);
+            toast._removeTimeout = setTimeout(toast._dismiss, 4200);
+            closeButton.addEventListener('click', toast._dismiss);
 
             toast.append(icon, text, closeButton);
             container.appendChild(toast);
-            if (toastType === 'error') playTone(235, 0.09, 'triangle', 0.025, 175);
-            else if (toastType === 'warning') playTone(440, 0.08, 'sine', 0.022, 360);
-            else if (toastType === 'success') playChime(587, 784);
+            playToastSound(toastType);
+        }
+
+        function dismissToast(toast) {
+            if (toast.classList.contains('toast-out')) return;
+            clearTimeout(toast._removeTimeout);
+            toast._removeTimeout = null;
+            toast.classList.remove('toast-in');
+            toast.classList.add('toast-out');
+            toast._removeTransitionTimeout = setTimeout(() => toast.remove(), 220);
+        }
+
+        function playToastSound(type) {
+            if (type === 'error') playTone(235, 0.09, 'triangle', 0.025, 175);
+            else if (type === 'warning') playTone(440, 0.08, 'sine', 0.022, 360);
+            else if (type === 'success') playChime(587, 784);
         }
 
         window.alert = function(msg) {
@@ -1749,7 +1780,7 @@
 
         function showOfflineFriendToast(targetTag) {
             lastPeerAttemptFailureAt = Date.now();
-            showToast('Spieler #' + targetTag + ' ist derzeit nicht online.', 'error');
+            showToast('Spieler #' + targetTag + ' ist derzeit nicht online.', 'error', 'search-player');
         }
 
         async function sendFriendRequest() {
@@ -1757,14 +1788,14 @@
             if (!/^\d{4}$/.test(targetTag)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
 
-            showToast('Suche Spieler #' + targetTag + '...', 'info');
+            showToast('Suche Spieler #' + targetTag + '...', 'info', 'search-player');
             let connection = null;
             try {
                 connection = await connectWithTimeout(targetTag);
                 markFriendOnline(targetTag);
                 connection.send({ type: 'FRIEND_REQUEST', name: myName, tag: myTag, id: myId });
                 document.getElementById('friendTagInput').value = '';
-                showToast('Freundschaftsanfrage an #' + targetTag + ' gesendet!', 'success');
+                showToast('Freundschaftsanfrage an #' + targetTag + ' gesendet!', 'success', 'search-player');
                 closeAddFriendModal();
                 closeTemporaryConnection(connection);
             } catch (error) {
@@ -1830,7 +1861,7 @@
 
         async function sendLobbyInvitation(friendTag, type) {
             const targetTag = String(friendTag).trim();
-            showToast('Suche Spieler #' + targetTag + '...', 'info');
+            showToast('Suche Spieler #' + targetTag + '...', 'info', 'search-player');
             let connection = null;
             try {
                 connection = await connectWithTimeout(targetTag);
@@ -1838,7 +1869,7 @@
                 connection.send({ type, hostName: myName, hostTag: myTag });
                 const friend = friends.find(entry => String(entry.tag) === targetTag);
                 const recipient = friend ? friend.name : '#' + targetTag;
-                showToast('Einladung an ' + recipient + ' gesendet!', 'success');
+                showToast('Einladung an ' + recipient + ' gesendet!', 'success', 'search-player');
                 closeTemporaryConnection(connection);
             } catch (error) {
                 if (connection && connection.open) connection.close();
