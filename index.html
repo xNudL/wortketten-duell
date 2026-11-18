@@ -823,6 +823,10 @@
                     </div>
 
                     <div id="blackjackPlayersList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
+                    <div id="blackjackFriendInviteSection" class="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4">
+                        <h3 class="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-300">Freunde an den Blackjack-Tisch einladen</h3>
+                        <div id="blackjackFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                    </div>
 
                     <div class="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-950/60 via-slate-950/90 to-cyan-950/40 p-4 sm:p-7 shadow-inner shadow-emerald-900/20">
                         <div class="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6 text-center">
@@ -2362,6 +2366,10 @@
             return sendLobbyInvitation(friendTag, 'HANGMAN_LOBBY_INVITE');
         }
 
+        function inviteFriendToBlackjack(friendTag) {
+            return sendLobbyInvitation(friendTag, 'BLACKJACK_LOBBY_INVITE');
+        }
+
         function acceptLobbyInvite() {
             if (pendingLobbyHostId) {
                 const mode = pendingInviteMode;
@@ -2375,6 +2383,9 @@
                 } else if (mode === 'hangman') {
                     switchMainTab('hangman');
                     joinHangmanLobby(hostTag);
+                } else if (mode === 'blackjack') {
+                    switchMainTab('blackjack');
+                    joinBlackjackLobby(hostTag);
                 } else {
                     document.getElementById('roomCodeInput').value = hostTag;
                     joinGame();
@@ -2761,6 +2772,26 @@
             const startButton = document.getElementById('blackjackStartButton');
             startButton.classList.toggle('hidden', !isHost || !!(state && state.phase === 'playing'));
             startButton.innerText = state ? 'Nächste Runde' : 'Runde starten';
+            const inviteSection = document.getElementById('blackjackFriendInviteSection');
+            inviteSection.classList.toggle('hidden', !isHost || !!state);
+            renderBlackjackFriendInvites();
+        }
+
+        function renderBlackjackFriendInvites() {
+            const inviteList = document.getElementById('blackjackFriendInviteList');
+            if (!inviteList) return;
+            const available = friends.filter(friend =>
+                /^\d{4}$/.test(String(friend.tag)) &&
+                !blackjackPlayers.some(player => player.id === 'wd-user-' + friend.tag)
+            );
+            if (!available.length) {
+                inviteList.innerHTML = `<p class="text-[11px] italic text-gray-500">${friends.length ? 'Alle Freunde sind bereits am Tisch.' : 'Keine Freunde zum Einladen verfügbar.'}</p>`;
+                return;
+            }
+            inviteList.innerHTML = available.map(friend => `
+                <button onclick="inviteFriendToBlackjack('${escapeHtml(friend.tag)}')" class="flex items-center space-x-1 rounded-xl border border-emerald-500/40 bg-emerald-600/30 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-600/50">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${escapeHtml(friend.name)}</span>
+                </button>`).join('');
         }
 
         function returnBlackjackToSetup(message) {
@@ -4200,6 +4231,13 @@
                     pendingLobbyHostId = data.hostTag;
                     pendingInviteMode = 'hangman';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Hangman-Lobby ein!`;
+                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'BLACKJACK_LOBBY_INVITE':
+                    playChime(784, 988);
+                    pendingLobbyHostId = data.hostTag;
+                    pendingInviteMode = 'blackjack';
+                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich an einen Blackjack-Tisch ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
                     break;
                 case 'HANGMAN_JOIN':
