@@ -1053,9 +1053,9 @@
             <button id="tabStats" onclick="switchMainTab('stats')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-chart-pie mr-1"></i> Statistiken</button>
         </nav>
         <div class="flex items-center space-x-3">
-            <div id="connectionStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div id="connectionStatusBadge" class="hidden sm:flex min-w-0 max-w-[14rem] shrink items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="connectionStatusText">Online</span>
+                <span id="connectionStatusText" class="block min-w-0 max-w-[11rem] truncate whitespace-nowrap">Online</span>
             </div>
             <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
                 <i class="fa-solid fa-volume-high text-sm"></i>
@@ -7607,7 +7607,10 @@
 
         function showStatus(text, type) {
             const badge = document.getElementById('connectionStatusText');
-            if (badge) badge.textContent = text;
+            if (badge) {
+                badge.textContent = text;
+                badge.title = text;
+            }
         }
 
         function showFeedback(text, type) {
