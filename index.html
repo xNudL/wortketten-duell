@@ -27,12 +27,9 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <!-- FontAwesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&amp;family=VT323&amp;display=swap" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
         body, body * { -webkit-user-select: none; user-select: none; }
         input, textarea { -webkit-user-select: text; user-select: text; }
         @media (min-width: 1024px) { html { font-size: 18px; } }
@@ -173,7 +170,7 @@
             box-shadow: 0 22px 65px rgba(0, 0, 0, .3), 0 0 42px rgba(91, 67, 196, .055), inset 0 1px 0 rgba(255,255,255,.045);
         }
         button {
-            font-family: 'Chakra Petch', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
             transition: all .2s cubic-bezier(.2, .8, .2, 1);
         }
         button:active:not(:disabled) { transform: scale(.95); }
@@ -333,17 +330,9 @@
             border-color: rgba(129,140,248,.35) !important;
             background: linear-gradient(145deg, rgba(24,31,56,.98), rgba(8,12,25,.98)) !important;
             box-shadow: 0 0 24px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.08) !important;
-            font-family: 'VT323', monospace;
-            font-size: 1.75rem;
+            font-family: inherit;
             transition: color .2s ease, box-shadow .2s ease, border-color .2s ease;
         }
-        #statsSummary [id$="Summary"], #statsSummary [id$="Record"],
-        #playerScoresBar .score-chip, #hangmanScoreboard .score-chip,
-        #finalScoresList .font-mono {
-            font-family: 'VT323', monospace;
-            font-size: 1.2em;
-        }
-        #pongCanvas { font-family: 'VT323', monospace; }
         #timerDisplay::before {
             content: "";
             position: absolute;
@@ -1288,6 +1277,7 @@
         let friendOnlineStatus = new Map();
         let friendProbes = new Map();
         let friendProbeTags = new WeakMap();
+        let openedPeerConnections = new WeakSet();
         let pendingPeerConnectAttempts = new Set();
         let lastPeerAttemptFailureAt = 0;
         let pongBallTrail = [];
@@ -2325,10 +2315,16 @@
 
         function switchMainTab(tab) {
             const leavingPong = !document.getElementById('screenPong').classList.contains('hidden') && tab !== 'pong';
-            const leavingWordGame = !document.getElementById('screenGame').classList.contains('hidden') && tab !== 'words';
-            if (leavingPong && (pongPlayers.length || pongState || pongRunning || pongCountdown > 0)) leavePongLobby(false);
+            const leavingWordGame = tab !== 'words' && (
+                !document.getElementById('screenLobby').classList.contains('hidden') ||
+                !document.getElementById('screenGame').classList.contains('hidden') ||
+                !document.getElementById('screenGameOver').classList.contains('hidden')
+            );
+            const leavingHangman = !document.getElementById('screenHangman').classList.contains('hidden') && tab !== 'hangman' && hangmanRoomActive;
+            if (leavingPong && (pongPlayers.length || pongState || pongRunning || pongCountdown > 0 || conn)) leavePongLobby(false);
             else if (leavingPong) pausePongView();
             if (leavingWordGame) leaveLobby();
+            if (leavingHangman) leaveHangmanLobby();
             document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
@@ -2415,6 +2411,10 @@
             document.getElementById('pongTeamLabel').innerText += ` · Sieg bei ${pongWinScore} Punkten`;
             const inviteSection = document.getElementById('pongFriendInviteSection');
             if (inviteSection) inviteSection.classList.toggle('hidden', !isHost || pongRunning);
+            document.getElementById('pongStartButton').classList.toggle(
+                'hidden',
+                !isHost || !!pongState || pongPlayers.filter(player => !player.isBot).length < 2
+            );
             renderPongFriendInvites();
         }
 
@@ -2512,16 +2512,14 @@
             }
             if (!connections.includes(senderConn)) connections.push(senderConn);
             senderConn.on('close', () => {
+                const matchWasActive = hangmanGameStarted;
                 const removedIndex = hangmanPlayers.findIndex(player => player.conn === senderConn);
                 const removedPlayer = removedIndex >= 0 ? hangmanPlayers[removedIndex] : null;
                 hangmanPlayers = hangmanPlayers.filter(player => player.conn !== senderConn);
                 connections = connections.filter(connection => connection !== senderConn);
-                if (!hangmanState) {
-                    broadcastHangmanSync();
-                } else if (hangmanState.status !== 'over' && hangmanMode === 'custom' && hangmanPlayers.length < 2) {
-                    hangmanState = null;
-                    hangmanWord = '';
-                    hangmanGameStarted = false;
+                if (matchWasActive && hangmanPlayers.filter(player => !player.isBot).length < 2) {
+                    abortHangmanForPlayerShortage();
+                } else if (!hangmanState) {
                     broadcastHangmanSync();
                 } else if (removedPlayer && hangmanState.status !== 'over' && hangmanState.setterId === removedPlayer.id) {
                     if (hangmanState.status === 'setting') {
@@ -2552,6 +2550,23 @@
                 type: 'HANGMAN_SYNC', mode: hangmanMode, category: hangmanCategory, maxErrors: hangmanMaxErrors,
                 rounds: hangmanRounds, players: hangmanPublicPlayers()
             });
+        }
+
+        function abortHangmanForPlayerShortage() {
+            hangmanState = null;
+            hangmanWord = '';
+            hangmanGameStarted = false;
+            broadcast({
+                type: 'HANGMAN_SHORT',
+                mode: hangmanMode,
+                category: hangmanCategory,
+                maxErrors: hangmanMaxErrors,
+                rounds: hangmanRounds,
+                players: hangmanPublicPlayers(),
+                message: 'Die Hangman-Runde wurde beendet: Es sind weniger als zwei Spieler übrig.'
+            });
+            renderHangmanView();
+            showToast('Die Hangman-Runde wurde beendet: Es sind weniger als zwei Spieler übrig.', 'warning');
         }
 
         function showHangmanReaction(reaction) {
@@ -2911,12 +2926,22 @@
 
         function leaveHangmanLobby() {
             clearHangmanReactions();
+            stopWordTimer();
+            stopPongGame();
+            stopAllSounds();
             if (isHost) {
                 broadcast({ type: 'HANGMAN_CLOSED' });
                 const ended = [...connections];
-                setTimeout(() => ended.forEach(connection => { if (connection && connection.open) connection.close(); }), 250);
+                const hostPeer = peer;
+                setTimeout(() => {
+                    ended.forEach(connection => { if (connection && connection.open) connection.close(); });
+                    if (peer === hostPeer && hostPeer) {
+                        hostPeer.destroy();
+                        peer = null;
+                        myId = '';
+                    }
+                }, 250);
                 connections = [];
-                if (peer) { peer.destroy(); peer = null; myId = ''; }
             } else if (conn) {
                 conn.close();
                 conn = null;
@@ -3348,20 +3373,20 @@
             ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 48px VT323'; ctx.textAlign = 'center';
+            ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px "Plus Jakarta Sans", system-ui, sans-serif'; ctx.textAlign = 'center';
             ctx.fillText(pongMaxPlayers === 4 ? `${state.blueScore}  ·  ${state.redScore}` : `${state.individualScore[0] || 0}  ·  ${state.individualScore[1] || 0}`, 400, 55);
             if (pongWinnerText) {
                 ctx.fillStyle = 'rgba(2, 6, 23, .72)';
                 ctx.fillRect(0, 0, 800, 500);
                 ctx.fillStyle = '#fff';
-                ctx.font = '900 58px "Chakra Petch"';
+                ctx.font = '900 48px "Plus Jakarta Sans", system-ui, sans-serif';
                 ctx.fillText(pongWinnerText, 400, 270);
             }
             if (pongCountdown > 0) {
                 ctx.fillStyle = 'rgba(2, 6, 23, .62)';
                 ctx.fillRect(0, 0, 800, 500);
                 ctx.fillStyle = '#fff';
-                ctx.font = '900 110px Plus Jakarta Sans';
+                ctx.font = '900 110px "Plus Jakarta Sans", system-ui, sans-serif';
                 ctx.fillText(String(pongCountdown), 400, 285);
             }
         }
@@ -3371,9 +3396,16 @@
             if (isHost) {
                 broadcast({ type: 'PONG_CLOSED' });
                 const ended = [...connections];
-                setTimeout(() => ended.forEach(c => { if (c && c.open) c.close(); }), 250);
+                const hostPeer = peer;
+                setTimeout(() => {
+                    ended.forEach(c => { if (c && c.open) c.close(); });
+                    if (peer === hostPeer && hostPeer) {
+                        hostPeer.destroy();
+                        peer = null;
+                        myId = '';
+                    }
+                }, 250);
                 connections = [];
-                if (peer) { peer.destroy(); peer = null; myId = ''; }
             } else if (conn) {
                 conn.close(); conn = null;
             }
@@ -3526,10 +3558,11 @@
                 broadcast({ type: 'HOST_CLOSED' });
                 if (pongPlayers.length) broadcast({ type: 'PONG_CLOSED' });
                 const endedConnections = [...connections];
+                const hostPeer = peer;
                 setTimeout(() => {
                     endedConnections.forEach(c => { if (c && c.open) c.close(); });
-                    if (peer) {
-                        peer.destroy();
+                    if (peer === hostPeer && hostPeer) {
+                        hostPeer.destroy();
                         peer = null;
                         myId = '';
                     }
@@ -3545,12 +3578,103 @@
             stopWordTimer();
             stopPongGame();
             stopAllSounds();
+            players = [];
+            wordChain = [];
             switchScreen('screenSetup');
             showStatus('Lobby verlassen', 'success');
         }
 
+        function showMainSetup() {
+            document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
+            document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            switchScreen('screenSetup');
+        }
+
+        function abortWordGameForPlayerShortage() {
+            stopWordTimer();
+            stopPongGame();
+            stopAllSounds();
+            wordChain = [];
+            round = 1;
+            currentTurnIndex = 0;
+            lastScoreSummary = '';
+            players.forEach(player => { player.score = 0; player.streak = 0; });
+            broadcast({
+                type: 'PLAYERS_SHORT',
+                players: pubPlayers(),
+                settings,
+                gameMode,
+                message: 'Das Wortketten-Spiel wurde beendet: Es sind weniger als zwei Spieler übrig.'
+            });
+            switchScreen('screenLobby');
+            updateLobbyUI();
+            showToast('Das Wortketten-Spiel wurde beendet: Es sind weniger als zwei Spieler übrig.', 'warning');
+        }
+
+        function abortPongForPlayerShortage() {
+            stopPongGame();
+            pongWinnerText = '';
+            pongPlayers = pongPlayers.filter(player => !player.isBot);
+            document.getElementById('pongLobby').classList.remove('hidden');
+            document.getElementById('pongArena').classList.add('hidden');
+            document.getElementById('pongStartButton').classList.toggle('hidden', pongPlayers.filter(player => !player.isBot).length < 2);
+            broadcast({
+                type: 'PONG_SHORT',
+                players: pongPlayers.map(player => ({
+                    id: player.id, name: player.name, score: player.score, team: player.team,
+                    color: playerDisplayColor(player), badge: playerDisplayBadge(player)
+                })),
+                maxPlayers: pongMaxPlayers,
+                winScore: pongWinScore,
+                message: 'Das Pong-Spiel wurde beendet: Es sind weniger als zwei Spieler übrig.'
+            });
+            renderPongLobby();
+            showToast('Das Pong-Spiel wurde beendet: Es sind weniger als zwei Spieler übrig.', 'warning');
+        }
+
+        function returnGuestToSetup(message) {
+            stopWordTimer();
+            stopPongGame();
+            stopAllSounds();
+            clearHangmanReactions();
+            conn = null;
+            connections = [];
+            isHost = false;
+            players = [];
+            wordChain = [];
+            hangmanPlayers = [];
+            hangmanState = null;
+            hangmanWord = '';
+            hangmanRoomActive = false;
+            hangmanGameStarted = false;
+            pongPlayers = [];
+            pongWinnerText = '';
+            document.getElementById('pongLobby').classList.remove('hidden');
+            document.getElementById('pongArena').classList.add('hidden');
+            renderHangmanView();
+            showMainSetup();
+            showToast(message, 'warning');
+        }
+
+        function handleGuestHostDisconnect(c) {
+            if (c !== conn || isHost || !openedPeerConnections.has(c)) return;
+            const mode = hangmanRoomActive
+                ? 'hangman'
+                : !document.getElementById('screenPong').classList.contains('hidden')
+                    ? 'pong'
+                    : (!document.getElementById('screenLobby').classList.contains('hidden') ||
+                        !document.getElementById('screenGame').classList.contains('hidden') ||
+                        !document.getElementById('screenGameOver').classList.contains('hidden'))
+                        ? 'words'
+                        : null;
+            if (!mode) return;
+            returnGuestToSetup('Die Verbindung zum Host wurde beendet.');
+        }
+
         function setupConnectionHandlers(c) {
             c.on('open', () => {
+                openedPeerConnections.add(c);
                 if (!friendProbeTags.has(c)) markFriendOnlineFromPeer(c.peer);
             });
             c.on('data', (data) => {
@@ -3559,6 +3683,7 @@
             c.on('error', (err) => {
                 console.error("Connection error:", err);
             });
+            c.on('close', () => handleGuestHostDisconnect(c));
         }
 
         function handleNetworkData(data, senderConn) {
@@ -3631,6 +3756,19 @@
                     renderHangmanView();
                     renderHangmanLobby();
                     break;
+                case 'HANGMAN_SHORT':
+                    hangmanRoomActive = true;
+                    hangmanGameStarted = false;
+                    hangmanState = null;
+                    hangmanWord = '';
+                    hangmanMode = data.mode || hangmanMode;
+                    hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.category) ? data.category : hangmanCategory;
+                    hangmanMaxErrors = data.maxErrors || hangmanMaxErrors;
+                    hangmanRounds = data.rounds || hangmanRounds;
+                    hangmanPlayers = data.players || hangmanPlayers;
+                    renderHangmanView();
+                    showToast(data.message || 'Die Hangman-Runde wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
+                    break;
                 case 'HANGMAN_FULL':
                     alert('Diese Hangman-Lobby hat bereits begonnen oder ist nicht verfügbar.');
                     if (conn) conn.close();
@@ -3687,15 +3825,7 @@
                     break;
                 }
                 case 'HANGMAN_CLOSED':
-                    hangmanRoomActive = false;
-                    hangmanGameStarted = false;
-                    hangmanState = null;
-                    hangmanPlayers = [];
-                    hangmanWord = '';
-                    isHost = false;
-                    if (conn) { conn.close(); conn = null; }
-                    renderHangmanView();
-                    showStatus('Der Host hat die Hangman-Lobby beendet.', 'warning');
+                    returnGuestToSetup('Der Host hat die Hangman-Lobby beendet.');
                     break;
                 case 'PONG_JOIN':
                     if (isHost && pongPlayers.length < pongMaxPlayers) {
@@ -3703,9 +3833,14 @@
                         if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         assignPongTeams();
                         senderConn.on('close', () => {
+                            const matchWasActive = pongRunning || pongCountdown > 0 || pongPaused;
                             pongPlayers = pongPlayers.filter(p => p.conn !== senderConn);
                             connections = connections.filter(c => c !== senderConn);
                             assignPongTeams();
+                            if (matchWasActive && pongPlayers.filter(player => !player.isBot).length < 2) {
+                                abortPongForPlayerShortage();
+                                return;
+                            }
                             broadcast({ type: 'PONG_SYNC', players: pongPlayers.map(p => ({ id: p.id, name: p.name, score: p.score, team: p.team, color: playerDisplayColor(p), badge: playerDisplayBadge(p) })), maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning });
                             renderPongLobby();
                         });
@@ -3722,6 +3857,16 @@
                     pongRunning = data.running || false;
                     if (!pongRunning) document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
+                    break;
+                case 'PONG_SHORT':
+                    stopPongGame();
+                    pongPlayers = data.players || [];
+                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
+                    pongWinScore = data.winScore || pongWinScore;
+                    document.getElementById('pongLobby').classList.remove('hidden');
+                    document.getElementById('pongArena').classList.add('hidden');
+                    renderPongLobby();
+                    showToast(data.message || 'Das Pong-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
                     break;
                 case 'PONG_FULL':
                     alert('Diese Pong-Lobby ist bereits voll.');
@@ -3817,15 +3962,7 @@
                     }
                     break;
                 case 'PONG_CLOSED': {
-                    const pongScreenWasVisible = !document.getElementById('screenPong').classList.contains('hidden');
-                    stopPongGame();
-                    if (conn) { conn.close(); conn = null; }
-                    pongPlayers = [];
-                    isHost = false;
-                    document.getElementById('pongLobby').classList.remove('hidden');
-                    document.getElementById('pongArena').classList.add('hidden');
-                    if (pongScreenWasVisible) switchScreen('screenPong');
-                    showStatus('Der Host hat die Pong-Lobby beendet.', 'warning');
+                    returnGuestToSetup('Der Host hat die Pong-Lobby beendet.');
                     break;
                 }
                 case 'JOIN':
@@ -3835,9 +3972,14 @@
                             players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         }
                         senderConn.on('close', () => {
+                            const matchWasActive = !document.getElementById('screenGame').classList.contains('hidden');
                             players = players.filter(p => p.conn !== senderConn);
                             connections = connections.filter(c => c !== senderConn);
                             if (currentTurnIndex >= players.length) currentTurnIndex = 0;
+                            if (matchWasActive && players.filter(player => !player.isBot).length < 2) {
+                                abortWordGameForPlayerShortage();
+                                return;
+                            }
                             broadcast({ type: 'SYNC_PLAYERS', players: pubPlayers(), gameMode, settings });
                             updateLobbyUI();
                         });
@@ -3850,6 +3992,20 @@
                     settings = data.settings || settings;
                     gameMode = data.gameMode || 'all';
                     updateLobbyUI();
+                    break;
+                case 'PLAYERS_SHORT':
+                    stopWordTimer();
+                    stopPongGame();
+                    wordChain = [];
+                    round = 1;
+                    currentTurnIndex = 0;
+                    lastScoreSummary = '';
+                    players = data.players || [];
+                    settings = data.settings || settings;
+                    gameMode = data.gameMode || gameMode;
+                    switchScreen('screenLobby');
+                    updateLobbyUI();
+                    showToast(data.message || 'Das Wortketten-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
                     break;
                 case 'START_GAME':
                     wordRoundStatsRecorded = false;
@@ -3907,18 +4063,7 @@
                     if (data.kind === 'error' || (data.kind === 'warning' && data.text.indexOf('⚠️') === 0)) playWordError();
                     break;
                 case 'HOST_CLOSED':
-                    stopWordTimer();
-                    stopPongGame();
-                    if (conn) {
-                        conn.close();
-                        conn = null;
-                    }
-                    connections = [];
-                    isHost = false;
-                    players = [];
-                    wordChain = [];
-                    switchScreen('screenSetup');
-                    showStatus('Der Host hat die Lobby beendet.', 'warning');
+                    returnGuestToSetup('Der Host hat die Lobby beendet.');
                     break;
             }
         }
