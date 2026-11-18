@@ -572,7 +572,7 @@
                 <form id="onboardingForm" onsubmit="event.preventDefault(); saveProfileName();" class="space-y-4 text-left">
                     <div>
                         <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Dein Spielername</label>
-                        <input type="text" id="onboardingNameInput" placeholder="Z.B. Paolo" maxlength="15" autocomplete="nickname" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-indigo-500 transition">
+                        <input type="text" id="onboardingNameInput" placeholder="Z.B. Paolo" maxlength="15" autocomplete="off" spellcheck="false" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-indigo-500 transition">
                     </div>
                     <div class="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-darker/50 px-4 py-3">
                         <div>
@@ -1288,15 +1288,102 @@
 
         extraDE.forEach(w => dictionaryDE.add(w));
         extraEN.forEach(w => dictionaryEN.add(w));
+        function readStoredValue(key, fallback = null) {
+            try {
+                const value = localStorage.getItem(key);
+                return value === null ? fallback : value;
+            } catch (error) {
+                console.warn(`Lokaler Eintrag "${key}" konnte nicht gelesen werden.`, error);
+                return fallback;
+            }
+        }
+
+        function readStoredJson(key, fallback) {
+            const value = readStoredValue(key);
+            if (value === null) return fallback;
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                console.warn(`Lokaler Eintrag "${key}" enthält kein gültiges JSON.`, error);
+                return fallback;
+            }
+        }
+
+        function writeStoredValue(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (error) {
+                console.warn(`Lokaler Eintrag "${key}" konnte nicht gespeichert werden.`, error);
+                return false;
+            }
+        }
+
+        function removeStoredValue(key) {
+            try {
+                localStorage.removeItem(key);
+            } catch (error) {
+                console.warn(`Lokaler Eintrag "${key}" konnte nicht entfernt werden.`, error);
+            }
+        }
+
+        function sanitizePlayerName(value) {
+            const name = String(value == null ? '' : value).normalize('NFC').replace(/\s+/g, ' ').trim();
+            return name.length >= 1 && name.length <= 15 && /^[A-Za-zÄÖÜäöüß0-9 _'-]+$/.test(name)
+                ? name
+                : '';
+        }
+
+        function sanitizePlayerTag(value) {
+            const tag = String(value == null ? '' : value);
+            return /^\d{4}$/.test(tag) ? tag : '';
+        }
+
+        function sanitizeNetworkPlayerName(value) {
+            const rawName = String(value == null ? '' : value).normalize('NFC').trim();
+            const match = /^(.*?)(?:\s+#(\d{4}))?$/.exec(rawName);
+            const name = sanitizePlayerName(match ? match[1] : rawName);
+            return name ? `${name}${match && match[2] ? ` #${match[2]}` : ''}` : '';
+        }
+
+        function sanitizeWord(value, minLength = 3, maxLength = 20) {
+            const word = String(value == null ? '' : value).trim().toUpperCase();
+            return word.length >= minLength && word.length <= maxLength && /^[A-ZÄÖÜ]+$/.test(word)
+                ? word
+                : '';
+        }
+
+        function sanitizeHangmanHint(value) {
+            return String(value == null ? '' : value)
+                .normalize('NFC')
+                .replace(/[^A-Za-zÄÖÜäöüß0-9 ,.'-]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 40);
+        }
+
+        ['wortketten_my_name', 'wortketten_my_tag', 'wortketten_friends'].forEach(removeStoredValue);
+
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
         const LEARNED_KEY = 'wortketten_learned_v1';
-        let learned = { de: [], en: [] };
-        try { learned = Object.assign(learned, JSON.parse(localStorage.getItem(LEARNED_KEY) || '{}')); } catch (e) {}
+        const savedLearned = readStoredJson(LEARNED_KEY, {});
+        const learned = {
+            de: Array.isArray(savedLearned && savedLearned.de)
+                ? [...new Set(savedLearned.de.filter(word => typeof word === 'string' && /^[A-ZÄÖÜ]{3,20}$/.test(word)))].slice(0, 500)
+                : [],
+            en: Array.isArray(savedLearned && savedLearned.en)
+                ? [...new Set(savedLearned.en.filter(word => typeof word === 'string' && /^[A-Z]{3,20}$/.test(word)))].slice(0, 500)
+                : []
+        };
+        learned.de.forEach(word => dictionaryDE.add(word));
+        learned.en.forEach(word => dictionaryEN.add(word));
 
         function learnWord(lang, w) {
+            if (!['de', 'en'].includes(lang) || !sanitizeWord(w, 3, 20)) return;
             (lang === 'de' ? dictionaryDE : dictionaryEN).add(w);
             if (!learned[lang].includes(w)) learned[lang].push(w);
-            try { localStorage.setItem(LEARNED_KEY, JSON.stringify(learned)); } catch (e) {}
+            if (learned[lang].length > 500) learned[lang].shift();
+            writeStoredValue(LEARNED_KEY, JSON.stringify(learned));
         }
 
         async function jget(url) {
@@ -1391,6 +1478,264 @@
             })[char]);
         }
 
+        function createTextElement(tagName, className, value) {
+            const element = document.createElement(tagName);
+            if (className) element.className = className;
+            if (value !== undefined) element.textContent = String(value);
+            return element;
+        }
+
+        function createPlayerLabel(player) {
+            const label = createTextElement('span', 'inline-flex items-center gap-1');
+            const badge = createTextElement('span', 'mr-1', playerDisplayBadge(player));
+            badge.setAttribute('aria-hidden', 'true');
+            const name = createTextElement('span', '', sanitizeNetworkPlayerName(player && player.name) || 'Spieler');
+            name.style.color = playerDisplayColor(player);
+            label.append(badge, name);
+            return label;
+        }
+
+        function safeNonNegativeInteger(value, fallback = 0, maximum = 1000000000) {
+            return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+                ? Math.min(value, maximum)
+                : fallback;
+        }
+
+        function isSafePlayerId(value) {
+            return typeof value === 'string' && /^(?:wd-user-\d{4}|pong-bot-\d{1,2})$/.test(value);
+        }
+
+        function sanitizePlayerRecords(records, maximum = 16) {
+            if (!Array.isArray(records)) return [];
+            return records.slice(0, maximum).reduce((safeRecords, record) => {
+                if (!record || typeof record !== 'object' || !isSafePlayerId(record.id)) return safeRecords;
+                const name = sanitizeNetworkPlayerName(record.name);
+                if (!name) return safeRecords;
+                const player = {
+                    id: record.id,
+                    name,
+                    score: safeNonNegativeInteger(record.score),
+                    color: normalizePlayerColor(record.color),
+                    badge: normalizePlayerBadge(record.badge),
+                    isBot: record.isBot === true,
+                    isHost: record.isHost === true
+                };
+                if (['Blau', 'Rot', 'Links', 'Rechts', 'Oben'].includes(record.team)) player.team = record.team;
+                if (Number.isSafeInteger(record.streak) && record.streak >= 0) player.streak = Math.min(record.streak, 1000000);
+                if (Number.isSafeInteger(record.roundPoints) && record.roundPoints >= 0) player.roundPoints = Math.min(record.roundPoints, 1000000000);
+                if (Number.isSafeInteger(record.wins) && record.wins >= 0) player.wins = Math.min(record.wins, 1000000000);
+                if (Number.isSafeInteger(record.bet) && record.bet >= 0) player.bet = Math.min(record.bet, 1000000000);
+                if (['waiting', 'dealer', 'playing', 'stood', 'bust', 'win', 'lose', 'push'].includes(record.status)) player.status = record.status;
+                if (record.natural === true) player.natural = true;
+                if (record.doublePending === true) player.doublePending = true;
+                if (Array.isArray(record.cards)) player.cards = sanitizeBlackjackCards(record.cards);
+                safeRecords.push(player);
+                return safeRecords;
+            }, []);
+        }
+
+        function sanitizeBlackjackCards(cards) {
+            if (!Array.isArray(cards)) return [];
+            return cards.slice(0, 12).filter(card =>
+                card && typeof card === 'object' &&
+                typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) &&
+                ['♠', '♥', '♦', '♣'].includes(card.suit)
+            ).map(card => ({
+                rank: card.rank,
+                suit: card.suit,
+                isFlipped: card.isFlipped !== false,
+                isNewlyDealt: card.isNewlyDealt === true,
+                isNewlyFlipped: card.isNewlyFlipped === true
+            }));
+        }
+
+        function sanitizeWordChain(value) {
+            if (!Array.isArray(value) || value.length < 1 || value.length > 100) return null;
+            const words = value.map(word => sanitizeWord(word, 3, 20));
+            return words.every(Boolean) ? words : null;
+        }
+
+        function sanitizePlainText(value, maximum = 200) {
+            return String(value == null ? '' : value)
+                .normalize('NFC')
+                .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F<>]/g, '')
+                .slice(0, maximum);
+        }
+
+        function sanitizeHangmanState(value) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+            const players = sanitizePlayerRecords(value.players, 16);
+            const modes = ['custom', 'random'];
+            const statuses = ['setting', 'playing', 'over'];
+            if (players.length < 2 || !modes.includes(value.mode) || !statuses.includes(value.status) ||
+                ![1, 3, 5].includes(value.rounds) || ![6, 8, 10].includes(value.maxErrors) ||
+                !Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, value.category)) return null;
+            const rounds = value.rounds;
+            const maxErrors = value.maxErrors;
+            const wordLength = safeNonNegativeInteger(value.wordLength, 0, 16);
+            if (!Array.isArray(value.revealedWord) || !Array.isArray(value.guessedLetters)) return null;
+            const revealedWord = value.revealedWord.slice(0, 16).map(letter =>
+                letter === '' ? '' : (sanitizeWord(letter, 1, 1) || null)
+            );
+            const guessedLetters = value.guessedLetters.map(letter => sanitizeWord(letter, 1, 1));
+            const matchId = /^[A-Za-z0-9_-]{1,100}$/.test(String(value.matchId || '')) ? value.matchId : '';
+            const round = safeNonNegativeInteger(value.round, 0, 5);
+            const mistakes = safeNonNegativeInteger(value.mistakes, 0, maxErrors + 1);
+            const setterId = value.setterId === null ? null : value.setterId;
+            const answer = value.status === 'over' ? sanitizeWord(value.answer, 3, 16) : '';
+            if (!matchId || !round || round > rounds || mistakes > maxErrors ||
+                (value.setterId !== null && !players.some(player => player.id === setterId)) ||
+                guessedLetters.some(letter => !letter) ||
+                (value.status === 'setting' && (!setterId || revealedWord.length !== 0)) ||
+                (value.status === 'over' && revealedWord.length !== 0) ||
+                (value.status !== 'setting' &&
+                    (wordLength < 3 || revealedWord.some(letter => letter === null) ||
+                        (value.status === 'playing' && revealedWord.length !== wordLength))) ||
+                (value.status === 'over' && !answer)) return null;
+            return {
+                matchId,
+                mode: value.mode,
+                maxErrors,
+                rounds,
+                category: value.category,
+                round,
+                status: value.status,
+                setterId: isSafePlayerId(setterId) ? setterId : null,
+                turnIndex: players.length ? Math.min(players.length - 1, safeNonNegativeInteger(value.turnIndex, 0, 15)) : 0,
+                mistakes,
+                guessedLetters: [...new Set(guessedLetters)].slice(0, 29),
+                wordLength,
+                hint: sanitizeHangmanHint(value.hint),
+                notice: sanitizePlainText(value.notice),
+                solved: value.solved === true,
+                revealedWord,
+                players,
+                ...(value.status === 'over' ? { answer } : {})
+            };
+        }
+
+        function sanitizeBlackjackState(value) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+            const phases = ['dealing', 'playing', 'dealer', 'settled'];
+            if (!phases.includes(value.phase) || !Number.isSafeInteger(value.round) ||
+                value.round < 1 || (value.currentPlayerId !== null && !isSafePlayerId(value.currentPlayerId)) ||
+                !Array.isArray(value.dealerCards)) return null;
+            return {
+                round: Math.min(value.round, 1000000),
+                phase: value.phase,
+                dealerId: value.dealerId === 'bank' || isSafePlayerId(value.dealerId) ? value.dealerId : 'bank',
+                currentPlayerId: isSafePlayerId(value.currentPlayerId) ? value.currentPlayerId : null,
+                dealerCards: sanitizeBlackjackCards(value.dealerCards),
+                dealerRevealed: value.dealerRevealed === true,
+                message: sanitizePlainText(value.message, 180)
+            };
+        }
+
+        function sanitizePongState(value) {
+            if (!value || typeof value !== 'object' || Array.isArray(value) ||
+                !value.ball || typeof value.ball !== 'object' ||
+                !Array.isArray(value.paddles) || ![2, 4].includes(value.paddles.length)) return null;
+            const boundedNumber = (number, minimum, maximum) =>
+                typeof number === 'number' && Number.isFinite(number) && number >= minimum && number <= maximum;
+            const ball = value.ball;
+            if (!boundedNumber(ball.x, 0, 800) || !boundedNumber(ball.y, 0, 500) ||
+                !boundedNumber(ball.r, 1, 30) || !boundedNumber(ball.vx, -25, 25) ||
+                !boundedNumber(ball.vy, -25, 25)) return null;
+            const paddles = value.paddles.map(paddle => {
+                if (!paddle || typeof paddle !== 'object' ||
+                    !boundedNumber(paddle.x, 0, 800) || !boundedNumber(paddle.y, 0, 500) ||
+                    !boundedNumber(paddle.w, 1, 100) || !boundedNumber(paddle.h, 1, 500) ||
+                    !['left', 'right'].includes(paddle.side) ||
+                    !Number.isSafeInteger(paddle.index) || paddle.index < 0 || paddle.index > 3) return null;
+                return {
+                    x: paddle.x, y: paddle.y, w: paddle.w, h: paddle.h,
+                    side: paddle.side, index: paddle.index,
+                    botAimY: boundedNumber(paddle.botAimY, 0, 500) ? paddle.botAimY : null,
+                    botThinkAt: boundedNumber(paddle.botThinkAt, 0, 1e13) ? paddle.botThinkAt : 0
+                };
+            });
+            if (paddles.some(paddle => !paddle)) return null;
+            const powerUp = value.powerUp === null ? null : value.powerUp;
+            if (powerUp && (!['paddle', 'slow', 'point'].includes(powerUp.type) ||
+                !boundedNumber(powerUp.x, 0, 800) || !boundedNumber(powerUp.y, 0, 500))) return null;
+            const activePowerUps = Array.isArray(value.activePowerUps)
+                ? value.activePowerUps.slice(0, 8).filter(effect =>
+                    effect && ['paddle', 'slow'].includes(effect.type) &&
+                    isSafePlayerId(effect.playerId) && boundedNumber(effect.expiresAt, 0, 1e13)
+                ).map(effect => ({ type: effect.type, playerId: effect.playerId, expiresAt: effect.expiresAt }))
+                : [];
+            return {
+                ball: { x: ball.x, y: ball.y, r: ball.r, vx: ball.vx, vy: ball.vy },
+                paddles,
+                blueScore: safeNonNegativeInteger(value.blueScore),
+                redScore: safeNonNegativeInteger(value.redScore),
+                individualScore: Array.isArray(value.individualScore)
+                    ? Array.from({ length: 4 }, (_, index) => safeNonNegativeInteger(value.individualScore[index]))
+                    : [0, 0, 0, 0],
+                powerUp: powerUp ? { type: powerUp.type, x: powerUp.x, y: powerUp.y } : null,
+                nextPowerUpAt: boundedNumber(value.nextPowerUpAt, 0, 1e13) ? value.nextPowerUpAt : 0,
+                activePowerUps,
+                lastToucherId: isSafePlayerId(value.lastToucherId) ? value.lastToucherId : null
+            };
+        }
+
+        function sanitizeGameSettings(value, fallback = settings) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
+            const validRounds = [1, 3, 5, 7, 10];
+            const validWordLengths = [0, 3, 4, 5, 6, 7, 8];
+            return {
+                rounds: validRounds.includes(value.rounds) ? value.rounds : fallback.rounds,
+                diff: Object.prototype.hasOwnProperty.call(DIFF, value.diff) ? value.diff : fallback.diff,
+                inf: value.inf === true,
+                keep: value.keep === true,
+                wordLength: validWordLengths.includes(value.wordLength) ? value.wordLength : fallback.wordLength
+            };
+        }
+
+        function sanitizeGameMode(value, fallback = 'all') {
+            return ['all', 'de', 'en'].includes(value) ? value : fallback;
+        }
+
+        function renderFriendInviteButtons(container, available, buttonClass, emptyMessage, inviteFriend) {
+            container.replaceChildren();
+            if (!available.length) {
+                container.appendChild(createTextElement('p', 'text-[11px] text-gray-500 italic', emptyMessage));
+                return;
+            }
+            available.forEach(friend => {
+                const button = createTextElement('button', buttonClass);
+                button.type = 'button';
+                button.addEventListener('click', () => inviteFriend(friend.tag));
+                const icon = createTextElement('i', 'fa-solid fa-paper-plane text-[10px]');
+                icon.setAttribute('aria-hidden', 'true');
+                const label = createTextElement('span', '', friend.name);
+                button.append(icon, label);
+                container.appendChild(button);
+            });
+        }
+
+        function showLobbyInvite(data, mode, senderConn) {
+            const hostName = sanitizePlayerName(data && data.hostName);
+            const hostTag = sanitizePlayerTag(data && data.hostTag);
+            if (!hostName || !hostTag || !senderConn || senderConn.peer !== 'wd-user-' + hostTag) return;
+            const invitationText = {
+                words: ' lädt dich in eine Wortketten-Lobby ein!',
+                pong: ' lädt dich zu einer Pong-Lobby ein!',
+                hangman: ' lädt dich zu einer Hangman-Lobby ein!',
+                blackjack: ' lädt dich an einen Blackjack-Tisch ein!'
+            };
+            pendingLobbyHostId = hostTag;
+            pendingInviteMode = mode;
+            const text = document.getElementById('lobbyInviteText');
+            text.replaceChildren();
+            text.append(
+                createTextElement('b', '', `${hostName} #${hostTag}`),
+                document.createTextNode(invitationText[mode] || ' lädt dich in eine Lobby ein!')
+            );
+            document.getElementById('lobbyInviteModal').classList.remove('hidden');
+            playChime(784, 988);
+        }
+
         function playerDisplayColor(player) {
             return player && player.id === myId ? myPlayerColor : normalizePlayerColor(player && player.color);
         }
@@ -1409,10 +1754,10 @@
         let connections = [];
         let isHost = false;
         let myId = '';
-        let myName = localStorage.getItem('wortketten_my_name') || '';
-        let myTag = localStorage.getItem('wortketten_my_tag') || '';
-        let myPlayerColor = normalizePlayerColor(localStorage.getItem(PLAYER_COLOR_KEY));
-        let myPlayerBadge = normalizePlayerBadge(localStorage.getItem(PLAYER_BADGE_KEY));
+        let myName = '';
+        let myTag = '';
+        let myPlayerColor = normalizePlayerColor(readStoredValue(PLAYER_COLOR_KEY));
+        let myPlayerBadge = normalizePlayerBadge(readStoredValue(PLAYER_BADGE_KEY));
         let players = [];
         let currentTurnIndex = 0;
         let wordChain = ["BOYS"];
@@ -1422,7 +1767,7 @@
         let timerInterval = null;
         let timeLeft = 30;
         let gameMode = 'all';
-        let friends = JSON.parse(localStorage.getItem('wortketten_friends') || '[]');
+        let friends = [];
         let pendingFriendConn = null;
         let pendingFriendData = null;
         let pendingLobbyHostId = null;
@@ -1450,7 +1795,7 @@
         let pongWinnerText = '';
         let pongNextPowerUpAt = 0;
         let pongStatsRecorded = false;
-        let soundMuted = localStorage.getItem('wortketten_sound_muted') === 'true';
+        let soundMuted = readStoredValue('wortketten_sound_muted') === 'true';
         let audioContext = null;
         let activeOscillators = new Set();
         let activeSoundGains = new Map();
@@ -1484,6 +1829,8 @@
         let blackjackDealerId = 'bank';
         let blackjackDealerTimer = null;
         let blackjackDealerTurnToken = 0;
+        let blackjackAudioSnapshot = null;
+        let hangmanAudioSnapshot = null;
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
         const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
@@ -1497,18 +1844,17 @@
         function loadGameStats() {
             const defaults = emptyGameStats();
             try {
-                const saved = JSON.parse(localStorage.getItem(GAME_STATS_KEY) || '{}');
+                const saved = readStoredJson(GAME_STATS_KEY, {});
                 GAME_STAT_MODES.forEach(mode => {
                     const entry = saved && saved[mode];
-                    if (!entry || typeof entry !== 'object') return;
+                    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
                     Object.keys(defaults[mode]).forEach(key => {
-                        const value = Number(entry[key]);
-                        if (Number.isFinite(value) && value >= 0) defaults[mode][key] = Math.floor(value);
+                        const value = entry[key];
+                        if (typeof value === 'number' && Number.isSafeInteger(value) &&
+                            value >= 0 && value <= 1000000000) defaults[mode][key] = value;
                     });
                 });
-            } catch (error) {
-                console.warn('Gespeicherte Spielstatistiken konnten nicht gelesen werden.', error);
-            }
+            } catch (error) { console.warn('Gespeicherte Spielstatistiken konnten nicht gelesen werden.', error); }
             return defaults;
         }
 
@@ -1516,7 +1862,7 @@
 
         function saveGameStats() {
             try {
-                localStorage.setItem(GAME_STATS_KEY, JSON.stringify(gameStats));
+                writeStoredValue(GAME_STATS_KEY, JSON.stringify(gameStats));
             } catch (error) {
                 console.warn('Spielstatistiken konnten nicht gespeichert werden.', error);
                 showToast('Spielstatistiken konnten nicht gespeichert werden.', 'warning');
@@ -1623,6 +1969,101 @@
             }
         }
 
+        function scheduleSound(callback, delay) {
+            const timeout = setTimeout(() => {
+                pendingSoundTimeouts.delete(timeout);
+                callback();
+            }, delay);
+            pendingSoundTimeouts.add(timeout);
+        }
+
+        function playChipClick() {
+            playTone(610, 0.035, 'square', 0.02, 330);
+        }
+
+        function playCardSlide() {
+            playTone(1500, 0.075, 'sawtooth', 0.014, 430);
+        }
+
+        function playCardFlip() {
+            playTone(820, 0.06, 'triangle', 0.028, 290);
+        }
+
+        function playGameWin() {
+            playTone(523, 0.12, 'sine', 0.05);
+            scheduleSound(() => playTone(659, 0.13, 'sine', 0.05), 85);
+            scheduleSound(() => playTone(784, 0.2, 'sine', 0.055), 175);
+        }
+
+        function playGameLose() {
+            playTone(330, 0.13, 'triangle', 0.045, 250);
+            scheduleSound(() => playTone(220, 0.2, 'triangle', 0.04, 165), 125);
+        }
+
+        function playHangmanStateSound(state) {
+            if (!state) {
+                hangmanAudioSnapshot = null;
+                return;
+            }
+            const previous = hangmanAudioSnapshot;
+            const sameRound = previous && previous.matchId === state.matchId && previous.round === state.round;
+            if (sameRound && (state.guessedLetters || []).length > previous.guessedCount) {
+                if (state.mistakes === previous.mistakes) playWordSuccess(1);
+                else playWordError();
+            }
+            if (sameRound && previous.status !== 'over' && state.status === 'over') {
+                const localPlayer = (state.players || []).find(player => player.id === myId);
+                if (localPlayer && state.solved && localPlayer.roundPoints > 0) playGameWin();
+                else playGameLose();
+            }
+            hangmanAudioSnapshot = {
+                matchId: state.matchId,
+                round: state.round,
+                guessedCount: Array.isArray(state.guessedLetters) ? state.guessedLetters.length : 0,
+                mistakes: Number(state.mistakes) || 0,
+                status: state.status
+            };
+        }
+
+        function playBlackjackStateSound() {
+            if (!blackjackRoomActive || !blackjackState) {
+                blackjackAudioSnapshot = null;
+                return;
+            }
+            const state = blackjackState;
+            const hands = {
+                dealer: (state.dealerCards || []).map(card => !!card && card.isFlipped !== false)
+            };
+            blackjackPlayers.forEach(player => {
+                hands[player.id] = (player.cards || []).map(card => !!card && card.isFlipped !== false);
+            });
+            const previous = blackjackAudioSnapshot;
+            const sameRound = previous && previous.round === state.round;
+            let dealt = false;
+            let flipped = false;
+            if (sameRound) {
+                Object.keys(hands).forEach(id => {
+                    const oldHand = previous.hands[id] || [];
+                    const newHand = hands[id];
+                    if (newHand.length > oldHand.length) dealt = true;
+                    newHand.forEach((faceUp, index) => {
+                        if (!oldHand[index] && faceUp) flipped = true;
+                    });
+                });
+            } else if (state.phase === 'playing') {
+                dealt = true;
+            }
+            if (dealt) playCardSlide();
+            else if (flipped) playCardFlip();
+
+            if (sameRound && previous.phase !== 'settled' && state.phase === 'settled') {
+                const localPlayer = blackjackPlayers.find(player => player.id === myId);
+                if (localPlayer && localPlayer.status === 'win') playGameWin();
+                else if (localPlayer && localPlayer.status === 'lose') playGameLose();
+            }
+            blackjackAudioSnapshot = { round: state.round, phase: state.phase, hands };
+        }
+
         function stopAllSounds() {
             pendingSoundTimeouts.forEach(timeout => clearTimeout(timeout));
             pendingSoundTimeouts.clear();
@@ -1656,13 +2097,14 @@
 
         function toggleSound() {
             soundMuted = !soundMuted;
-            localStorage.setItem('wortketten_sound_muted', String(soundMuted));
+            writeStoredValue('wortketten_sound_muted', String(soundMuted));
             const button = document.getElementById('soundToggle');
             const icon = button.querySelector('i');
             icon.className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
             button.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
             button.title = soundMuted ? 'Ton einschalten' : 'Ton ausschalten';
-            if (!soundMuted) getAudioContext();
+            if (soundMuted) stopAllSounds();
+            else getAudioContext();
         }
 
         function celebrate() {
@@ -1977,6 +2419,17 @@
             soundButton.querySelector('i').className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
             soundButton.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
             soundButton.title = soundMuted ? 'Ton einschalten' : 'Ton ausschalten';
+            document.addEventListener('click', event => {
+                const target = event.target instanceof Element ? event.target : null;
+                const button = target && target.closest('button, [role="button"]');
+                if (!button || button.disabled || button.classList.contains('blackjack-card-inner')) return;
+                playChipClick();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.repeat || event.key.length !== 1) return;
+                if (event.target instanceof HTMLInputElement && event.target.id === 'wordInput') return;
+                playChipClick();
+            });
             if (!myName || !myTag) {
                 switchScreen('screenOnboarding');
             } else {
@@ -2031,8 +2484,9 @@
             if (wordInput) {
                 wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitWord(); });
                 wordInput.addEventListener('input', (e) => {
-                    playTone(330 + Math.random() * 90, 0.025, 'square', 0.018);
-                    const val = e.target.value.toUpperCase();
+                    playChipClick();
+                    const val = e.target.value.toUpperCase().replace(/[^A-ZÄÖÜ]/g, '').slice(0, 20);
+                    if (e.target.value !== val) e.target.value = val;
                     updateLiveTypingPreviewLocally(val);
                     broadcastLiveTyping(val);
                 });
@@ -2040,19 +2494,17 @@
         });
 
         function saveProfileName() {
-            const input = document.getElementById('onboardingNameInput').value.trim();
-            if (!input) {
-                alert('Bitte gib einen gültigen Namen ein.');
+            const name = sanitizePlayerName(document.getElementById('onboardingNameInput').value);
+            if (!name) {
+                alert('Bitte nutze einen Namen mit 1–15 Buchstaben, Zahlen, Leerzeichen, Bindestrich oder Apostroph.');
                 return;
             }
-            myName = input;
+            myName = name;
             myTag = Math.floor(1000 + Math.random() * 9000).toString();
             myPlayerColor = normalizePlayerColor(document.getElementById('onboardingPlayerColor').value);
             myPlayerBadge = normalizePlayerBadge(document.getElementById('onboardingPlayerBadge').value);
-            localStorage.setItem('wortketten_my_name', myName);
-            localStorage.setItem('wortketten_my_tag', myTag);
-            localStorage.setItem(PLAYER_COLOR_KEY, myPlayerColor);
-            localStorage.setItem(PLAYER_BADGE_KEY, myPlayerBadge);
+            writeStoredValue(PLAYER_COLOR_KEY, myPlayerColor);
+            writeStoredValue(PLAYER_BADGE_KEY, myPlayerBadge);
             initPeerAndSetup();
             startPendingRoomJoin();
         }
@@ -2094,10 +2546,14 @@
 
         function changeMyName() {
             const newName = prompt('Deinen Namen ändern:', myName);
-            if (newName && newName.trim()) {
-                myName = newName.trim();
-                localStorage.setItem('wortketten_my_name', myName);
-                document.getElementById('displayMyName').innerText = myName;
+            if (newName !== null) {
+                const safeName = sanitizePlayerName(newName);
+                if (!safeName) {
+                    showToast('Bitte nutze einen Namen mit 1–15 sicheren Zeichen.', 'warning');
+                    return;
+                }
+                myName = safeName;
+                document.getElementById('displayMyName').textContent = myName;
                 applyPlayerColorToProfile();
             }
         }
@@ -2110,7 +2566,7 @@
                 peer.on('open', (id) => {
                     myId = id;
                     const tagDisplay = document.getElementById('myTagDisplay');
-                    if (tagDisplay) tagDisplay.innerText = '#' + myTag;
+                    if (tagDisplay) tagDisplay.textContent = '#' + myTag;
                     showStatus('Online', 'success');
                     checkAllFriendsOnline();
                 });
@@ -2118,7 +2574,6 @@
                 peer.on('error', (err) => {
                     if (err.type === 'unavailable-id') {
                         myTag = Math.floor(1000 + Math.random() * 9000).toString();
-                        localStorage.setItem('wortketten_my_tag', myTag);
                         peer.destroy();
                         peer = null;
                         initPeerAndSetup();
@@ -2139,8 +2594,8 @@
                 });
             }
 
-            document.getElementById('displayMyName').innerText = myName;
-            document.getElementById('displayMyTag').innerText = '#' + myTag;
+            document.getElementById('displayMyName').textContent = myName;
+            document.getElementById('displayMyTag').textContent = '#' + myTag;
             applyPlayerColorToProfile();
             document.getElementById('userProfileBadge').classList.remove('hidden');
             document.getElementById('userProfileBadge').classList.add('flex');
@@ -2219,49 +2674,59 @@
         function renderFriendList() {
             const container = document.getElementById('friendListContainer');
             if (!container) return;
+            container.replaceChildren();
             if (friends.length === 0) {
-                container.innerHTML = `<p class="text-xs text-gray-500 italic text-center py-2">Noch keine Freunde in der Liste.</p>`;
+                container.appendChild(createTextElement('p', 'text-xs text-gray-500 italic text-center py-2', 'Noch keine Freunde in der Liste.'));
                 return;
             }
-            container.innerHTML = friends.map((f, idx) => `
-                <div class="flex items-center justify-between p-2.5 rounded-xl bg-darker/60 border border-border/60">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
-                            ${f.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold text-white">${f.name} <span class="text-[10px] text-indigo-400 font-mono">#${f.tag}</span></p>
-                            <p class="flex items-center gap-1 text-[10px] ${friendOnlineStatus.get(String(f.tag)) === 'online' ? 'text-emerald-400' : 'text-gray-500'}">
-                                <span class="w-1.5 h-1.5 rounded-full ${friendOnlineStatus.get(String(f.tag)) === 'online' ? 'bg-emerald-400' : 'bg-gray-500'}"></span>
-                                ${friendOnlineStatus.get(String(f.tag)) === 'checking' ? 'Prüfe…' : (friendOnlineStatus.get(String(f.tag)) === 'online' ? 'Online' : 'Offline')}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-1.5">
-                        <button onclick="joinFriendRoom('${f.tag}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer" title="Lobby beitreten">
-                            <i class="fa-solid fa-plug"></i>
-                        </button>
-                        <button onclick="removeFriend(${idx})" class="text-gray-500 hover:text-red-400 p-1.5 transition cursor-pointer">
-                            <i class="fa-solid fa-trash text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+            friends.forEach((friend, index) => {
+                const name = sanitizePlayerName(friend && friend.name);
+                const tag = String(friend && friend.tag || '');
+                if (!name || !/^\d{4}$/.test(tag)) return;
+                const status = friendOnlineStatus.get(tag);
+                const row = createTextElement('div', 'flex items-center justify-between p-2.5 rounded-xl bg-darker/60 border border-border/60');
+                const details = createTextElement('div', 'flex items-center space-x-2.5');
+                const avatar = createTextElement('div', 'w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs', name.charAt(0).toUpperCase());
+                const textBlock = createTextElement('div', '');
+                const nameLine = createTextElement('p', 'text-xs font-bold text-white');
+                nameLine.append(document.createTextNode(name + ' '));
+                nameLine.appendChild(createTextElement('span', 'text-[10px] text-indigo-400 font-mono', '#' + tag));
+                const statusLine = createTextElement('p', `flex items-center gap-1 text-[10px] ${status === 'online' ? 'text-emerald-400' : 'text-gray-500'}`);
+                statusLine.appendChild(createTextElement('span', `w-1.5 h-1.5 rounded-full ${status === 'online' ? 'bg-emerald-400' : 'bg-gray-500'}`));
+                statusLine.appendChild(document.createTextNode(status === 'checking' ? 'Prüfe…' : (status === 'online' ? 'Online' : 'Offline')));
+                textBlock.append(nameLine, statusLine);
+                details.append(avatar, textBlock);
+
+                const actions = createTextElement('div', 'flex items-center space-x-1.5');
+                const joinButton = createTextElement('button', 'bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg transition cursor-pointer');
+                joinButton.type = 'button';
+                joinButton.title = 'Lobby beitreten';
+                joinButton.setAttribute('aria-label', `${name} einladen`);
+                joinButton.addEventListener('click', () => joinFriendRoom(tag));
+                joinButton.appendChild(createTextElement('i', 'fa-solid fa-plug'));
+                const removeButton = createTextElement('button', 'text-gray-500 hover:text-red-400 p-1.5 transition cursor-pointer');
+                removeButton.type = 'button';
+                removeButton.title = 'Freund entfernen';
+                removeButton.setAttribute('aria-label', `${name} entfernen`);
+                removeButton.addEventListener('click', () => removeFriend(index));
+                removeButton.appendChild(createTextElement('i', 'fa-solid fa-trash text-xs'));
+                actions.append(joinButton, removeButton);
+                row.append(details, actions);
+                container.appendChild(row);
+            });
         }
 
         function renderLobbyFriendInvites() {
             const inviteList = document.getElementById('lobbyFriendInviteList');
             if (!inviteList) return;
-            if (friends.length === 0) {
-                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Keine Freunde zum Einladen verfügbar.</p>`;
-                return;
-            }
-            inviteList.innerHTML = friends.map(f => `
-                <button onclick="inviteFriendToLobby('${f.tag}')" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
-                    <span>${f.name}</span>
-                </button>
-            `).join('');
+            const available = friends.filter(friend => sanitizePlayerName(friend && friend.name) && /^\d{4}$/.test(String(friend && friend.tag || '')));
+            renderFriendInviteButtons(
+                inviteList,
+                available,
+                'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
+                'Keine Freunde zum Einladen verfügbar.',
+                inviteFriendToLobby
+            );
         }
 
         function openFriendsModal() {
@@ -2376,8 +2841,8 @@
         }
 
         async function sendFriendRequest() {
-            const targetTag = document.getElementById('friendTagInput').value.trim();
-            if (!/^\d{4}$/.test(targetTag)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            const targetTag = sanitizePlayerTag(document.getElementById('friendTagInput').value.trim());
+            if (!targetTag) return alert('Bitte gib eine gültige 4-stellige ID ein.');
             if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
 
             let connection = null;
@@ -2411,7 +2876,6 @@
                 
                 if (!friends.some(f => f.tag === pendingFriendData.tag)) {
                     friends.push({ name: pendingFriendData.name, tag: pendingFriendData.tag, peerId: pendingFriendData.id });
-                    localStorage.setItem('wortketten_friends', JSON.stringify(friends));
                     renderFriendList();
                     checkFriendOnline(friendTag);
                 }
@@ -2432,6 +2896,7 @@
         }
 
         function removeFriend(idx) {
+            if (!Number.isInteger(idx) || idx < 0 || idx >= friends.length) return;
             const tag = String(friends[idx].tag);
             const probe = friendProbes.get(tag);
             if (probe) {
@@ -2441,7 +2906,6 @@
             }
             friendOnlineStatus.delete(tag);
             friends.splice(idx, 1);
-            localStorage.setItem('wortketten_friends', JSON.stringify(friends));
             renderFriendList();
         }
 
@@ -2451,7 +2915,11 @@
         }
 
         async function sendLobbyInvitation(friendTag, type) {
-            const targetTag = String(friendTag).trim();
+            const targetTag = sanitizePlayerTag(friendTag);
+            if (!targetTag || !['LOBBY_INVITE', 'PONG_LOBBY_INVITE', 'HANGMAN_LOBBY_INVITE', 'BLACKJACK_LOBBY_INVITE'].includes(type)) {
+                showToast('Diese Einladung ist ungültig.', 'error');
+                return;
+            }
             let connection = null;
             try {
                 connection = await connectWithTimeout(targetTag);
@@ -2565,7 +3033,7 @@
                 blackjackState = null;
                 blackjackDeck = [];
                 blackjackDealerId = 'bank';
-                document.getElementById('blackjackRoomCode').innerText = '#' + myTag;
+                document.getElementById('blackjackRoomCode').textContent = '#' + myTag;
                 renderBlackjackView();
                 switchScreen('screenBlackjack');
             });
@@ -2587,7 +3055,7 @@
                 conn.on('open', () => {
                     conn.send({ type: 'BLACKJACK_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
                     blackjackRoomActive = true;
-                    document.getElementById('blackjackRoomCode').innerText = '#' + code;
+                    document.getElementById('blackjackRoomCode').textContent = '#' + code;
                     switchMainTab('blackjack');
                     showStatus('Du bist am Blackjack-Tisch', 'success');
                 });
@@ -3027,10 +3495,12 @@
 
         function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false) {
             const faceUp = blackjackCardIsFaceUp(card);
-            const hasValue = !!(card && card.rank && card.suit);
-            const redSuit = hasValue && (card.suit === '♥' || card.suit === '♦');
+            const rank = card && typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) ? card.rank : '';
+            const suit = card && ['♠', '♥', '♦', '♣'].includes(card.suit) ? card.suit : '';
+            const hasValue = !!(rank && suit);
+            const redSuit = hasValue && (suit === '♥' || suit === '♦');
             const colorClass = redSuit ? 'text-rose-600' : 'text-slate-950';
-            const label = faceUp && hasValue ? `${card.rank} ${card.suit}` : 'Verdeckte Karte';
+            const label = faceUp && hasValue ? `${rank} ${suit}` : 'Verdeckte Karte';
             const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand})"` : '';
             const newCardClass = card && card.isNewlyDealt ? 'is-new' : '';
             const animateFlip = faceUp && !!(card && card.isNewlyFlipped);
@@ -3041,9 +3511,9 @@
                         <span class="relative">✦<small class="block text-[9px] tracking-[.25em]">DECK</small></span>
                     </span>
                     <span class="blackjack-card-face blackjack-card-front ${colorClass}" aria-hidden="true">
-                        <span class="text-sm font-black leading-none">${hasValue ? `${card.rank}<span class="block text-[11px]">${card.suit}</span>` : ''}</span>
-                        <span class="self-center text-2xl font-black">${hasValue ? card.suit : ''}</span>
-                        <span class="rotate-180 self-end text-sm font-black leading-none">${hasValue ? `${card.rank}<span class="block text-[11px]">${card.suit}</span>` : ''}</span>
+                        <span class="text-sm font-black leading-none">${hasValue ? `${rank}<span class="block text-[11px]">${suit}</span>` : ''}</span>
+                        <span class="self-center text-2xl font-black">${hasValue ? suit : ''}</span>
+                        <span class="rotate-180 self-end text-sm font-black leading-none">${hasValue ? `${rank}<span class="block text-[11px]">${suit}</span>` : ''}</span>
                     </span>
                 </button>
             </div>`;
@@ -3064,6 +3534,7 @@
 
         function renderBlackjackTable() {
             const state = blackjackState;
+            playBlackjackStateSound();
             const playersList = document.getElementById('blackjackPlayersList');
             const viewerState = getPublicBlackjackState(myId);
             const visibleDealerCards = viewerState ? viewerState.dealerCards : [];
@@ -3189,7 +3660,7 @@
             }).join('');
 
             renderBlackjackDealerRole();
-            document.getElementById('blackjackRoundLabel').innerText = state
+            document.getElementById('blackjackRoundLabel').textContent = state
                 ? `Runde ${state.round} · ${
                     state.phase === 'dealing' ? 'Austeilen' :
                     state.phase === 'playing' ? 'läuft' :
@@ -3202,12 +3673,12 @@
             const isMyDealer = myId === blackjackDealerId && humanDealer;
             const needsDealerFlip = !!state && state.phase === 'dealer' && isMyDealer &&
                 state.dealerCards.some(card => !blackjackCardIsFaceUp(card));
-            document.getElementById('blackjackMessage').innerText = state
+            document.getElementById('blackjackMessage').textContent = state
                 ? `${state.message}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}${needsDealerFlip ? ' Klicke die verdeckte Dealer-Karte an, um sie aufzudecken.' : ''}`
                 : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass die Spielleitung die Runde startet.');
             const startButton = document.getElementById('blackjackStartButton');
             startButton.classList.toggle('hidden', !isHost || !!(state && state.phase !== 'settled'));
-            startButton.innerText = state ? 'Nächste Runde' : 'Runde starten';
+            startButton.textContent = state ? 'Nächste Runde' : 'Runde starten';
             renderBlackjackDealerRoleChoice();
             const inviteSection = document.getElementById('blackjackFriendInviteSection');
             inviteSection.classList.toggle('hidden', !isHost || !!state);
@@ -3228,7 +3699,7 @@
 
         function renderBlackjackDealerRole() {
             const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
-            document.getElementById('blackjackDealerRoleText').innerText = dealer
+            document.getElementById('blackjackDealerRoleText').textContent = dealer
                 ? `Dealer: ${dealer.name} · alle anderen sind Punter`
                 : 'Dealer: Bank / KI';
         }
@@ -3249,17 +3720,17 @@
             const inviteList = document.getElementById('blackjackFriendInviteList');
             if (!inviteList) return;
             const available = friends.filter(friend =>
-                /^\d{4}$/.test(String(friend.tag)) &&
+                sanitizePlayerName(friend && friend.name) &&
+                /^\d{4}$/.test(String(friend && friend.tag || '')) &&
                 !blackjackPlayers.some(player => player.id === 'wd-user-' + friend.tag)
             );
-            if (!available.length) {
-                inviteList.innerHTML = `<p class="text-[11px] italic text-gray-500">${friends.length ? 'Alle Freunde sind bereits am Tisch.' : 'Keine Freunde zum Einladen verfügbar.'}</p>`;
-                return;
-            }
-            inviteList.innerHTML = available.map(friend => `
-                <button onclick="inviteFriendToBlackjack('${escapeHtml(friend.tag)}')" class="flex items-center space-x-1 rounded-xl border border-emerald-500/40 bg-emerald-600/30 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-600/50">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${escapeHtml(friend.name)}</span>
-                </button>`).join('');
+            renderFriendInviteButtons(
+                inviteList,
+                available,
+                'flex items-center space-x-1 rounded-xl border border-emerald-500/40 bg-emerald-600/30 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-600/50',
+                friends.length ? 'Alle Freunde sind bereits am Tisch.' : 'Keine Freunde zum Einladen verfügbar.',
+                inviteFriendToBlackjack
+            );
         }
 
         function returnBlackjackToSetup(message) {
@@ -3330,7 +3801,7 @@
                 assignPongTeams();
                 document.getElementById('pongLobby').classList.add('hidden');
                 document.getElementById('pongArena').classList.remove('hidden');
-                document.getElementById('pongRoomCode').innerText = '#' + myTag;
+                document.getElementById('pongRoomCode').textContent = '#' + myTag;
                 document.getElementById('pongStartButton').classList.remove('hidden');
                 renderPongLobby();
                 switchScreen('screenPong');
@@ -3349,7 +3820,7 @@
                     conn.send({ type: 'PONG_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
                     document.getElementById('pongLobby').classList.add('hidden');
                     document.getElementById('pongArena').classList.remove('hidden');
-                    document.getElementById('pongRoomCode').innerText = '#' + code;
+                    document.getElementById('pongRoomCode').textContent = '#' + code;
                     document.getElementById('pongStartButton').classList.add('hidden');
                     switchScreen('screenPong');
                     showStatus('Pong-Lobby betreten', 'success');
@@ -3370,10 +3841,10 @@
                     : 'border-violet-500/40 bg-violet-600/20 text-violet-200';
                 return `<span class="lobby-player-pill ${p.id === myId ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${color} border text-xs font-bold">${playerLabelHtml(p)}${p.isBot ? ' 🤖' : ''}${p.team ? ' · ' + p.team : ''} <span class="score-chip font-mono text-white ml-1">${p.score || 0} P</span></span>`;
             }).join('');
-            document.getElementById('pongTeamLabel').innerText = pongMaxPlayers === 4
+            document.getElementById('pongTeamLabel').textContent = pongMaxPlayers === 4
                 ? '2 gegen 2 · Blau vs. Rot'
                 : '1 gegen 1';
-            document.getElementById('pongTeamLabel').innerText += ` · Sieg bei ${pongWinScore} Punkten`;
+            document.getElementById('pongTeamLabel').textContent += ` · Sieg bei ${pongWinScore} Punkten`;
             const inviteSection = document.getElementById('pongFriendInviteSection');
             if (inviteSection) inviteSection.classList.toggle('hidden', !isHost || pongRunning);
             document.getElementById('pongStartButton').classList.toggle(
@@ -3387,22 +3858,21 @@
             const inviteList = document.getElementById('pongFriendInviteList');
             if (!inviteList) return;
             if (pongPlayers.length >= pongMaxPlayers) {
-                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Lobby ist bereits voll.</p>`;
+                renderFriendInviteButtons(inviteList, [], '', 'Lobby ist bereits voll.', inviteFriendToPong);
                 return;
             }
-            if (friends.length === 0) {
-                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Keine Freunde zum Einladen verfügbar.</p>`;
-                return;
-            }
-            const available = friends.filter(f => !pongPlayers.some(p => p.name && p.name.includes('#' + f.tag)));
-            if (available.length === 0) {
-                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">Alle Freunde sind bereits in der Lobby.</p>`;
-                return;
-            }
-            inviteList.innerHTML = available.map(f => `
-                <button onclick="inviteFriendToPong('${f.tag}')" class="bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${f.name}</span>
-                </button>`).join('');
+            const available = friends.filter(friend =>
+                sanitizePlayerName(friend && friend.name) &&
+                /^\d{4}$/.test(String(friend && friend.tag || '')) &&
+                !pongPlayers.some(player => player.id === 'wd-user-' + friend.tag)
+            );
+            renderFriendInviteButtons(
+                inviteList,
+                available,
+                'bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
+                friends.length && !available.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.',
+                inviteFriendToPong
+            );
         }
 
         function escapeHangmanHtml(value) {
@@ -3432,7 +3902,7 @@
                 hangmanGameStarted = false;
                 hangmanRoomActive = true;
                 hangmanPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, roundPoints: 0, color: myPlayerColor, badge: myPlayerBadge, conn: null }];
-                document.getElementById('hangmanRoomCode').innerText = '#' + myTag;
+                document.getElementById('hangmanRoomCode').textContent = '#' + myTag;
                 renderHangmanView();
             });
         }
@@ -3451,7 +3921,7 @@
                 setupConnectionHandlers(conn);
                 conn.on('open', () => {
                     conn.send({ type: 'HANGMAN_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge });
-                    document.getElementById('hangmanRoomCode').innerText = '#' + code;
+                    document.getElementById('hangmanRoomCode').textContent = '#' + code;
                     hangmanRoomActive = true;
                     renderHangmanView();
                     showStatus('Hangman-Lobby betreten', 'success');
@@ -3461,19 +3931,20 @@
         }
 
         function joinHangmanPlayer(data, senderConn) {
-            const playerId = senderConn.peer || data.id;
-            if (!/^wd-user-\d{4}$/.test(playerId)) {
+            const playerId = senderConn && senderConn.peer;
+            const playerName = sanitizeNetworkPlayerName(data && data.name);
+            if (!/^wd-user-\d{4}$/.test(playerId || '') || !playerName) {
                 senderConn.send({ type: 'HANGMAN_FULL' });
                 return;
             }
             const existing = hangmanPlayers.find(player => player.id === playerId);
             if (existing) {
-                existing.name = String(data.name || existing.name).slice(0, 40);
+                existing.name = playerName;
                 existing.color = normalizePlayerColor(data.color);
                 existing.badge = normalizePlayerBadge(data.badge);
                 existing.conn = senderConn;
             } else {
-                hangmanPlayers.push({ id: playerId, name: String(data.name || 'Spieler').slice(0, 40), score: 0, roundPoints: 0, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
+                hangmanPlayers.push({ id: playerId, name: playerName, score: 0, roundPoints: 0, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
             }
             if (!connections.includes(senderConn)) connections.push(senderConn);
             senderConn.on('close', () => {
@@ -3605,7 +4076,7 @@
             const modeLabel = hangmanMode === 'custom'
                 ? 'Eigenes Wort · Wortgeber wechselt'
                 : `Zufallswort · ${HANGMAN_CATEGORY_LABELS[hangmanCategory]}`;
-            info.innerText = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
+            info.textContent = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
             playerList.innerHTML = hangmanPublicPlayers().map((player, index) =>
                 `<span class="lobby-player-pill ${player.id === myId ? 'is-active' : index === 0 ? 'is-host' : ''} px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)}${index === 0 ? ' · Spielleitung' : ''}</span>`
             ).join('');
@@ -3618,15 +4089,18 @@
         function renderHangmanFriendInvites() {
             const inviteList = document.getElementById('hangmanFriendInviteList');
             if (!inviteList) return;
-            const available = friends.filter(friend => !hangmanPlayers.some(player => player.name && player.name.includes('#' + friend.tag)));
-            if (!available.length) {
-                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">${friends.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.'}</p>`;
-                return;
-            }
-            inviteList.innerHTML = available.map(friend => `
-                <button onclick="inviteFriendToHangman('${escapeHangmanHtml(friend.tag)}')" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${escapeHangmanHtml(friend.name)}</span>
-                </button>`).join('');
+            const available = friends.filter(friend =>
+                sanitizePlayerName(friend && friend.name) &&
+                /^\d{4}$/.test(String(friend && friend.tag || '')) &&
+                !hangmanPlayers.some(player => player.id === 'wd-user-' + friend.tag)
+            );
+            renderFriendInviteButtons(
+                inviteList,
+                available,
+                'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
+                friends.length && !available.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.',
+                inviteFriendToHangman
+            );
         }
 
         function startHangmanGame() {
@@ -3694,9 +4168,13 @@
         }
 
         function submitHangmanWord() {
-            const word = document.getElementById('hangmanSecretWord').value.trim().toUpperCase();
-            const hint = document.getElementById('hangmanHintInput').value.trim();
-            document.getElementById('hangmanSetterFeedback').innerText = '';
+            const word = sanitizeWord(document.getElementById('hangmanSecretWord').value, 3, 16);
+            const hint = sanitizeHangmanHint(document.getElementById('hangmanHintInput').value);
+            document.getElementById('hangmanSetterFeedback').textContent = '';
+            if (!word) {
+                document.getElementById('hangmanSetterFeedback').textContent = 'Das Wort darf nur Buchstaben enthalten (3–16 Zeichen).';
+                return;
+            }
             if (isHost) setHangmanWord(word, hint, myId);
             else if (conn && conn.open) conn.send({ type: 'HANGMAN_SET_WORD', word, hint, playerId: myId });
         }
@@ -3704,14 +4182,14 @@
         function setHangmanWord(word, hint, playerId, senderConn = null) {
             const reply = text => {
                 if (senderConn && senderConn.open) senderConn.send({ type: 'HANGMAN_FEEDBACK', text });
-                else document.getElementById('hangmanSetterFeedback').innerText = text;
+                else document.getElementById('hangmanSetterFeedback').textContent = text;
             };
             if (!hangmanState || hangmanState.status !== 'setting' || hangmanState.setterId !== playerId) return;
-            const normalized = String(word || '').trim().toUpperCase();
-            if (!/^[A-ZÄÖÜ]{3,16}$/.test(normalized)) return reply('Das Wort muss 3–16 Buchstaben enthalten (A–Z, Ä, Ö, Ü).');
+            const normalized = sanitizeWord(word, 3, 16);
+            if (!normalized) return reply('Das Wort muss 3–16 Buchstaben enthalten (A–Z, Ä, Ö, Ü).');
             hangmanWord = normalized;
             hangmanState.wordLength = normalized.length;
-            hangmanState.hint = String(hint || '').trim().slice(0, 40);
+            hangmanState.hint = sanitizeHangmanHint(hint);
             hangmanState.status = 'playing';
             hangmanState.notice = 'Das Wort steht fest. Viel Erfolg!';
             publishHangmanState();
@@ -3773,8 +4251,12 @@
         }
 
         function solveHangmanWord() {
-            const word = document.getElementById('hangmanSolveInput').value.trim().toUpperCase();
+            const word = sanitizeWord(document.getElementById('hangmanSolveInput').value, 3, 16);
             if (!isHangmanTurn(myId)) return;
+            if (!word) {
+                document.getElementById('hangmanActionMessage').textContent = 'Das Lösungswort darf nur Buchstaben enthalten (3–16 Zeichen).';
+                return;
+            }
             if (isHost) handleHangmanSolve(word, myId);
             else if (conn && conn.open) conn.send({ type: 'HANGMAN_SOLVE', word, playerId: myId });
             document.getElementById('hangmanSolveInput').value = '';
@@ -3782,8 +4264,10 @@
 
         function handleHangmanSolve(word, playerId) {
             if (!isHangmanTurn(playerId)) return;
+            const normalized = sanitizeWord(word, 3, 16);
+            if (!normalized) return;
             const player = hangmanPlayers[hangmanState.turnIndex];
-            if (String(word || '').trim().toUpperCase() === hangmanWord) {
+            if (normalized === hangmanWord) {
                 player.score += 50;
                 player.roundPoints += 50;
                 hangmanState.notice = `${player.name} hat das Wort gelöst (+50 Punkte)!`;
@@ -3819,6 +4303,7 @@
         function renderHangmanGame() {
             const state = hangmanState;
             if (!state) return;
+            playHangmanStateSound(state);
             const playersForView = state.players || hangmanPublicPlayers();
             const currentPlayer = playersForView[state.turnIndex];
             const setter = playersForView.find(player => player.id === state.setterId);
@@ -3828,15 +4313,15 @@
                 ? playersForView.findIndex(player => player.id === state.setterId)
                 : state.turnIndex;
             const categoryLabel = state.mode === 'random' ? ` · ${HANGMAN_CATEGORY_LABELS[state.category] || HANGMAN_CATEGORY_LABELS.gaming}` : '';
-            document.getElementById('hangmanRoundLabel').innerText = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}${categoryLabel}`;
-            document.getElementById('hangmanTurnLabel').innerText = state.status === 'setting'
+            document.getElementById('hangmanRoundLabel').textContent = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}${categoryLabel}`;
+            document.getElementById('hangmanTurnLabel').textContent = state.status === 'setting'
                 ? `Wortgeber: ${setter ? setter.name : '---'}`
                 : state.status === 'over' ? (state.solved ? 'Wort erraten!' : 'Keine Leben mehr')
                 : `Am Zug: ${currentPlayer ? currentPlayer.name : '---'}${isMyTurn ? ' · Du bist dran' : ''}`;
             document.getElementById('hangmanScoreboard').innerHTML = playersForView.map((player, index) =>
                 `<span class="lobby-player-pill ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'is-active' : ''} px-3 py-1.5 rounded-xl ${index === activePlayerIndex && ['setting', 'playing'].includes(state.status) ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${playerLabelHtml(player)} <span class="score-chip text-cyan-300">${player.score} P</span></span>`
             ).join('');
-            document.getElementById('hangmanLives').innerText = `${Math.max(0, state.maxErrors - state.mistakes)} / ${state.maxErrors}`;
+            document.getElementById('hangmanLives').textContent = `${Math.max(0, state.maxErrors - state.mistakes)} / ${state.maxErrors}`;
             document.getElementById('hangmanLivesBar').style.width = `${Math.max(0, (state.maxErrors - state.mistakes) / state.maxErrors * 100)}%`;
             document.querySelectorAll('#hangmanDrawing .hangman-part').forEach(part => {
                 const visible = +part.dataset.step <= state.mistakes ||
@@ -3850,7 +4335,7 @@
             document.getElementById('hangmanGuessArea').classList.toggle('hidden', setting || state.status === 'over');
             document.getElementById('hangmanRoundResult').classList.toggle('hidden', state.status !== 'over');
             if (setting) {
-                document.getElementById('hangmanActionMessage').innerText = '';
+                document.getElementById('hangmanActionMessage').textContent = '';
                 return;
             }
             if (state.status === 'over') {
@@ -3863,7 +4348,7 @@
                     }
                     recordedHangmanRounds.add(statRoundKey);
                 }
-                document.getElementById('hangmanAnswer').innerText = `${state.solved ? 'Erratenes Wort' : 'Gesuchtes Wort'}: ${state.answer || hangmanWord}`;
+                document.getElementById('hangmanAnswer').textContent = `${state.solved ? 'Erratenes Wort' : 'Gesuchtes Wort'}: ${state.answer || hangmanWord}`;
                 document.getElementById('hangmanRoundScores').innerHTML = playersForView.slice().sort((a, b) => b.roundPoints - a.roundPoints).map(player =>
                     `<div class="flex justify-between rounded-lg bg-card px-3 py-2 text-xs">${playerLabelHtml(player)}<span class="text-cyan-300">+${player.roundPoints} Runde · ${player.score} gesamt</span></div>`
                 ).join('');
@@ -3872,11 +4357,13 @@
                     : '<p class="text-xs text-gray-400 italic">Warte auf die Spielleitung für die nächste Runde...</p>';
                 return;
             }
-            document.getElementById('hangmanHint').innerText = state.hint ? `Hinweis: ${state.hint}` : '';
-            document.getElementById('hangmanWordDisplay').innerHTML = Array.from({ length: state.wordLength }, (_, index) => {
+            document.getElementById('hangmanHint').textContent = state.hint ? `Hinweis: ${state.hint}` : '';
+            const wordDisplay = document.getElementById('hangmanWordDisplay');
+            wordDisplay.replaceChildren();
+            Array.from({ length: Math.min(16, state.wordLength) }, (_, index) => {
                 const letter = (state.revealedWord || [])[index] || '';
-                return `<span class="min-w-7 border-b-2 border-indigo-400 pb-1">${letter || '_'}</span>`;
-            }).join('');
+                wordDisplay.appendChild(createTextElement('span', 'min-w-7 border-b-2 border-indigo-400 pb-1', letter || '_'));
+            });
             const rows = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNMÄÖÜ'];
             document.getElementById('hangmanKeyboard').innerHTML = rows.map(row =>
                 `<div class="flex justify-center gap-1">${[...row].map(letter => {
@@ -3886,7 +4373,7 @@
             ).join('');
             document.getElementById('hangmanSolveButton').disabled = !isMyTurn;
             document.getElementById('hangmanSolveButton').classList.toggle('opacity-40', !isMyTurn);
-            document.getElementById('hangmanActionMessage').innerText = state.notice || '';
+            document.getElementById('hangmanActionMessage').textContent = state.notice || '';
         }
 
         function leaveHangmanLobby() {
@@ -4063,6 +4550,9 @@
                 isBot: !!player.isBot, color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
             recordPongMatchResult(playersSnapshot);
+            const localPlayer = playersSnapshot.find(player => player.id === myId);
+            if (localPlayer && Number(localPlayer.score) >= pongWinScore) playGameWin();
+            else if (localPlayer) playGameLose();
             celebrate();
             broadcast({ type: 'PONG_WIN', winnerText, state: pongState, players: playersSnapshot });
             drawPong();
@@ -4463,10 +4953,10 @@
             isHost = true;
             gameMode = document.getElementById('gameLangMode').value;
             settings = { rounds: +document.getElementById('gameRounds').value, diff: document.getElementById('gameDiff').value, inf: document.getElementById('gameDiff').value === 'inf', keep: document.getElementById('gameLock').value === 'keep', wordLength: +document.getElementById('gameWordLength').value };
-            document.getElementById('displayRoomCode').innerText = myTag;
+            document.getElementById('displayRoomCode').textContent = myTag;
             
             const modeText = gameMode === 'de' ? '🇩🇪 Nur Deutsche Wörter' : (gameMode === 'en' ? '🇬🇧 Nur Englische Wörter' : '🌍 Alle Wörter');
-            document.getElementById('lobbyModeBadgeText').innerText = 'Modus: ' + modeText;
+            document.getElementById('lobbyModeBadgeText').textContent = 'Modus: ' + modeText;
             
             players = [{ id: myId, name: `${myName} #${myTag}`, score: 0, streak: 0, isHost: true, color: myPlayerColor, badge: myPlayerBadge }];
             updateLobbyUI();
@@ -4479,8 +4969,8 @@
         }
 
         function joinGame(overrideTag = null) {
-            const inputCode = overrideTag || document.getElementById('roomCodeInput').value.trim().toUpperCase();
-            if (!inputCode || inputCode.length !== 4) {
+            const inputCode = sanitizePlayerTag(overrideTag || document.getElementById('roomCodeInput').value.trim());
+            if (!inputCode) {
                 alert('Bitte gib eine gültige 4-stellige ID ein.');
                 return;
             }
@@ -4657,23 +5147,33 @@
         }
 
         function handleNetworkData(data, senderConn) {
+            if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.type !== 'string') return;
             switch(data.type) {
-                case 'FRIEND_REQUEST':
+                case 'FRIEND_REQUEST': {
+                    const tag = sanitizePlayerTag(data.tag);
+                    const name = sanitizePlayerName(data.name);
+                    if (!tag || tag === myTag || !name || !senderConn || senderConn.peer !== 'wd-user-' + tag ||
+                        (friends.length >= 100 && !friends.some(friend => friend.tag === tag))) break;
                     playChime(784, 988);
                     pendingFriendConn = senderConn;
-                    pendingFriendData = data;
-                    document.getElementById('friendRequestText').innerHTML = `<b>${data.name} #${data.tag}</b> möchte dich als Freund hinzufügen.`;
+                    pendingFriendData = { name, tag, id: 'wd-user-' + tag };
+                    document.getElementById('friendRequestText').textContent = `${name} #${tag} möchte dich als Freund hinzufügen.`;
                     document.getElementById('friendRequestModal').classList.remove('hidden');
                     break;
-                case 'FRIEND_ACCEPT':
+                }
+                case 'FRIEND_ACCEPT': {
+                    const tag = sanitizePlayerTag(data.tag);
+                    const name = sanitizePlayerName(data.name);
+                    if (!tag || tag === myTag || !name || !senderConn || senderConn.peer !== 'wd-user-' + tag ||
+                        (friends.length >= 100 && !friends.some(friend => friend.tag === tag))) break;
                     playChime(784, 988);
-                    if (!friends.some(f => f.tag === data.tag)) {
-                        friends.push({ name: data.name, tag: data.tag, peerId: data.id });
-                        localStorage.setItem('wortketten_friends', JSON.stringify(friends));
+                    if (!friends.some(friend => friend.tag === tag)) {
+                        friends.push({ name, tag, peerId: 'wd-user-' + tag });
                         renderFriendList();
-                        checkFriendOnline(data.tag);
+                        checkFriendOnline(tag);
                     }
                     break;
+                }
                 case 'FRIEND_REJECT':
                     break;
                 case 'PING':
@@ -4685,32 +5185,16 @@
                     break;
                 }
                 case 'LOBBY_INVITE':
-                    playChime(784, 988);
-                    pendingLobbyHostId = data.hostTag;
-                    pendingInviteMode = 'words';
-                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich in seine Lobby ein!`;
-                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    showLobbyInvite(data, 'words', senderConn);
                     break;
                 case 'PONG_LOBBY_INVITE':
-                    playChime(784, 988);
-                    pendingLobbyHostId = data.hostTag;
-                    pendingInviteMode = 'pong';
-                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Pong-Lobby ein!`;
-                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    showLobbyInvite(data, 'pong', senderConn);
                     break;
                 case 'HANGMAN_LOBBY_INVITE':
-                    playChime(784, 988);
-                    pendingLobbyHostId = data.hostTag;
-                    pendingInviteMode = 'hangman';
-                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Hangman-Lobby ein!`;
-                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    showLobbyInvite(data, 'hangman', senderConn);
                     break;
                 case 'BLACKJACK_LOBBY_INVITE':
-                    playChime(784, 988);
-                    pendingLobbyHostId = data.hostTag;
-                    pendingInviteMode = 'blackjack';
-                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich an einen Blackjack-Tisch ein!`;
-                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    showLobbyInvite(data, 'blackjack', senderConn);
                     break;
                 case 'HANGMAN_JOIN':
                     if (isHost && hangmanRoomActive && !hangmanGameStarted) {
@@ -4720,9 +5204,10 @@
                     }
                     break;
                 case 'BLACKJACK_JOIN': {
-                    const peerId = senderConn.peer || data.id;
+                    const peerId = senderConn && senderConn.peer;
+                    const playerName = sanitizeNetworkPlayerName(data.name);
                     const existingPlayer = blackjackPlayers.find(player => player.id === peerId);
-                    if (!isHost || !blackjackRoomActive ||
+                    if (!playerName || !isHost || !blackjackRoomActive ||
                         (!existingPlayer && (blackjackPlayers.length >= BLACKJACK_MAX_PLAYERS ||
                             (blackjackState && blackjackState.phase !== 'settled'))) ||
                         !/^wd-user-\d{4}$/.test(peerId)) {
@@ -4731,7 +5216,7 @@
                     }
                     if (existingPlayer) {
                         const previousConnection = existingPlayer.conn;
-                        existingPlayer.name = String(data.name || existingPlayer.name).slice(0, 40);
+                        existingPlayer.name = playerName;
                         existingPlayer.color = normalizePlayerColor(data.color);
                         existingPlayer.badge = normalizePlayerBadge(data.badge);
                         existingPlayer.conn = senderConn;
@@ -4741,7 +5226,7 @@
                     } else {
                         blackjackPlayers.push({
                             id: peerId,
-                            name: String(data.name || 'Spieler').slice(0, 40),
+                            name: playerName,
                             cards: [], wins: 0, bet: 10, status: 'waiting', natural: false,
                             color: normalizePlayerColor(data.color),
                             badge: normalizePlayerBadge(data.badge),
@@ -4779,12 +5264,16 @@
                 }
                 case 'BLACKJACK_SYNC':
                     if (senderConn === conn) {
+                        blackjackPlayers = sanitizePlayerRecords(data.players, BLACKJACK_MAX_PLAYERS);
+                        if (blackjackPlayers.length < 2 || !blackjackPlayers.some(player => player.id === myId)) break;
+                        const safeState = data.state == null ? null : sanitizeBlackjackState(data.state);
+                        if (data.state != null && !safeState) break;
                         isHost = false;
                         blackjackRoomActive = true;
-                        blackjackDealerId = data.dealerId || 'bank';
-                        blackjackPlayers = data.players || [];
-                        blackjackState = data.state || null;
-                        if (data.hostTag) document.getElementById('blackjackRoomCode').innerText = '#' + data.hostTag;
+                        blackjackDealerId = data.dealerId === 'bank' || isSafePlayerId(data.dealerId) ? data.dealerId : 'bank';
+                        blackjackState = safeState;
+                        const hostTag = sanitizePlayerTag(data.hostTag);
+                        if (hostTag) document.getElementById('blackjackRoomCode').textContent = '#' + hostTag;
                         renderBlackjackView();
                     }
                     break;
@@ -4818,33 +5307,44 @@
                     if (senderConn === conn) returnBlackjackToSetup('Die Spielleitung hat den Blackjack-Tisch geschlossen.');
                     break;
                 case 'HANGMAN_SYNC':
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
                     hangmanRoomActive = true;
                     hangmanGameStarted = false;
                     hangmanState = null;
                     hangmanWord = '';
-                    hangmanMode = data.mode;
+                    hangmanMode = data.mode === 'random' ? 'random' : 'custom';
                     hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.category) ? data.category : 'gaming';
                     document.getElementById('hangmanCategorySelect').value = hangmanCategory;
-                    hangmanMaxErrors = data.maxErrors;
-                    hangmanRounds = data.rounds;
-                    hangmanPlayers = data.players || [];
+                    hangmanMaxErrors = [6, 8, 10].includes(data.maxErrors) ? data.maxErrors : 6;
+                    hangmanRounds = [1, 3, 5].includes(data.rounds) ? data.rounds : 3;
+                    hangmanPlayers = safePlayers;
                     renderHangmanView();
                     renderHangmanLobby();
                     break;
+                    }
                 case 'HANGMAN_SHORT':
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (!safePlayers.some(player => player.id === myId)) break;
                     hangmanRoomActive = true;
                     hangmanGameStarted = false;
                     hangmanState = null;
                     hangmanWord = '';
-                    hangmanMode = data.mode || hangmanMode;
+                    hangmanMode = data.mode === 'random' ? 'random' : (data.mode === 'custom' ? 'custom' : hangmanMode);
                     hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.category) ? data.category : hangmanCategory;
-                    hangmanMaxErrors = data.maxErrors || hangmanMaxErrors;
-                    hangmanRounds = data.rounds || hangmanRounds;
-                    hangmanPlayers = data.players || hangmanPlayers;
+                    hangmanMaxErrors = [6, 8, 10].includes(data.maxErrors) ? data.maxErrors : hangmanMaxErrors;
+                    hangmanRounds = [1, 3, 5].includes(data.rounds) ? data.rounds : hangmanRounds;
+                    hangmanPlayers = safePlayers;
                     renderHangmanView();
-                    showToast(data.message || 'Die Hangman-Runde wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
+                    showToast(sanitizePlainText(data.message) || 'Die Hangman-Runde wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
                     break;
+                    }
                 case 'HANGMAN_FULL':
+                    if (senderConn !== conn) break;
                     alert('Diese Hangman-Lobby hat bereits begonnen oder ist nicht verfügbar.');
                     if (conn) conn.close();
                     conn = null;
@@ -4852,21 +5352,28 @@
                     renderHangmanView();
                     break;
                 case 'HANGMAN_START':
-                case 'HANGMAN_STATE':
+                case 'HANGMAN_STATE': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizeHangmanState(data.state);
+                    if (!safeState || safeState.players.length < 2 || !safeState.players.some(player => player.id === myId)) {
+                        console.warn('Ein ungültiger Hangman-Spielstand wurde ignoriert.');
+                        break;
+                    }
                     hangmanRoomActive = true;
                     hangmanGameStarted = true;
-                    hangmanState = data.state;
-                    hangmanMatchId = data.state.matchId || hangmanMatchId;
-                    hangmanMode = data.state.mode;
-                    hangmanCategory = Object.prototype.hasOwnProperty.call(HANGMAN_CATEGORY_WORDS, data.state.category) ? data.state.category : 'gaming';
+                    hangmanState = safeState;
+                    hangmanMatchId = safeState.matchId || hangmanMatchId;
+                    hangmanMode = safeState.mode;
+                    hangmanCategory = safeState.category;
                     document.getElementById('hangmanCategorySelect').value = hangmanCategory;
-                    hangmanMaxErrors = data.state.maxErrors;
-                    hangmanRounds = data.state.rounds;
-                    hangmanRound = data.state.round;
-                    hangmanPlayers = data.state.players || hangmanPlayers;
+                    hangmanMaxErrors = safeState.maxErrors;
+                    hangmanRounds = safeState.rounds;
+                    hangmanRound = safeState.round;
+                    hangmanPlayers = safeState.players;
                     hangmanWord = '';
                     renderHangmanView();
                     break;
+                }
                 case 'HANGMAN_SET_WORD':
                     if (isHost && isHangmanSender(data.playerId, senderConn)) setHangmanWord(data.word, data.hint, data.playerId, senderConn);
                     break;
@@ -4877,8 +5384,9 @@
                     if (isHost && isHangmanSender(data.playerId, senderConn)) handleHangmanSolve(data.word, data.playerId);
                     break;
                 case 'HANGMAN_FEEDBACK':
-                    document.getElementById('hangmanActionMessage').innerText = data.text;
-                    document.getElementById('hangmanSetterFeedback').innerText = data.text;
+                    if (isHost || senderConn !== conn) break;
+                    document.getElementById('hangmanActionMessage').textContent = sanitizePlainText(data.text);
+                    document.getElementById('hangmanSetterFeedback').textContent = sanitizePlainText(data.text);
                     break;
                 case 'HANGMAN_REACTION': {
                     if (!HANGMAN_REACTIONS.includes(data.text)) break;
@@ -4900,12 +5408,17 @@
                     break;
                 }
                 case 'HANGMAN_CLOSED':
+                    if (senderConn !== conn) break;
                     returnGuestToSetup('Die Spielleitung hat die Hangman-Lobby beendet.');
                     break;
                 case 'PONG_JOIN':
-                    if (isHost && pongPlayers.length < pongMaxPlayers) {
+                    if (isHost && pongPlayers.length < pongMaxPlayers &&
+                        /^wd-user-\d{4}$/.test(senderConn && senderConn.peer || '') &&
+                        sanitizeNetworkPlayerName(data.name)) {
                         if (!connections.includes(senderConn)) connections.push(senderConn);
-                        if (!pongPlayers.some(p => p.id === data.id)) pongPlayers.push({ id: data.id, name: data.name, score: 0, team: data.team || null, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
+                        const playerId = senderConn.peer;
+                        const playerName = sanitizeNetworkPlayerName(data.name);
+                        if (!pongPlayers.some(p => p.id === playerId)) pongPlayers.push({ id: playerId, name: playerName, score: 0, team: null, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         assignPongTeams();
                         senderConn.on('close', () => {
                             const matchWasActive = pongRunning || pongCountdown > 0 || pongPaused;
@@ -4926,44 +5439,63 @@
                     }
                     break;
                 case 'PONG_SYNC':
-                    pongPlayers = data.players || pongPlayers;
-                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
-                    pongWinScore = data.winScore || pongWinScore;
-                    pongRunning = data.running || false;
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 4);
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
+                    pongPlayers = safePlayers;
+                    pongMaxPlayers = [2, 4].includes(data.maxPlayers) ? data.maxPlayers : pongMaxPlayers;
+                    pongWinScore = [5, 10, 20, 30, 40, 50].includes(data.winScore) ? data.winScore : pongWinScore;
+                    pongRunning = data.running === true;
                     if (!pongRunning) document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
                     break;
+                    }
                 case 'PONG_SHORT':
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 4);
+                    if (!safePlayers.some(player => player.id === myId)) break;
                     stopPongGame();
-                    pongPlayers = data.players || [];
-                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
-                    pongWinScore = data.winScore || pongWinScore;
+                    pongPlayers = safePlayers;
+                    pongMaxPlayers = [2, 4].includes(data.maxPlayers) ? data.maxPlayers : pongMaxPlayers;
+                    pongWinScore = [5, 10, 20, 30, 40, 50].includes(data.winScore) ? data.winScore : pongWinScore;
                     document.getElementById('pongLobby').classList.remove('hidden');
                     document.getElementById('pongArena').classList.add('hidden');
                     renderPongLobby();
-                    showToast(data.message || 'Das Pong-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
+                    showToast(sanitizePlainText(data.message) || 'Das Pong-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
                     break;
+                    }
                 case 'PONG_FULL':
+                    if (senderConn !== conn) break;
                     alert('Diese Pong-Lobby ist bereits voll.');
                     if (conn) conn.close();
                     conn = null;
                     break;
-                case 'PONG_START':
+                case 'PONG_START': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizePongState(data.state);
+                    const safePlayers = sanitizePlayerRecords(data.players, 4);
+                    if (!safeState) {
+                        console.warn('Ein ungültiger Pong-Spielstand wurde ignoriert.');
+                        break;
+                    }
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
                     stopPongGame();
-                    pongPlayers = data.players || pongPlayers;
-                    pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
-                    pongWinScore = data.winScore || pongWinScore;
+                    pongPlayers = safePlayers;
+                    pongMaxPlayers = [2, 4].includes(data.maxPlayers) ? data.maxPlayers : pongMaxPlayers;
+                    pongWinScore = [5, 10, 20, 30, 40, 50].includes(data.winScore) ? data.winScore : pongWinScore;
                     pongRunning = false;
                     pongStatsRecorded = false;
                     pongWinnerText = '';
-                    pongState = data.state || createPongState();
+                    pongState = safeState;
                     pongNextPowerUpAt = pongState.nextPowerUpAt || 0;
                     pongBallTrail = [];
                     pongHitParticles = [];
                     pongPreviousSnapshot = pongState;
                     pongCurrentSnapshot = pongState;
                     pongSnapshotReceivedAt = performance.now();
-                    pongCountdown = data.countdown || 3;
+                    pongCountdown = Math.min(3, Math.max(1, safeNonNegativeInteger(data.countdown, 3, 3)));
                     document.getElementById('pongLobby').classList.add('hidden');
                     document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
@@ -4972,11 +5504,25 @@
                     pongRenderLoop = null;
                     pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
                     break;
-                case 'PONG_WIN':
-                    pongState = data.state;
-                    pongPlayers = data.players || pongPlayers;
-                    pongWinnerText = data.winnerText;
+                }
+                case 'PONG_WIN': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizePongState(data.state);
+                    const safePlayers = sanitizePlayerRecords(data.players, 4);
+                    if (!safeState) {
+                        console.warn('Ein ungültiger Pong-Spielstand wurde ignoriert.');
+                        break;
+                    }
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
+                    pongState = safeState;
+                    pongPlayers = safePlayers;
+                    pongWinnerText = sanitizePlainText(data.winnerText, 120);
                     recordPongMatchResult(pongPlayers);
+                    {
+                        const localPlayer = pongPlayers.find(player => player.id === myId);
+                        if (localPlayer && localPlayer.score >= pongWinScore) playGameWin();
+                        else if (localPlayer) playGameLose();
+                    }
                     pongRunning = false;
                     pongCountdown = 0;
                     pongPaused = false;
@@ -4984,20 +5530,28 @@
                     celebrate();
                     drawPong();
                     break;
-                case 'PONG_PAUSE':
-                    pongState = data.state || pongState;
-                    pongCountdown = data.countdown || 0;
+                }
+                case 'PONG_PAUSE': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizePongState(data.state);
+                    if (!safeState) break;
+                    pongState = safeState;
+                    pongCountdown = safeNonNegativeInteger(data.countdown, 0, 3);
                     pongPauseCountdown = pongCountdown;
                     pongPaused = true;
                     pongRunning = false;
                     cancelPongLoops();
                     stopAllSounds();
                     break;
-                case 'PONG_RESUME':
+                }
+                case 'PONG_RESUME': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizePongState(data.state);
+                    if (!safeState) break;
                     pongPaused = false;
                     pongPauseCountdown = 0;
-                    pongState = data.state || pongState;
-                    pongCountdown = data.countdown || 0;
+                    pongState = safeState;
+                    pongCountdown = safeNonNegativeInteger(data.countdown, 0, 3);
                     pongRunning = pongCountdown === 0;
                     pongPreviousSnapshot = pongState;
                     pongCurrentSnapshot = pongState;
@@ -5007,44 +5561,66 @@
                         pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
                     }
                     break;
+                }
                 case 'PONG_SOUND':
-                    triggerPongEffect(data.kind, data.x, data.y);
+                    if (!isHost && senderConn === conn && ['paddle', 'wall', 'point'].includes(data.kind) &&
+                        Number.isFinite(data.x) && data.x >= 0 && data.x <= 800 &&
+                        Number.isFinite(data.y) && data.y >= 0 && data.y <= 500) {
+                        triggerPongEffect(data.kind, data.x, data.y);
+                    }
                     break;
                 case 'PONG_POWERUP': {
-                    if (data.playerId === myId) {
+                    if (!isHost && senderConn === conn && data.playerId === myId && ['paddle', 'slow', 'point'].includes(data.powerUpType)) {
                         const labels = { paddle: 'Vergrößerter Schläger', slow: 'Verlangsamter Ball', point: 'Extrapunkt' };
                         showToast(`Power-up: ${labels[data.powerUpType] || 'Bonus'}!`, 'success');
                     }
                     break;
                 }
                 case 'PONG_COUNTDOWN':
-                    pongCountdown = data.count;
+                    if (isHost || senderConn !== conn) break;
+                    pongCountdown = Math.min(3, safeNonNegativeInteger(data.count, 0, 3));
                     if (pongCountdown === 0) pongRunning = true;
                     drawPong(interpolatePongState());
                     break;
-                case 'PONG_STATE':
-                    pongPreviousSnapshot = pongCurrentSnapshot || data.state;
-                    pongCurrentSnapshot = data.state;
+                case 'PONG_STATE': {
+                    if (isHost || senderConn !== conn) break;
+                    const safeState = sanitizePongState(data.state);
+                    if (!safeState) break;
+                    const safePlayers = sanitizePlayerRecords(data.players, 4);
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
+                    pongPreviousSnapshot = pongCurrentSnapshot || safeState;
+                    pongCurrentSnapshot = safeState;
                     pongSnapshotReceivedAt = performance.now();
-                    pongState = data.state;
-                    pongPlayers = data.players || pongPlayers;
+                    pongState = safeState;
+                    pongPlayers = safePlayers;
                     pongRunning = true;
                     break;
+                }
                 case 'PONG_MOVE':
                     if (isHost && pongRunning) {
-                        const player = pongPlayers.find(p => p.id === data.playerId);
-                        if (player) updatePongRemotePaddle(player, data.y);
+                        const player = pongPlayers.find(p => p.id === data.playerId && p.conn === senderConn);
+                        if (player && typeof data.y === 'number' && Number.isFinite(data.y) && data.y >= 0 && data.y <= 1) {
+                            updatePongRemotePaddle(player, data.y);
+                        }
                     }
                     break;
                 case 'PONG_CLOSED': {
+                    if (senderConn !== conn) break;
                     returnGuestToSetup('Die Spielleitung hat die Pong-Lobby beendet.');
                     break;
                 }
-                case 'JOIN':
+                case 'JOIN': {
                     if (isHost) {
+                        const playerId = senderConn && senderConn.peer;
+                        const playerName = sanitizeNetworkPlayerName(data.name);
+                        if (!/^wd-user-\d{4}$/.test(playerId || '') || !playerName) {
+                            console.warn('Ein Lobby-Beitritt mit ungültiger Spielerkennung wurde abgewiesen.');
+                            if (senderConn && senderConn.open) senderConn.close();
+                            break;
+                        }
                         if (!connections.includes(senderConn)) connections.push(senderConn);
-                        if (!players.some(p => p.id === data.id)) {
-                            players.push({ id: data.id, name: data.name, score: 0, streak: 0, isHost: false, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
+                        if (!players.some(p => p.id === playerId)) {
+                            players.push({ id: playerId, name: playerName, score: 0, streak: 0, isHost: false, color: normalizePlayerColor(data.color), badge: normalizePlayerBadge(data.badge), conn: senderConn });
                         }
                         senderConn.on('close', () => {
                             const matchWasActive = !document.getElementById('screenGame').classList.contains('hidden');
@@ -5062,81 +5638,141 @@
                         updateLobbyUI();
                     }
                     break;
+                }
                 case 'SYNC_PLAYERS':
-                    players = data.players;
-                    settings = data.settings || settings;
-                    gameMode = data.gameMode || 'all';
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) break;
+                    players = safePlayers;
+                    settings = sanitizeGameSettings(data.settings);
+                    gameMode = sanitizeGameMode(data.gameMode);
                     updateLobbyUI();
                     break;
+                    }
                 case 'PLAYERS_SHORT':
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (!safePlayers.some(player => player.id === myId)) break;
                     stopWordTimer();
                     stopPongGame();
                     wordChain = [];
                     round = 1;
                     currentTurnIndex = 0;
                     lastScoreSummary = '';
-                    players = data.players || [];
-                    settings = data.settings || settings;
-                    gameMode = data.gameMode || gameMode;
+                    players = safePlayers;
+                    settings = sanitizeGameSettings(data.settings);
+                    gameMode = sanitizeGameMode(data.gameMode, gameMode);
                     switchScreen('screenLobby');
                     updateLobbyUI();
-                    showToast(data.message || 'Das Wortketten-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
+                    showToast(sanitizePlainText(data.message) || 'Das Wortketten-Spiel wurde beendet, weil zu wenige Spieler übrig sind.', 'warning');
                     break;
+                    }
                 case 'START_GAME':
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safeChain = sanitizeWordChain(data.wordChain);
+                    const safeTarget = sanitizeWord(data.targetWord, 3, 20);
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (!safeChain || !safeTarget || safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) {
+                        console.warn('Ein ungültiger Wortketten-Spielstand wurde ignoriert.');
+                        break;
+                    }
                     wordRoundStatsRecorded = false;
-                    wordChain = data.wordChain;
-                    settings = data.settings || settings;
-                    round = data.round || 1;
-                    targetWord = data.targetWord;
-                    optimalSteps = data.optimalSteps || 3;
+                    wordChain = safeChain;
+                    settings = sanitizeGameSettings(data.settings);
+                    round = safeNonNegativeInteger(data.round, 1, 1000000) || 1;
+                    targetWord = safeTarget;
+                    optimalSteps = Math.max(1, Math.min(20, safeNonNegativeInteger(data.optimalSteps, 3, 20)));
                     lastScoreSummary = "";
-                    currentTurnIndex = data.currentTurnIndex;
-                    players = data.players;
-                    gameMode = data.gameMode || 'all';
+                    players = safePlayers;
+                    currentTurnIndex = Math.min(players.length - 1, safeNonNegativeInteger(data.currentTurnIndex, 0, players.length - 1));
+                    gameMode = sanitizeGameMode(data.gameMode);
                     startGameUI();
                     break;
+                    }
                 case 'SUBMIT_WORD':
                     if (isHost) {
                         processWordSubmission(data.word, data.playerId, senderConn);
                     }
                     break;
                 case 'BACK_TO_LOBBY':
+                    if (isHost || senderConn !== conn) break;
                     stopWordTimer();
                     stopPongGame();
-                    players = data.players;
-                    settings = data.settings || settings;
-                    gameMode = data.gameMode || gameMode;
+                    players = sanitizePlayerRecords(data.players, 16);
+                    settings = sanitizeGameSettings(data.settings);
+                    gameMode = sanitizeGameMode(data.gameMode, gameMode);
                     wordChain = []; round = 1; lastScoreSummary = "";
                     switchScreen('screenLobby');
                     updateLobbyUI();
                     break;
                 case 'PASS_TURN':
-                    if (isHost) doPass(data.playerId);
+                    if (isHost && players.some(player => player.id === data.playerId && player.conn === senderConn)) {
+                        doPass(data.playerId);
+                    }
                     break;
                 case 'SYNC_GAME_STATE':
-                    if (data.wordChain.length > wordChain.length) {
-                        const localPlayer = (data.players || []).find(p => p.id === myId);
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safeChain = sanitizeWordChain(data.wordChain);
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    if (!safeChain || safePlayers.length < 2 || !safePlayers.some(player => player.id === myId)) {
+                        console.warn('Ein ungültiger Wortketten-Spielstand wurde ignoriert.');
+                        break;
+                    }
+                    if (safeChain.length > wordChain.length) {
+                        const localPlayer = safePlayers.find(p => p.id === myId);
                         playWordSuccess(localPlayer ? localPlayer.streak : 1);
                     }
-                    wordChain = data.wordChain;
-                    currentTurnIndex = data.currentTurnIndex;
-                    players = data.players;
-                    lastScoreSummary = data.lastScoreSummary || "";
+                    wordChain = safeChain;
+                    currentTurnIndex = Math.min(safePlayers.length - 1, safeNonNegativeInteger(data.currentTurnIndex, 0, safePlayers.length - 1));
+                    players = safePlayers;
+                    lastScoreSummary = sanitizePlainText(data.lastScoreSummary);
                     renderGame();
                     break;
+                    }
                 case 'LIVE_TYPING':
                     showLiveTypingRemote(data.name, data.text, data.color, data.badge);
                     break;
                 case 'EMOTE':
-                    triggerFloatingEmote(data.emote);
+                    if (['🔥', '🧠', '😱', '😂'].includes(data.emote)) triggerFloatingEmote(data.emote);
                     break;
                 case 'ROUND_OVER':
-                    showRoundOver(data);
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safeChain = sanitizeWordChain(data.chain);
+                    const safePlayers = sanitizePlayerRecords(data.players, 16);
+                    const safeWinner = sanitizeNetworkPlayerName(data.winner);
+                    const safeTarget = sanitizeWord(data.target, 3, 20);
+                    if (!safeChain || safePlayers.length < 2 || !safePlayers.some(player => player.id === myId) || !safeWinner || !safeTarget) {
+                        console.warn('Ein ungültiges Rundenergebnis wurde ignoriert.');
+                        break;
+                    }
+                    showRoundOver({
+                        ...data,
+                        chain: safeChain,
+                        players: safePlayers,
+                        winner: safeWinner,
+                        winnerId: isSafePlayerId(data.winnerId) ? data.winnerId : '',
+                        target: safeTarget,
+                        lastScoreSummary: sanitizePlainText(data.lastScoreSummary),
+                        round: safeNonNegativeInteger(data.round, 1, 1000000),
+                        total: safeNonNegativeInteger(data.total, 1, 1000000),
+                        final: data.final === true
+                    });
                     break;
+                    }
                 case 'FEEDBACK':
-                    showFeedback(data.text, data.kind);
-                    if (data.kind === 'error' || (data.kind === 'warning' && data.text.indexOf('⚠️') === 0)) playWordError();
+                    if (isHost || senderConn !== conn) break;
+                    {
+                    const safeKind = ['error', 'warning', 'success'].includes(data.kind) ? data.kind : 'error';
+                    const safeText = sanitizePlainText(data.text);
+                    showFeedback(safeText, safeKind);
+                    if (safeKind === 'error' || (safeKind === 'warning' && safeText.indexOf('⚠️') === 0)) playWordError();
                     break;
+                    }
                 case 'HOST_CLOSED':
                     returnGuestToSetup('Die Spielleitung hat die Lobby beendet.');
                     break;
@@ -5265,13 +5901,13 @@
                     <span class="score-chip text-[10px] px-2 py-0.5 rounded-full bg-darker/80 font-mono font-bold text-indigo-200">${p.score} P</span>
                 </div>`).join('');
 
-            document.getElementById('lblStartWord').innerText = wordChain[0];
+            document.getElementById('lblStartWord').textContent = wordChain[0];
             document.getElementById('lblTargetWord').innerHTML = paintTarget();
-            document.getElementById('roundLabel').innerText = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
+            document.getElementById('roundLabel').textContent = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
 
             const logEl = document.getElementById('lastScoreLog');
             if (lastScoreSummary) {
-                logEl.innerText = lastScoreSummary;
+                logEl.textContent = lastScoreSummary;
                 logEl.classList.remove('hidden');
                 logEl.classList.remove('score-log-in');
                 void logEl.offsetWidth;
@@ -5290,8 +5926,8 @@
             document.getElementById('btnBackLobby').classList.toggle('hidden', !isHost);
             const active = players[currentTurnIndex];
             const myTurn = active && active.id === myId;
-            document.getElementById('currentTurnName').innerText = active ? active.name : '---';
-            document.getElementById('gameFeedback').innerText = '';
+            document.getElementById('currentTurnName').textContent = active ? active.name : '---';
+            document.getElementById('gameFeedback').textContent = '';
             document.getElementById('liveTypingBox').classList.add('hidden');
             document.getElementById('hostJokerBox').classList.add('hidden');
             const controls = document.getElementById('activePlayerControls');
@@ -5311,8 +5947,16 @@
 
         function submitWord() {
             const input = document.getElementById('wordInput');
-            const word = input.value.trim().toUpperCase();
-            if (!word) return;
+            const rawWord = input.value;
+            const word = sanitizeWord(rawWord, 3, 20);
+            if (!rawWord.trim()) return;
+            if (!word) {
+                showFeedback('Wörter dürfen nur Buchstaben enthalten (mindestens 3).', 'error');
+                playWordError();
+                input.value = '';
+                broadcastLiveTyping('');
+                return;
+            }
             if (isHost) processWordSubmission(word, myId);
             else if (conn && conn.open) conn.send({ type: 'SUBMIT_WORD', word, playerId: myId });
             input.value = '';
@@ -5320,6 +5964,7 @@
         }
 
         function processWordSubmission(word, playerId, reply = null, force = false, checked = false) {
+            if (reply && !players.some(player => player.id === playerId && player.conn === reply)) return;
             document.getElementById('hostJokerBox').classList.add('hidden');
             const say = (t, k) => {
                 if (!reply) {
@@ -5331,8 +5976,8 @@
             };
             const active = players[currentTurnIndex];
             if (!active || active.id !== playerId) return say('Du bist nicht am Zug.', 'error');
-            word = String(word).toUpperCase().trim();
-            if (word.length < 3) return say('❌ Mindestens 3 Buchstaben.', 'error');
+            word = sanitizeWord(word, 3, 20);
+            if (!word) return say('❌ Nur Wörter mit 3–20 Buchstaben sind erlaubt.', 'error');
             const prevWord = wordChain[wordChain.length - 1];
             if (settings.wordLength > 0 && word.length !== settings.wordLength && !(settings.wordLength === 8 && word.length >= 8)) {
                 const wanted = settings.wordLength === 8 ? 'mindestens 8' : String(settings.wordLength);
@@ -5530,26 +6175,40 @@
             const badge = document.getElementById('liveRuleBadge');
             if (isValid) {
                 badge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-                badge.innerText = '✓ 1-Buchstaben-Regel erfüllt';
+                badge.textContent = '✓ 1-Buchstaben-Regel erfüllt';
             } else {
                 badge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30';
-                badge.innerText = lockBad ? '🔒 Gefundener Buchstabe muss bleiben' : 'Ungültiger Schritt';
+                badge.textContent = lockBad ? '🔒 Gefundener Buchstabe muss bleiben' : 'Ungültiger Schritt';
             }
         }
 
         function showLiveTypingRemote(name, text, color, badge) {
             const box = document.getElementById('liveTypingBox');
-            if (!text) {
+            const safeName = sanitizeNetworkPlayerName(name);
+            const safeText = String(text == null ? '' : text).toUpperCase();
+            if (!safeText || safeText.length > 20 || !/^[A-ZÄÖÜ]+$/.test(safeText) || !safeName) {
                 box.classList.add('hidden');
                 return;
             }
             box.classList.remove('hidden');
-            document.getElementById('liveTypingUser').innerHTML = `<i class="fa-solid fa-pen-nib animate-bounce"></i> <span><b aria-hidden="true">${escapeHtml(PLAYER_BADGES[normalizePlayerBadge(badge)])}</b> <b style="color:${normalizePlayerColor(color)}">${escapeHtml(name)}</b> tippt: <b>${escapeHtml(text)}</b></span>`;
+            const user = document.getElementById('liveTypingUser');
+            user.replaceChildren();
+            const icon = createTextElement('i', 'fa-solid fa-pen-nib animate-bounce');
+            icon.setAttribute('aria-hidden', 'true');
+            const details = createTextElement('span', '');
+            const playerBadge = createTextElement('b', '', PLAYER_BADGES[normalizePlayerBadge(badge)]);
+            playerBadge.setAttribute('aria-hidden', 'true');
+            const playerName = createTextElement('b', '', safeName);
+            playerName.style.color = normalizePlayerColor(color);
+            const typedWord = createTextElement('b', '', safeText);
+            details.append(playerBadge, document.createTextNode(' '), playerName, document.createTextNode(' tippt: '), typedWord);
+            user.append(icon, document.createTextNode(' '), details);
             
             const tilesContainer = document.getElementById('liveTilesContainer');
-            tilesContainer.innerHTML = text.split('').map(char => `
-                <div class="w-8 h-8 rounded-lg bg-indigo-900/60 border border-indigo-500/50 flex items-center justify-center font-mono font-bold text-sm text-white">${escapeHtml(char)}</div>
-            `).join('');
+            tilesContainer.replaceChildren();
+            [...safeText].forEach(char => {
+                tilesContainer.appendChild(createTextElement('div', 'w-8 h-8 rounded-lg bg-indigo-900/60 border border-indigo-500/50 flex items-center justify-center font-mono font-bold text-sm text-white', char));
+            });
         }
 
         function triggerFloatingEmote(emote) {
@@ -5557,7 +6216,7 @@
             if (!area) return;
             const el = document.createElement('div');
             el.className = 'floating-emote text-2xl';
-            el.innerText = emote;
+            el.textContent = emote;
             el.style.left = Math.random() * 80 + 10 + '%';
             el.style.bottom = '10px';
             area.appendChild(el);
@@ -5569,14 +6228,14 @@
             const disp = document.getElementById('timerDisplay');
             if (settings.inf) {
                 timeLeft = 0;
-                disp.innerText = '∞';
+                disp.textContent = '∞';
                 disp.classList.remove('timer-critical');
                 disp.classList.remove('text-red-400'); disp.classList.add('text-violet-400');
                 return;
             }
             timeLeft = DIFF[settings.diff].time;
             const paint = () => {
-                disp.innerText = timeLeft;
+                disp.textContent = timeLeft;
                 disp.classList.toggle('text-red-400', timeLeft <= 5);
                 disp.classList.toggle('text-violet-400', timeLeft > 5);
                 disp.classList.toggle('timer-critical', timeLeft <= 5);
@@ -5597,21 +6256,24 @@
         function showRoundOver(d) {
             stopWordTimer();
             stopAllSounds();
+            const localPlayer = (d.players || []).find(player => player.id === myId);
+            const winnerId = d.winnerId || (d.players || []).find(player => player.name === d.winner)?.id;
             if (!wordRoundStatsRecorded) {
-                const localPlayer = (d.players || []).find(player => player.id === myId);
-                const winnerId = d.winnerId || (d.players || []).find(player => player.name === d.winner)?.id;
                 if (localPlayer) recordGameResult('words', localPlayer.id === winnerId);
                 wordRoundStatsRecorded = true;
             }
             players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
             const winner = players.find(p => p.name === d.winner);
-            playWordSuccess(winner ? winner.streak : 1);
+            if (localPlayer) {
+                if (localPlayer.id === winnerId) playGameWin();
+                else playGameLose();
+            }
             celebrate();
             round = d.round;
             switchScreen('screenGameOver');
             const ranking = players.slice().sort((a, b) => b.score - a.score);
-            document.getElementById('roundOverTitle').innerText = d.final ? `🏆 ${ranking[0].name} gewinnt das Spiel!` : `Runde ${d.round}/${d.total} geschafft 🎉`;
-            document.getElementById('gameOverStats').innerText = `${d.lastScoreSummary || d.winner + ' hat "' + d.target + '" erreicht'} (${d.chain.length - 1} Schritte): ${d.chain.join(' → ')}`;
+            document.getElementById('roundOverTitle').textContent = d.final ? `🏆 ${ranking[0].name} gewinnt das Spiel!` : `Runde ${d.round}/${d.total} geschafft 🎉`;
+            document.getElementById('gameOverStats').textContent = `${d.lastScoreSummary || d.winner + ' hat "' + d.target + '" erreicht'} (${d.chain.length - 1} Schritte): ${d.chain.join(' → ')}`;
             document.getElementById('finalScoresList').innerHTML = ranking.map((p, i) => `
                 <div class="flex justify-between items-center px-3 py-2 lg:px-4 lg:py-3 rounded-xl bg-darker border border-border text-xs">
                     <span class="font-bold text-white">${['🥇','🥈','🥉'][i] || '▫️'} ${playerLabelHtml(p)}</span>
@@ -5636,8 +6298,8 @@
         function updateLobbyUI() {
             const mt = gameMode === 'de' ? '🇩🇪 Deutsch' : (gameMode === 'en' ? '🇬🇧 Englisch' : '🌍 Alle Wörter');
             const lengthText = !settings.wordLength ? 'Alle Längen' : (settings.wordLength === 8 ? '8+ Buchstaben' : settings.wordLength + ' Buchstaben');
-            document.getElementById('lobbyModeBadgeText').innerText = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'} · ${lengthText}`;
-            document.getElementById('lobbyPlayerCount').innerText = players.length;
+            document.getElementById('lobbyModeBadgeText').textContent = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'} · ${lengthText}`;
+            document.getElementById('lobbyPlayerCount').textContent = players.length;
             const list = document.getElementById('lobbyPlayerList');
             list.innerHTML = players.map(p => `
                 <span class="lobby-player-pill ${p.isHost ? 'is-host' : ''} px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">
@@ -5669,13 +6331,13 @@
 
         function showStatus(text, type) {
             const badge = document.getElementById('connectionStatusText');
-            if (badge) badge.innerText = text;
+            if (badge) badge.textContent = text;
         }
 
         function showFeedback(text, type) {
             const fb = document.getElementById('gameFeedback');
             if (fb) {
-                fb.innerText = text;
+                fb.textContent = text;
                 fb.className = `text-xs font-medium text-center min-h-[18px] ${type === 'error' ? 'text-red-400' : 'text-amber-400'}`;
             }
         }
