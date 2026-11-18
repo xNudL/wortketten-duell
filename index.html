@@ -4114,7 +4114,7 @@
                 blackjackState.phase = 'dealer';
                 blackjackState.currentPlayerId = null;
                 const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
-                blackjackState.message = `${dealer.name} ist als Dealer am Zug. Drehe die verdeckte Karte um.`;
+                blackjackState.message = `Warten auf ${dealer.name}, der die verdeckte Dealer-Karte aufdeckt.`;
                 return;
             }
             blackjackState.phase = 'dealer';
@@ -4657,6 +4657,9 @@
             const visibleDealerCards = viewerState ? viewerState.dealerCards : [];
             const humanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
+            const humanDealerHoleCardIndex = humanDealer
+                ? visibleDealerCards.findIndex(card => !blackjackCardIsFaceUp(card))
+                : -1;
             const tablePlayers = blackjackPlayers.map(player => ({
                 ...player,
                 isDealer: humanDealer && player.id === blackjackDealerId,
@@ -4855,14 +4858,21 @@
                         <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
                     </div>`;
                 } else if (humanDealer && isDealer && state && state.phase === 'dealer') {
-                    const canDealerAct = isMyDealer && visibleDealerCards.length > 0 && visibleDealerCards.every(blackjackCardIsFaceUp);
-                    contextActions = `<div class="blackjack-context-actions">
-                        <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Dein Dealer-Zug' : 'Dealer ist am Zug'}</p>
-                        <div class="flex flex-wrap justify-center gap-2">
-                            <button id="blackjackDealerHitButton" onclick="blackjackDealerAction('hit')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Dealer zieht</button>
-                            <button id="blackjackDealerStandButton" onclick="blackjackDealerAction('stand')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl border border-amber-200/30 bg-amber-950/40 px-3 py-2 text-xs font-extrabold text-amber-100 transition-all duration-200 hover:bg-amber-900/50 active:scale-95 disabled:opacity-40">Dealer hält</button>
-                        </div>
-                    </div>`;
+                    if (humanDealerHoleCardIndex >= 0) {
+                        contextActions = `<div class="blackjack-context-actions">
+                            <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Decke deine verdeckte Karte auf' : `Warten auf ${escapeHtml(player.name)}, der die Dealer-Karte aufdeckt`}</p>
+                            <button id="blackjackDealerRevealButton" onclick="blackjackFlipCard(${humanDealerHoleCardIndex}, true)" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:cursor-wait disabled:opacity-50">${isMyDealer ? 'Dealer-Karte aufdecken' : 'Warte auf Dealer-Aufdecken ...'}</button>
+                        </div>`;
+                    } else {
+                        const canDealerAct = isMyDealer && visibleDealerCards.length > 0 && visibleDealerCards.every(blackjackCardIsFaceUp);
+                        contextActions = `<div class="blackjack-context-actions">
+                            <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Dein Dealer-Zug' : 'Dealer ist am Zug'}</p>
+                            <div class="flex flex-wrap justify-center gap-2">
+                                <button id="blackjackDealerHitButton" onclick="blackjackDealerAction('hit')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Dealer zieht</button>
+                                <button id="blackjackDealerStandButton" onclick="blackjackDealerAction('stand')" ${canDealerAct ? '' : 'disabled'} class="rounded-xl border border-amber-200/30 bg-amber-950/40 px-3 py-2 text-xs font-extrabold text-amber-100 transition-all duration-200 hover:bg-amber-900/50 active:scale-95 disabled:opacity-40">Dealer hält</button>
+                            </div>
+                        </div>`;
+                    }
                 }
 
                 return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''} ${playerVisualClasses} ${isSpectator ? 'opacity-40 grayscale' : ''} ${playerHands.length > 1 ? 'has-split-hands' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
@@ -4926,10 +4936,15 @@
             const currentHand = myTurn ? getCurrentBlackjackHand(currentPlayer) : null;
             const needsPlayerFlip = !!currentHand && currentHand.cards.some(card => !blackjackCardIsFaceUp(card));
             const isMyDealer = myId === blackjackDealerId && humanDealer;
-            const needsDealerFlip = !!state && state.phase === 'dealer' && isMyDealer &&
-                state.dealerCards.some(card => !blackjackCardIsFaceUp(card));
+            const needsDealerFlip = !!state && state.phase === 'dealer' && humanDealer &&
+                visibleDealerCards.some(card => !blackjackCardIsFaceUp(card));
+            const dealerTurnMessage = needsDealerFlip
+                ? isMyDealer
+                    ? 'Du bist am Zug. Decke die verdeckte Dealer-Karte auf.'
+                    : `Warten auf ${blackjackPlayers.find(player => player.id === blackjackDealerId).name}, der die verdeckte Dealer-Karte aufdeckt.`
+                : state && state.message;
             document.getElementById('blackjackMessage').textContent = state
-                ? `${state.message}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}${needsDealerFlip ? ' Klicke die verdeckte Dealer-Karte an, um sie aufzudecken.' : ''}`
+                ? `${dealerTurnMessage}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}`
                 : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass die Spielleitung die Runde startet.');
             const startButton = document.getElementById('blackjackStartButton');
             const canStartRound = isHost && (!state || state.phase === 'settled');
