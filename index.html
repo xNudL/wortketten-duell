@@ -364,15 +364,60 @@
         .word-tile:hover, .target-tile:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,.3), 0 0 18px rgba(99,102,241,.12); }
         .word-tile.is-current { border-color: rgba(129,140,248,.72) !important; box-shadow: 0 0 25px rgba(99,102,241,.22), inset 0 1px 0 rgba(255,255,255,.1); }
         .target-tile { background: linear-gradient(145deg, rgba(6,78,59,.34), rgba(9,22,32,.98)) !important; border-color: rgba(52,211,153,.48) !important; box-shadow: 0 0 24px rgba(16,185,129,.08); }
-        .blackjack-card {
-            animation: blackjackDeal .24s cubic-bezier(.2,1.2,.35,1) both;
-            box-shadow: 0 10px 24px rgba(0,0,0,.32), 0 0 14px rgba(34,211,238,.12);
+        .blackjack-card-scene {
+            width: 4rem;
+            height: 6rem;
+            flex: 0 0 auto;
+            perspective: 900px;
         }
+        .blackjack-card-scene.is-new { animation: blackjackDeal .42s cubic-bezier(.22,1,.36,1) both; }
+        .blackjack-card-inner {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            border: 0;
+            border-radius: .7rem;
+            background: transparent;
+            transform-style: preserve-3d;
+            transition: transform .68s cubic-bezier(.2,.8,.2,1);
+        }
+        .blackjack-card-inner:not(:disabled) { cursor: pointer; }
+        .blackjack-card-inner:focus-visible { outline: 2px solid rgba(252,211,77,.9); outline-offset: 3px; }
+        .blackjack-card-inner.is-flipped { transform: rotateY(180deg); }
+        .blackjack-card-inner.is-flip-pending { animation: blackjackCardFlip .68s cubic-bezier(.2,.8,.2,1) both; }
+        .blackjack-card-face {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            border-radius: .7rem;
+            padding: .375rem;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            box-shadow: 0 8px 18px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.92);
+        }
+        .blackjack-card-front { background: linear-gradient(145deg, #fff 0%, #f8fafc 55%, #e2e8f0 100%); }
         .blackjack-card-back {
-            background: repeating-linear-gradient(45deg, rgba(99,102,241,.8) 0 5px, rgba(30,41,95,.95) 5px 10px);
-            box-shadow: inset 0 0 0 3px rgba(255,255,255,.14), 0 10px 24px rgba(0,0,0,.32), 0 0 14px rgba(99,102,241,.18);
+            align-items: center;
+            justify-content: center;
+            border-color: rgba(226,192,112,.75);
+            background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
+            box-shadow: inset 0 0 0 3px rgba(212,175,55,.24), 0 8px 18px rgba(0,0,0,.32);
+            color: #fef3c7;
+            font-size: 1.5rem;
+            font-weight: 900;
         }
-        @keyframes blackjackDeal { from { opacity: 0; transform: translateY(-12px) rotate(-4deg) scale(.92); } to { opacity: 1; transform: translateY(0) rotate(0) scale(1); } }
+        .blackjack-card-front { transform: rotateY(180deg); }
+        @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+        @keyframes blackjackDeal {
+            from { opacity: 0; transform: translate3d(34px,-24px,0) rotate(9deg) scale(.78); }
+            to { opacity: 1; transform: translate3d(0,0,0) rotate(0) scale(1); }
+        }
         #lastScoreLog:not(.hidden) {
             position: relative;
             z-index: 2;
@@ -393,7 +438,9 @@
         @media (prefers-reduced-motion: reduce) {
             body::before, .streak-badge::after, #timerDisplay.timer-critical, .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host { animation: none; }
             #ambientParticles { opacity: .16; }
-            .blackjack-card { animation: none; }
+            .blackjack-card-scene.is-new { animation: none; }
+            .blackjack-card-inner { transition: none; }
+            .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
@@ -823,19 +870,42 @@
                     </div>
 
                     <div id="blackjackPlayersList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
+                    <div id="blackjackDealerRolePanel" class="mb-4 rounded-2xl border border-amber-300/20 bg-amber-950/10 p-4">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-amber-200">Dealer-Rolle</h3>
+                                <p id="blackjackDealerRoleText" class="mt-1 text-xs text-gray-300">Dealer: Bank / KI</p>
+                            </div>
+                            <label id="blackjackDealerRoleChoice" class="hidden min-w-56 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                Host: Dealer bestimmen
+                                <select id="blackjackDealerSelect" onchange="setBlackjackDealer(this.value)" class="mt-1 w-full rounded-xl border border-amber-300/20 bg-slate-950 px-3 py-2 text-sm normal-case text-white focus:border-amber-300/60 focus:outline-none">
+                                    <option value="bank">Bank / KI</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
                     <div id="blackjackFriendInviteSection" class="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4">
                         <h3 class="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-300">Freunde an den Blackjack-Tisch einladen</h3>
                         <div id="blackjackFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
                     </div>
 
-                    <div class="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-950/60 via-slate-950/90 to-cyan-950/40 p-4 sm:p-7 shadow-inner shadow-emerald-900/20">
-                        <div class="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6 text-center">
-                            <p class="text-[10px] uppercase tracking-[.25em] font-bold text-emerald-200/80">Dealer</p>
+                    <div class="relative overflow-hidden rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
+                        <div class="pointer-events-none absolute inset-3 rounded-[1.6rem] border border-amber-100/10"></div>
+                        <div class="relative mx-auto max-w-3xl rounded-2xl border border-amber-100/15 bg-slate-950/20 p-4 text-center shadow-inner shadow-black/30 sm:p-6">
+                            <p class="text-[10px] uppercase tracking-[.25em] font-bold text-amber-100/80">Dealer-Hand</p>
                             <div id="blackjackDealerCards" class="mt-3 flex min-h-28 flex-wrap justify-center gap-2"></div>
                             <p id="blackjackDealerTotal" class="mt-2 text-xs font-bold text-gray-300"></p>
                         </div>
-                        <p id="blackjackMessage" class="mx-auto my-4 min-h-5 text-center text-sm font-bold text-cyan-200" aria-live="polite"></p>
-                        <div class="flex flex-wrap justify-center gap-2">
+                        <p id="blackjackMessage" class="relative mx-auto my-4 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
+                        <div id="blackjackDealerControls" class="relative mx-auto mb-4 hidden max-w-xl rounded-2xl border border-amber-200/25 bg-black/25 p-4 text-center">
+                            <p id="blackjackDealerPrompt" class="mb-3 text-xs font-semibold text-amber-100"></p>
+                            <div class="flex flex-wrap justify-center gap-2">
+                                <button id="blackjackDealButton" onclick="blackjackDealerAction('deal')" class="hidden rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Erste Karten austeilen</button>
+                                <button id="blackjackDealerHitButton" onclick="blackjackDealerAction('hit')" class="hidden rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:opacity-40">Dealer zieht</button>
+                                <button id="blackjackDealerStandButton" onclick="blackjackDealerAction('stand')" class="hidden rounded-xl border border-amber-200/30 bg-amber-950/40 px-5 py-2.5 text-sm font-extrabold text-amber-100 transition-all duration-200 hover:bg-amber-900/50 active:scale-95">Dealer hält</button>
+                            </div>
+                        </div>
+                        <div class="relative flex flex-wrap justify-center gap-2">
                             <button id="blackjackHitButton" onclick="blackjackPlayerAction('hit')" class="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-600/20 transition-all duration-200 hover:bg-cyan-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Karte ziehen</button>
                             <button id="blackjackStandButton" onclick="blackjackPlayerAction('stand')" class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:bg-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Halten</button>
                             <button id="blackjackDoubleButton" onclick="blackjackPlayerAction('double')" class="rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-amber-600/20 transition-all duration-200 hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Verdoppeln</button>
@@ -1375,6 +1445,7 @@
         let blackjackRoomActive = false;
         let blackjackState = null;
         let blackjackDeck = [];
+        let blackjackDealerId = 'bank';
 
         const GAME_STATS_KEY = 'wortketten_stats_v1';
         const GAME_STAT_MODES = ['words', 'pong', 'hangman'];
@@ -2450,6 +2521,7 @@
                 blackjackRoomActive = true;
                 blackjackState = null;
                 blackjackDeck = [];
+                blackjackDealerId = 'bank';
                 document.getElementById('blackjackRoomCode').innerText = '#' + myTag;
                 renderBlackjackView();
                 switchScreen('screenBlackjack');
@@ -2465,6 +2537,7 @@
                 blackjackRoomActive = false;
                 blackjackState = null;
                 blackjackPlayers = [];
+                blackjackDealerId = 'bank';
                 conn = peer.connect('wd-user-' + code);
                 setupConnectionHandlers(conn);
                 conn.on('open', () => {
@@ -2496,13 +2569,18 @@
 
         function drawBlackjackCard() {
             if (!blackjackDeck.length) blackjackDeck = createBlackjackDeck();
-            return blackjackDeck.pop();
+            return { ...blackjackDeck.pop(), isFlipped: false, isNewlyDealt: true };
+        }
+
+        function blackjackCardIsFaceUp(card) {
+            return !!card && card.isFlipped !== false;
         }
 
         function blackjackHandValue(cards) {
             let total = 0;
             let aces = 0;
-            cards.forEach(card => {
+            (cards || []).forEach(card => {
+                if (!blackjackCardIsFaceUp(card)) return;
                 if (card.rank === 'A') {
                     total += 11;
                     aces++;
@@ -2519,79 +2597,132 @@
             return total;
         }
 
-        function getPublicBlackjackPlayers() {
+        function getPublicBlackjackPlayers(viewerId = null) {
             return blackjackPlayers.map(player => ({
-                id: player.id, name: player.name, cards: player.cards.map(card => ({ ...card })),
+                id: player.id, name: player.name, cards: player.cards.map(card =>
+                    card.isFlipped === false && player.id !== viewerId
+                        ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
+                        : { ...card }
+                ),
                 wins: player.wins, bet: player.bet, status: player.status, natural: player.natural,
+                role: player.id === blackjackDealerId ? 'dealer' : 'punter',
                 color: playerDisplayColor(player), badge: playerDisplayBadge(player)
             }));
         }
 
-        function getPublicBlackjackState() {
+        function getPublicBlackjackState(viewerId = null) {
             if (!blackjackState) return null;
-            const dealerCards = blackjackState.dealerCards.map((card, index) =>
-                index === 1 && !blackjackState.dealerRevealed ? null : { ...card }
+            const dealerCards = blackjackState.dealerCards.map(card =>
+                card.isFlipped === false && viewerId !== blackjackDealerId
+                    ? { isFlipped: false, isNewlyDealt: !!card.isNewlyDealt }
+                    : { ...card }
             );
+            const visibleDealerCards = dealerCards.filter(blackjackCardIsFaceUp);
             return {
                 round: blackjackState.round,
                 phase: blackjackState.phase,
+                dealerId: blackjackDealerId,
                 currentPlayerId: blackjackState.currentPlayerId,
                 dealerCards,
                 dealerRevealed: blackjackState.dealerRevealed,
-                dealerTotal: blackjackState.dealerRevealed
-                    ? blackjackHandValue(blackjackState.dealerCards)
-                    : blackjackHandValue(blackjackState.dealerCards.slice(0, 1)),
+                dealerTotal: blackjackHandValue(visibleDealerCards),
                 message: blackjackState.message
             };
         }
 
         function syncBlackjackTable() {
-            const message = {
-                type: 'BLACKJACK_SYNC',
-                hostTag: myTag,
-                players: getPublicBlackjackPlayers(),
-                state: getPublicBlackjackState()
-            };
-            broadcast(message);
+            if (isHost) {
+                connections.forEach(connection => {
+                    if (!connection || !connection.open) return;
+                    const recipient = blackjackPlayers.find(player => player.conn === connection);
+                    connection.send({
+                        type: 'BLACKJACK_SYNC',
+                        hostTag: myTag,
+                        dealerId: blackjackDealerId,
+                        players: getPublicBlackjackPlayers(recipient ? recipient.id : null),
+                        state: getPublicBlackjackState(recipient ? recipient.id : null)
+                    });
+                });
+            } else if (conn && conn.open) {
+                conn.send({
+                    type: 'BLACKJACK_SYNC',
+                    hostTag: myTag,
+                    dealerId: blackjackDealerId,
+                    players: getPublicBlackjackPlayers(myId),
+                    state: getPublicBlackjackState(myId)
+                });
+            }
             renderBlackjackView();
         }
 
+        function setBlackjackDealer(dealerId) {
+            if (!isHost || !blackjackRoomActive || blackjackState) return;
+            const nextDealerId = String(dealerId);
+            if (nextDealerId !== 'bank' && !blackjackPlayers.some(player => player.id === nextDealerId)) return;
+            if (nextDealerId !== 'bank' && blackjackPlayers.length < 2) {
+                showToast('Für einen menschlichen Dealer braucht es mindestens einen weiteren Spieler.', 'warning');
+                document.getElementById('blackjackDealerSelect').value = 'bank';
+                return;
+            }
+            blackjackDealerId = nextDealerId;
+            syncBlackjackTable();
+        }
+
         function startBlackjackRound() {
-            if (!isHost || !blackjackRoomActive || !blackjackPlayers.length) return;
+            if (!isHost || !blackjackRoomActive || !blackjackPlayers.length ||
+                (blackjackState && blackjackState.phase !== 'settled')) return;
+            const humanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
+            const punters = blackjackPlayers.filter(player => !humanDealer || player.id !== blackjackDealerId);
+            if (!punters.length) {
+                showToast('Ein menschlicher Dealer braucht mindestens einen Punter.', 'warning');
+                return;
+            }
             blackjackDeck = createBlackjackDeck();
             const previousRound = blackjackState ? blackjackState.round : 0;
             blackjackState = {
                 round: previousRound + 1,
-                phase: 'playing',
+                phase: 'dealing',
                 currentPlayerId: null,
                 dealerCards: [],
                 dealerRevealed: false,
-                message: 'Der Host hat gegeben. Viel Glück!'
+                message: humanDealer
+                    ? `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} teilt die Karten aus.`
+                    : 'Die Bank teilt die Karten aus.'
             };
             blackjackPlayers.forEach(player => {
                 player.cards = [];
                 player.bet = 10;
-                player.status = 'playing';
+                player.status = player.id === blackjackDealerId && humanDealer ? 'dealer' : 'playing';
                 player.natural = false;
+                player.doublePending = false;
             });
-            blackjackPlayers.forEach(player => player.cards.push(drawBlackjackCard()));
-            blackjackState.dealerCards.push(drawBlackjackCard());
-            blackjackPlayers.forEach(player => player.cards.push(drawBlackjackCard()));
-            blackjackState.dealerCards.push(drawBlackjackCard());
+            if (!humanDealer) {
+                dealBlackjackCards();
+                return;
+            }
+            syncBlackjackTable();
+        }
 
-            blackjackPlayers.forEach(player => {
-                if (blackjackHandValue(player.cards) === 21) {
-                    player.natural = true;
-                    player.status = 'stood';
-                }
-            });
-            const dealerHasNatural = blackjackHandValue(blackjackState.dealerCards) === 21;
-            blackjackState.currentPlayerId = blackjackPlayers.find(player => player.status === 'playing')?.id || null;
-            if (dealerHasNatural || !blackjackState.currentPlayerId) {
-                resolveBlackjackRound();
+        function dealBlackjackCards(dealerPlayerId = blackjackDealerId, senderConn = null) {
+            if (!isHost || !blackjackState || blackjackState.phase !== 'dealing') return;
+            const humanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
+            if (humanDealer && dealerPlayerId !== blackjackDealerId) return;
+            if (senderConn && !isBlackjackSender(dealerPlayerId, senderConn)) return;
+
+            const punters = blackjackPlayers.filter(player => !humanDealer || player.id !== blackjackDealerId);
+            punters.forEach(player => player.cards.push(drawBlackjackCard()));
+            blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
+            punters.forEach(player => player.cards.push(drawBlackjackCard()));
+            blackjackState.dealerCards.push(drawBlackjackCard());
+            blackjackState.phase = 'playing';
+            const currentPlayer = punters.find(player => player.status === 'playing');
+            blackjackState.currentPlayerId = currentPlayer ? currentPlayer.id : null;
+            if (!currentPlayer) {
+                beginBlackjackDealerTurn();
             } else {
-                const currentPlayer = blackjackPlayers.find(player => player.id === blackjackState.currentPlayerId);
-                blackjackState.message = `${currentPlayer.name} ist am Zug.`;
+                blackjackState.message = `${currentPlayer.name} ist am Zug. Drehe deine Karten um.`;
             }
             syncBlackjackTable();
         }
@@ -2606,9 +2737,20 @@
                 const nextPlayer = blackjackPlayers[index];
                 if (nextPlayer.status === 'playing') {
                     blackjackState.currentPlayerId = nextPlayer.id;
-                    blackjackState.message = `${nextPlayer.name} ist am Zug.`;
+                    blackjackState.message = `${nextPlayer.name} ist am Zug. Drehe deine Karten um.`;
                     return;
                 }
+            }
+            beginBlackjackDealerTurn();
+        }
+
+        function beginBlackjackDealerTurn() {
+            if (blackjackDealerId !== 'bank' && blackjackPlayers.some(player => player.id === blackjackDealerId)) {
+                blackjackState.phase = 'dealer';
+                blackjackState.currentPlayerId = null;
+                const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
+                blackjackState.message = `${dealer.name} ist als Dealer am Zug. Drehe die verdeckte Karte um.`;
+                return;
             }
             resolveBlackjackRound();
         }
@@ -2616,13 +2758,27 @@
         function resolveBlackjackRound() {
             if (!blackjackState) return;
             blackjackState.dealerRevealed = true;
-            while (blackjackHandValue(blackjackState.dealerCards) < 17) {
-                blackjackState.dealerCards.push(drawBlackjackCard());
+            blackjackState.dealerCards.forEach(card => {
+                if (card && card.isFlipped === false) {
+                    card.isFlipped = true;
+                    card.isNewlyFlipped = true;
+                }
+            });
+            const hasHumanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
+            if (!hasHumanDealer) {
+                while (blackjackHandValue(blackjackState.dealerCards) < 17) {
+                    blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: true, isNewlyFlipped: true });
+                }
             }
             const dealerTotal = blackjackHandValue(blackjackState.dealerCards);
             const dealerNatural = blackjackState.dealerCards.length === 2 && dealerTotal === 21;
             let wins = 0;
             blackjackPlayers.forEach(player => {
+                if (player.id === blackjackDealerId && hasHumanDealer) {
+                    player.status = 'dealer';
+                    return;
+                }
                 const total = blackjackHandValue(player.cards);
                 let result = 'push';
                 if (player.status === 'bust' || (dealerNatural && !player.natural)) result = 'lose';
@@ -2642,6 +2798,44 @@
                 : 'Die Runde ist beendet. Neue Runde?';
         }
 
+        function finishManualBlackjackDealerTurn() {
+            if (!blackjackState || blackjackState.phase !== 'dealer' ||
+                !blackjackState.dealerCards.every(blackjackCardIsFaceUp)) return;
+            blackjackState.dealerRevealed = true;
+            const total = blackjackHandValue(blackjackState.dealerCards);
+            blackjackState.message = total > 21 ? 'Der Dealer ist über 21.' : 'Der Dealer hält.';
+            resolveBlackjackRound();
+        }
+
+        function blackjackDealerAction(action) {
+            if (!blackjackRoomActive || !['deal', 'hit', 'stand'].includes(action)) return;
+            if (isHost) {
+                processBlackjackDealerAction(action, myId);
+            } else if (conn && conn.open) {
+                conn.send({ type: action === 'deal' ? 'BLACKJACK_DEAL' : 'BLACKJACK_DEALER_ACTION', action, playerId: myId });
+            }
+        }
+
+        function processBlackjackDealerAction(action, playerId, senderConn = null) {
+            if (!isHost || playerId !== blackjackDealerId || blackjackDealerId === 'bank') return;
+            if (senderConn && !isBlackjackSender(playerId, senderConn)) return;
+            if (action === 'deal') {
+                dealBlackjackCards(playerId, senderConn);
+                return;
+            }
+            if (!blackjackState || blackjackState.phase !== 'dealer') return;
+            if (!blackjackState.dealerCards.every(blackjackCardIsFaceUp)) return;
+            if (action === 'stand') {
+                finishManualBlackjackDealerTurn();
+            } else if (action === 'hit') {
+                blackjackState.dealerCards.push(drawBlackjackCard());
+                blackjackState.message = `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} zieht als Dealer eine Karte. Drehe sie um.`;
+            } else {
+                return;
+            }
+            syncBlackjackTable();
+        }
+
         function blackjackPlayerAction(action) {
             if (!blackjackRoomActive || !['hit', 'stand', 'double'].includes(action)) return;
             if (isHost) {
@@ -2656,52 +2850,116 @@
             return !!player && player.conn === senderConn && senderConn && senderConn.open;
         }
 
+        function blackjackFlipCard(cardIndex, dealerHand = false) {
+            if (!blackjackRoomActive) return;
+            if (isHost) {
+                processBlackjackCardFlip(myId, cardIndex, dealerHand);
+            } else if (conn && conn.open) {
+                conn.send({ type: 'BLACKJACK_FLIP_CARD', playerId: myId, cardIndex, dealerHand });
+            }
+        }
+
+        function processBlackjackCardFlip(playerId, cardIndex, dealerHand = false, senderConn = null) {
+            if (!isHost || !blackjackState || !Number.isInteger(cardIndex) || cardIndex < 0) return;
+            if (senderConn && !isBlackjackSender(playerId, senderConn)) return;
+
+            if (dealerHand) {
+                if (playerId !== blackjackDealerId || blackjackState.phase !== 'dealer') return;
+                const card = blackjackState.dealerCards[cardIndex];
+                if (!card || card.isFlipped !== false) return;
+                card.isFlipped = true;
+                card.isNewlyFlipped = true;
+                if (cardIndex === 1) blackjackState.dealerRevealed = true;
+                if (blackjackState.dealerCards.every(blackjackCardIsFaceUp)) {
+                    if (blackjackHandValue(blackjackState.dealerCards) >= 21) {
+                        finishManualBlackjackDealerTurn();
+                    } else {
+                        blackjackState.message = `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} kann ziehen oder halten.`;
+                    }
+                } else {
+                    blackjackState.message = 'Drehe die übrigen Dealer-Karten um.';
+                }
+            } else {
+                if (blackjackState.phase !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
+                const player = blackjackPlayers.find(entry => entry.id === playerId);
+                if (!player || player.status !== 'playing') return;
+                const card = player.cards[cardIndex];
+                if (!card || card.isFlipped !== false) return;
+                card.isFlipped = true;
+                card.isNewlyFlipped = true;
+                if (player.cards.every(blackjackCardIsFaceUp)) {
+                    const total = blackjackHandValue(player.cards);
+                    if (total > 21) {
+                        player.status = 'bust';
+                        player.doublePending = false;
+                        blackjackState.message = `${player.name} ist über 21.`;
+                        advanceBlackjackTurn(playerId);
+                    } else if (total === 21) {
+                        player.natural = player.cards.length === 2;
+                        player.status = 'stood';
+                        player.doublePending = false;
+                        blackjackState.message = `${player.name} hat 21 erreicht.`;
+                        advanceBlackjackTurn(playerId);
+                    } else if (player.doublePending) {
+                        player.doublePending = false;
+                        player.status = 'stood';
+                        blackjackState.message = `${player.name} hat verdoppelt.`;
+                        advanceBlackjackTurn(playerId);
+                    } else {
+                        blackjackState.message = `${player.name} ist am Zug (${total} Punkte).`;
+                    }
+                } else {
+                    blackjackState.message = `${player.name}, drehe alle Karten um.`;
+                }
+            }
+            syncBlackjackTable();
+        }
+
         function processBlackjackAction(action, playerId, senderConn = null) {
             if (!isHost || !blackjackState || blackjackState.phase !== 'playing') return;
             const player = blackjackPlayers.find(entry => entry.id === playerId);
             if (!player || player.status !== 'playing' || blackjackState.currentPlayerId !== playerId) return;
             if (senderConn && player.conn !== senderConn) return;
+            if (!player.cards.every(blackjackCardIsFaceUp)) return;
 
             if (action === 'hit') {
                 player.cards.push(drawBlackjackCard());
-                const total = blackjackHandValue(player.cards);
-                if (total > 21) {
-                    player.status = 'bust';
-                    blackjackState.message = `${player.name} ist über 21.`;
-                    advanceBlackjackTurn(playerId);
-                } else if (total === 21) {
-                    player.status = 'stood';
-                    blackjackState.message = `${player.name} hat 21 erreicht.`;
-                    advanceBlackjackTurn(playerId);
-                } else {
-                    blackjackState.message = `${player.name} hat eine Karte gezogen.`;
-                }
+                blackjackState.message = `${player.name} hat eine Karte gezogen. Drehe sie um.`;
             } else if (action === 'stand') {
                 player.status = 'stood';
                 advanceBlackjackTurn(playerId);
             } else if (action === 'double' && player.cards.length === 2) {
                 player.bet *= 2;
                 player.cards.push(drawBlackjackCard());
-                const total = blackjackHandValue(player.cards);
-                player.status = total > 21 ? 'bust' : 'stood';
-                blackjackState.message = `${player.name} hat verdoppelt${total > 21 ? ' und ist über 21' : ''}.`;
-                advanceBlackjackTurn(playerId);
+                player.doublePending = true;
+                blackjackState.message = `${player.name} hat verdoppelt. Drehe die Karte um.`;
             } else {
                 return;
             }
             syncBlackjackTable();
         }
 
-        function blackjackCardMarkup(card, hidden = false) {
-            if (hidden || !card) {
-                return '<div class="blackjack-card blackjack-card-back flex h-28 w-[4.5rem] items-center justify-center rounded-xl border border-indigo-200/30 text-3xl font-black text-indigo-100">✦</div>';
-            }
-            const redSuit = card.suit === '♥' || card.suit === '♦';
+        function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false) {
+            const faceUp = blackjackCardIsFaceUp(card);
+            const hasValue = !!(card && card.rank && card.suit);
+            const redSuit = hasValue && (card.suit === '♥' || card.suit === '♦');
             const colorClass = redSuit ? 'text-rose-600' : 'text-slate-950';
-            return `<div class="blackjack-card relative flex h-28 w-[4.5rem] flex-col justify-between rounded-xl border border-white/70 bg-gradient-to-br from-white to-slate-200 p-2 text-left ${colorClass}" aria-label="${card.rank} ${card.suit}">
-                <span class="text-lg font-black leading-none">${card.rank}<span class="block text-sm">${card.suit}</span></span>
-                <span class="self-center text-3xl font-black">${card.suit}</span>
-                <span class="rotate-180 self-end text-lg font-black leading-none">${card.rank}<span class="block text-sm">${card.suit}</span></span>
+            const label = faceUp && hasValue ? `${card.rank} ${card.suit}` : 'Verdeckte Karte';
+            const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand})"` : '';
+            const newCardClass = card && card.isNewlyDealt ? 'is-new' : '';
+            const animateFlip = faceUp && !!(card && card.isNewlyFlipped);
+            return `<div class="blackjack-card-scene ${newCardClass}">
+                <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : label}">
+                    <span class="blackjack-card-face blackjack-card-back" aria-hidden="true">
+                        <span class="absolute inset-1 rounded-md border border-amber-100/20"></span>
+                        <span class="relative">✦<small class="block text-[9px] tracking-[.25em]">P2P</small></span>
+                    </span>
+                    <span class="blackjack-card-face blackjack-card-front ${colorClass}" aria-hidden="true">
+                        <span class="text-sm font-black leading-none">${hasValue ? `${card.rank}<span class="block text-[11px]">${card.suit}</span>` : ''}</span>
+                        <span class="self-center text-2xl font-black">${hasValue ? card.suit : ''}</span>
+                        <span class="rotate-180 self-end text-sm font-black leading-none">${hasValue ? `${card.rank}<span class="block text-[11px]">${card.suit}</span>` : ''}</span>
+                    </span>
+                </button>
             </div>`;
         }
 
@@ -2723,58 +2981,136 @@
             const playersList = document.getElementById('blackjackPlayersList');
             playersList.innerHTML = blackjackPlayers.map(player => {
                 const active = state && state.phase === 'playing' && state.currentPlayerId === player.id;
-                const status = player.status === 'playing' ? 'Spielt' :
+                const isDealer = blackjackDealerId !== 'bank' && player.id === blackjackDealerId;
+                const status = isDealer ? 'Dealer' :
+                    player.status === 'playing' ? 'Spielt' :
                     player.status === 'stood' ? (player.natural ? 'Blackjack!' : 'Hält') :
                     player.status === 'bust' ? 'Über 21' :
                     player.status === 'win' ? 'Gewonnen' :
                     player.status === 'lose' ? 'Verloren' :
                     player.status === 'push' ? 'Unentschieden' : 'Bereit';
                 const cards = player.cards.length
-                    ? player.cards.map(card => blackjackCardMarkup(card)).join('')
-                    : '<span class="text-[11px] italic text-gray-500">Wartet auf die nächste Runde</span>';
-                const total = player.cards.length ? blackjackHandValue(player.cards) : '—';
-                return `<article class="rounded-2xl border ${active ? 'border-emerald-300/70 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' : 'border-white/10 bg-slate-950/50'} p-3 transition">
+                    ? player.cards.map((card, index) => {
+                        const canFlip = !!card && card.isFlipped === false &&
+                            player.id === myId && state && state.phase === 'playing' &&
+                            state.currentPlayerId === myId;
+                        return blackjackCardMarkup(card, canFlip, index, false);
+                    }).join('')
+                    : `<span class="text-[11px] italic text-gray-500">${isDealer ? 'Dealer am Tisch' : 'Wartet auf die nächste Runde'}</span>`;
+                const total = player.cards.some(blackjackCardIsFaceUp)
+                    ? blackjackHandValue(player.cards)
+                    : '—';
+                return `<article class="rounded-2xl border ${active ? 'border-amber-200/70 bg-emerald-950/55 shadow-lg shadow-amber-500/10' : 'border-amber-100/10 bg-slate-950/45'} p-3 transition">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 truncate text-xs font-bold">${playerLabelHtml(player)}</div>
-                        <span class="shrink-0 rounded-full bg-black/30 px-2 py-1 text-[10px] font-bold ${active ? 'text-emerald-200' : 'text-gray-300'}">${status}</span>
+                        <div class="flex shrink-0 gap-1">
+                            <span class="rounded-full border border-amber-200/15 bg-amber-950/40 px-2 py-1 text-[9px] font-bold text-amber-100">${isDealer ? 'Dealer' : 'Punter'}</span>
+                            <span class="rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] font-bold ${active || isDealer ? 'text-amber-100' : 'text-gray-300'}">${status}</span>
+                        </div>
                     </div>
                     <div class="mt-2 flex min-h-28 flex-wrap items-center justify-center gap-1.5">${cards}</div>
                     <div class="mt-2 flex justify-between text-[10px] font-semibold text-gray-300">
-                        <span>${player.cards.length ? 'Punkte ' + total : 'Siege ' + player.wins}</span>
-                        <span>${player.cards.length ? 'Einsatz ' + player.bet : player.wins + ' Siege'}</span>
+                        <span>${player.cards.length ? 'Punkte ' + total : (isDealer ? 'Tischleitung' : 'Siege ' + player.wins)}</span>
+                        <span>${player.cards.length ? 'Einsatz ' + player.bet : (isDealer ? 'Manuell' : player.wins + ' Siege')}</span>
                     </div>
                 </article>`;
             }).join('');
 
-            const dealerCards = state && state.dealerCards.length
-                ? state.dealerCards.map((card, index) => blackjackCardMarkup(card, card === null && index === 1)).join('')
+            const viewerState = getPublicBlackjackState(myId);
+            const visibleDealerCards = viewerState ? viewerState.dealerCards : [];
+            const dealerCards = visibleDealerCards.length
+                ? visibleDealerCards.map((card, index) => {
+                    const canFlip = !!card && card.isFlipped === false &&
+                        myId === blackjackDealerId && state && state.phase === 'dealer';
+                    return blackjackCardMarkup(card, canFlip, index, true);
+                }).join('')
                 : '<span class="self-center text-xs italic text-gray-500">Noch keine Karten</span>';
             document.getElementById('blackjackDealerCards').innerHTML = dealerCards;
-            const dealerVisibleCards = state && state.dealerRevealed
-                ? state.dealerCards.filter(Boolean)
-                : state ? state.dealerCards.filter(Boolean).slice(0, 1) : [];
-            const dealerTotal = blackjackHandValue(dealerVisibleCards);
             document.getElementById('blackjackDealerTotal').innerText = state && state.dealerCards.length
-                ? (state.dealerRevealed ? `Punkte ${dealerTotal}` : `Offene Karte: ${dealerTotal}`)
+                ? (state.dealerRevealed || myId === blackjackDealerId
+                    ? `Punkte ${viewerState.dealerTotal}`
+                    : `Offene Karte: ${viewerState.dealerTotal}`)
                 : '';
+            renderBlackjackDealerRole();
             document.getElementById('blackjackRoundLabel').innerText = state
-                ? `Runde ${state.round} · ${state.phase === 'playing' ? 'läuft' : 'beendet'}`
+                ? `Runde ${state.round} · ${
+                    state.phase === 'dealing' ? 'Austeilen' :
+                    state.phase === 'playing' ? 'läuft' :
+                    state.phase === 'dealer' ? 'Dealerzug' : 'beendet'
+                }`
                 : 'Warteraum';
-            document.getElementById('blackjackMessage').innerText = state
-                ? state.message
-                : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass der Host die Runde startet.');
-
+            const humanDealer = blackjackDealerId !== 'bank' &&
+                blackjackPlayers.some(player => player.id === blackjackDealerId);
             const currentPlayer = state && blackjackPlayers.find(player => player.id === state.currentPlayerId);
             const myTurn = !!currentPlayer && currentPlayer.id === myId && currentPlayer.status === 'playing' && state.phase === 'playing';
-            document.getElementById('blackjackHitButton').disabled = !myTurn;
-            document.getElementById('blackjackStandButton').disabled = !myTurn;
-            document.getElementById('blackjackDoubleButton').disabled = !myTurn || currentPlayer.cards.length !== 2;
+            const playerCardsReady = !!currentPlayer && currentPlayer.cards.every(blackjackCardIsFaceUp);
+            const canPlay = myTurn && playerCardsReady;
+            const needsPlayerFlip = myTurn && currentPlayer.cards.some(card => !blackjackCardIsFaceUp(card));
+            const isMyDealer = myId === blackjackDealerId && humanDealer;
+            const needsDealerFlip = !!state && state.phase === 'dealer' && isMyDealer &&
+                state.dealerCards.some(card => !blackjackCardIsFaceUp(card));
+            document.getElementById('blackjackMessage').innerText = state
+                ? `${state.message}${needsPlayerFlip ? ' Klicke deine verdeckten Karten an, um sie aufzudecken.' : ''}${needsDealerFlip ? ' Klicke die verdeckte Dealer-Karte an, um sie aufzudecken.' : ''}`
+                : (isHost ? 'Warte auf Mitspieler oder starte eine Runde.' : 'Warte darauf, dass der Host die Runde startet.');
+            document.getElementById('blackjackHitButton').disabled = !canPlay;
+            document.getElementById('blackjackStandButton').disabled = !canPlay;
+            document.getElementById('blackjackDoubleButton').disabled = !canPlay || currentPlayer.cards.length !== 2;
             const startButton = document.getElementById('blackjackStartButton');
-            startButton.classList.toggle('hidden', !isHost || !!(state && state.phase === 'playing'));
+            startButton.classList.toggle('hidden', !isHost || !!(state && state.phase !== 'settled'));
             startButton.innerText = state ? 'Nächste Runde' : 'Runde starten';
+            const dealerControls = document.getElementById('blackjackDealerControls');
+            const showDealerControls = humanDealer && state && state.phase !== 'settled';
+            dealerControls.classList.toggle('hidden', !showDealerControls);
+            document.getElementById('blackjackDealButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealing' || !isMyDealer);
+            document.getElementById('blackjackDealerHitButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealer' || !isMyDealer);
+            document.getElementById('blackjackDealerStandButton').classList.toggle('hidden', !showDealerControls || state.phase !== 'dealer' || !isMyDealer);
+            const dealerCardsReady = !!state && state.dealerCards.every(blackjackCardIsFaceUp);
+            document.getElementById('blackjackDealerHitButton').disabled = !isMyDealer || !dealerCardsReady;
+            document.getElementById('blackjackDealerStandButton').disabled = !isMyDealer || !dealerCardsReady;
+            document.getElementById('blackjackDealerPrompt').innerText = state && state.phase === 'dealing'
+                ? (isMyDealer ? 'Du bist Dealer: Gib jetzt die ersten Karten aus.' : 'Der Dealer teilt die ersten Karten aus.')
+                : state && state.phase === 'dealer'
+                    ? (isMyDealer
+                        ? (needsDealerFlip ? 'Dein Dealer-Zug: Decke zuerst die verdeckte Karte auf.' : 'Dein Dealer-Zug: Ziehe Karten oder halte.')
+                        : 'Der Dealer spielt seine Hand.')
+                    : state && state.phase === 'playing'
+                        ? (isMyDealer ? 'Warte, bis alle Punter gezogen oder gehalten haben.' : 'Die Punter sind am Zug. Der Dealer spielt danach.')
+                    : '';
+            renderBlackjackDealerRoleChoice();
             const inviteSection = document.getElementById('blackjackFriendInviteSection');
             inviteSection.classList.toggle('hidden', !isHost || !!state);
             renderBlackjackFriendInvites();
+            blackjackPlayers.forEach(player => player.cards.forEach(card => {
+                if (card) {
+                    card.isNewlyDealt = false;
+                    card.isNewlyFlipped = false;
+                }
+            }));
+            if (state) state.dealerCards.forEach(card => {
+                if (card) {
+                    card.isNewlyDealt = false;
+                    card.isNewlyFlipped = false;
+                }
+            });
+        }
+
+        function renderBlackjackDealerRole() {
+            const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
+            document.getElementById('blackjackDealerRoleText').innerText = dealer
+                ? `Dealer: ${dealer.name} · alle anderen sind Punter`
+                : 'Dealer: Bank / KI';
+        }
+
+        function renderBlackjackDealerRoleChoice() {
+            const choice = document.getElementById('blackjackDealerRoleChoice');
+            const select = document.getElementById('blackjackDealerSelect');
+            const canChoose = isHost && blackjackRoomActive && !blackjackState;
+            choice.classList.toggle('hidden', !canChoose);
+            select.innerHTML = '<option value="bank">Bank / KI</option>' +
+                blackjackPlayers.map(player =>
+                    `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`
+                ).join('');
+            select.value = blackjackDealerId;
         }
 
         function renderBlackjackFriendInvites() {
@@ -2802,6 +3138,7 @@
             blackjackPlayers = [];
             blackjackState = null;
             blackjackDeck = [];
+            blackjackDealerId = 'bank';
             renderBlackjackView();
             switchScreen('screenBlackjack');
             if (message) showToast(message, 'warning');
@@ -2830,6 +3167,7 @@
             blackjackPlayers = [];
             blackjackState = null;
             blackjackDeck = [];
+            blackjackDealerId = 'bank';
             renderBlackjackView();
             if (returnToScreen) switchScreen('screenBlackjack');
             showStatus('Blackjack-Tisch verlassen', 'success');
@@ -4252,7 +4590,7 @@
                     const existingPlayer = blackjackPlayers.find(player => player.id === peerId);
                     if (!isHost || !blackjackRoomActive ||
                         (!existingPlayer && (blackjackPlayers.length >= BLACKJACK_MAX_PLAYERS ||
-                            (blackjackState && blackjackState.phase === 'playing'))) ||
+                            (blackjackState && blackjackState.phase !== 'settled'))) ||
                         !/^wd-user-\d{4}$/.test(peerId)) {
                         senderConn.send({ type: 'BLACKJACK_FULL' });
                         break;
@@ -4285,7 +4623,20 @@
                             blackjackState.phase === 'playing' && blackjackState.currentPlayerId === removed.id;
                         blackjackPlayers = blackjackPlayers.filter(player => player.conn !== senderConn);
                         connections = connections.filter(connection => connection !== senderConn);
-                        if (wasCurrentTurn) advanceBlackjackTurn(removed.id, removedIndex - 1);
+                        if (removed && removed.id === blackjackDealerId) {
+                            blackjackDealerId = 'bank';
+                            if (blackjackState && blackjackState.phase === 'dealing') {
+                                dealBlackjackCards();
+                                return;
+                            }
+                            if (blackjackState && blackjackState.phase === 'dealer') {
+                                resolveBlackjackRound();
+                            } else if (blackjackState && blackjackState.phase === 'playing') {
+                                blackjackState.message = 'Der menschliche Dealer ist nicht mehr verbunden. Die Bank übernimmt.';
+                            }
+                        } else if (wasCurrentTurn) {
+                            advanceBlackjackTurn(removed.id, removedIndex - 1);
+                        }
                         syncBlackjackTable();
                     });
                     syncBlackjackTable();
@@ -4295,6 +4646,7 @@
                     if (senderConn === conn) {
                         isHost = false;
                         blackjackRoomActive = true;
+                        blackjackDealerId = data.dealerId || 'bank';
                         blackjackPlayers = data.players || [];
                         blackjackState = data.state || null;
                         if (data.hostTag) document.getElementById('blackjackRoomCode').innerText = '#' + data.hostTag;
@@ -4304,6 +4656,21 @@
                 case 'BLACKJACK_ACTION':
                     if (isHost && isBlackjackSender(data.playerId, senderConn)) {
                         processBlackjackAction(data.action, data.playerId, senderConn);
+                    }
+                    break;
+                case 'BLACKJACK_DEAL':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackDealerAction('deal', data.playerId, senderConn);
+                    }
+                    break;
+                case 'BLACKJACK_DEALER_ACTION':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackDealerAction(data.action, data.playerId, senderConn);
+                    }
+                    break;
+                case 'BLACKJACK_FLIP_CARD':
+                    if (isHost && isBlackjackSender(data.playerId, senderConn)) {
+                        processBlackjackCardFlip(data.playerId, data.cardIndex, !!data.dealerHand, senderConn);
                     }
                     break;
                 case 'BLACKJACK_FULL': {
