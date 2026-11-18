@@ -50,6 +50,14 @@
             z-index: 100;
         }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .hangman-part { opacity: 0; transform: scale(.75); transform-box: fill-box; transform-origin: center; transition: opacity .3s ease, transform .3s ease; }
+        .hangman-part.opacity-100 { opacity: 1; transform: scale(1); }
+        @media (max-width: 640px) {
+            header { flex-wrap: wrap; row-gap: .5rem; }
+            header nav { order: 3; width: 100%; justify-content: center; }
+            header > div:last-child { margin-left: auto; }
+            header #userProfileBadge { display: none !important; }
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
@@ -73,6 +81,7 @@
         <nav class="flex items-center gap-1 p-1 rounded-xl bg-darker/70 border border-border">
             <button id="tabWords" onclick="switchMainTab('words')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
+            <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
         </nav>
         <div class="flex items-center space-x-3">
             <button id="soundToggle" onclick="toggleSound()" aria-label="Ton ausschalten" title="Ton ausschalten" class="w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer">
@@ -277,6 +286,118 @@
                         <button id="pongStartButton" onclick="startPongGame()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Pong starten</button>
                     </div>
                     <p class="text-[11px] text-gray-400 text-center mt-3"><i class="fa-solid fa-keyboard mr-1"></i> Bewege deinen Schläger mit <b>W/S</b>, <b>↑/↓</b>, Maus oder Touch.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- HANGMAN MODE -->
+        <div id="screenHangman" class="hidden space-y-5 animate-fade-in">
+            <div class="glass rounded-3xl p-5 sm:p-8 shadow-2xl border border-border/80">
+                <div class="text-center max-w-lg mx-auto mb-5">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase tracking-widest">Wort-Ratespiel</span>
+                    <h2 class="text-2xl sm:text-3xl font-black mt-3">Hangman</h2>
+                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Erratet das geheime Wort gemeinsam im P2P-Duell.</p>
+                </div>
+
+                <div id="hangmanSetup" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass rounded-2xl p-5 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 to-transparent">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-crown text-indigo-400 mr-2"></i>Lobby hosten</h3>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Spielmodus</label>
+                        <select id="hangmanModeSelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="custom">Eigenes Wort (Wortgeber wechselt)</option>
+                            <option value="random">Zufallswort (Deutsch &amp; Englisch)</option>
+                        </select>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Maximale Fehlversuche</label>
+                        <select id="hangmanMaxErrorsSelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="6">6 Versuche</option><option value="8">8 Versuche</option><option value="10">10 Versuche</option>
+                        </select>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Runden</label>
+                        <select id="hangmanRoundsSelect" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="1">1 Runde</option><option value="3" selected>3 Runden</option><option value="5">5 Runden</option>
+                        </select>
+                        <button onclick="hostHangmanLobby()" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-server mr-1"></i> Hangman-Lobby erstellen</button>
+                    </div>
+                    <div class="glass rounded-2xl p-5 border border-border">
+                        <h3 class="font-bold text-base text-white"><i class="fa-solid fa-right-to-bracket text-violet-400 mr-2"></i>Lobby beitreten</h3>
+                        <p class="text-xs text-gray-400 mt-2">Gib die 4-stellige Raum-ID des Hosts ein.</p>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mt-4 mb-1">Raum-ID</label>
+                        <input id="hangmanRoomCodeInput" maxlength="4" inputmode="numeric" placeholder="Z.B. 4819" class="w-full bg-darker/90 border border-border rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest text-white">
+                        <button onclick="joinHangmanLobby()" class="mt-4 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl transition"><i class="fa-solid fa-plug mr-1"></i> Lobby beitreten</button>
+                    </div>
+                </div>
+
+                <div id="hangmanRoom" class="hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
+                        <div><p class="text-[10px] text-gray-400 uppercase font-bold">Hangman-Raum</p><p id="hangmanRoomCode" class="text-xl font-mono font-black text-indigo-300">#----</p></div>
+                        <p id="hangmanLobbyInfo" class="text-xs font-bold text-gray-300 text-center"></p>
+                        <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    </div>
+                    <div id="hangmanPlayerList" class="flex flex-wrap justify-center gap-2 mb-4"></div>
+                    <div id="hangmanFriendInviteSection" class="mb-4 p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/20">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-3">Freunde in diese Hangman-Lobby einladen</h3>
+                        <div id="hangmanFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button id="hangmanStartButton" onclick="startHangmanGame()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Hangman starten</button>
+                    </div>
+                    <p id="hangmanWaitingMessage" class="text-xs text-gray-400 text-center mt-3">Warte darauf, dass der Host das Spiel startet...</p>
+                </div>
+
+                <div id="hangmanGame" class="hidden">
+                    <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                        <div><p id="hangmanRoundLabel" class="text-xs font-bold uppercase tracking-wider text-indigo-300"></p><p id="hangmanTurnLabel" class="text-sm font-bold text-white mt-1"></p></div>
+                        <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    </div>
+                    <div id="hangmanScoreboard" class="flex flex-wrap justify-center gap-2 mb-4"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div class="glass rounded-2xl p-4 flex flex-col items-center border border-indigo-500/20">
+                            <svg id="hangmanDrawing" viewBox="0 0 240 240" role="img" aria-label="Galgenmännchen" class="w-full max-w-[260px] h-56 drop-shadow-[0_0_10px_rgba(99,102,241,0.65)]">
+                                <g fill="none" stroke="url(#hangmanGlow)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                                    <defs><linearGradient id="hangmanGlow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#22d3ee"/></linearGradient></defs>
+                                    <path d="M25 218h155M60 218V25h100v25M40 218l20-22 20 22"/>
+                                    <path d="M160 50v20"/>
+                                    <circle class="hangman-part" data-step="1" cx="160" cy="88" r="18"/>
+                                    <path class="hangman-part" data-step="2" d="M160 106v48"/>
+                                    <path class="hangman-part" data-step="3" d="M160 116l-25 25"/>
+                                    <path class="hangman-part" data-step="4" d="M160 116l25 25"/>
+                                    <path class="hangman-part" data-step="5" d="M160 154l-23 35"/>
+                                    <path class="hangman-part" data-step="6" d="M160 154l23 35"/>
+                                    <circle class="hangman-part" data-step="7" cx="153" cy="84" r="1.8" fill="#67e8f9" stroke="none"/>
+                                    <circle class="hangman-part" data-step="8" cx="167" cy="84" r="1.8" fill="#67e8f9" stroke="none"/>
+                                    <path class="hangman-part" data-step="9" d="M154 96q6 5 12 0"/>
+                                    <path class="hangman-part" data-step="10" d="M160 87l-3 5h6z"/>
+                                </g>
+                            </svg>
+                            <div class="w-full flex justify-between text-xs font-bold mt-2"><span class="text-cyan-300">Leben</span><span id="hangmanLives" class="text-white font-mono"></span></div>
+                            <div class="w-full h-2 bg-darker rounded-full mt-2 overflow-hidden"><div id="hangmanLivesBar" class="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 transition-all duration-300" style="width:100%"></div></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <p id="hangmanSetterPrompt" class="hidden text-center text-sm text-cyan-300 font-semibold py-6">Wortgeber überlegt sich ein Wort...</p>
+                            <form id="hangmanSetWordForm" class="hidden w-full max-w-md space-y-2" onsubmit="event.preventDefault(); submitHangmanWord();">
+                                <label class="block text-xs font-bold text-indigo-300">Dein geheimes Wort (3–16 Buchstaben)</label>
+                                <input id="hangmanSecretWord" type="password" maxlength="16" autocomplete="off" placeholder="Wort eingeben" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm uppercase tracking-widest text-white focus:outline-none focus:border-indigo-500">
+                                <input id="hangmanHintInput" type="text" maxlength="40" autocomplete="off" placeholder="Hinweis / Kategorie (optional)" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">Wort festlegen</button>
+                                <p id="hangmanSetterFeedback" class="text-xs text-red-300 min-h-4"></p>
+                            </form>
+                            <div id="hangmanGuessArea" class="hidden w-full text-center">
+                                <p id="hangmanHint" class="text-sm text-cyan-300 min-h-5 mb-3"></p>
+                                <div id="hangmanWordDisplay" class="flex flex-wrap justify-center gap-2 min-h-12 mb-4 font-mono text-2xl sm:text-3xl font-black text-white tracking-wider"></div>
+                                <div id="hangmanKeyboard" class="space-y-2 mb-4"></div>
+                                <button id="hangmanSolveButton" onclick="toggleHangmanSolve()" class="text-xs font-bold text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg px-3 py-2 transition">Ganzes Wort lösen</button>
+                                <form id="hangmanSolveForm" class="hidden mt-2 flex gap-2" onsubmit="event.preventDefault(); solveHangmanWord();">
+                                    <input id="hangmanSolveInput" type="text" maxlength="16" autocomplete="off" placeholder="Wort eingeben" class="min-w-0 flex-grow bg-darker/90 border border-border rounded-xl px-3 py-2 text-sm uppercase tracking-widest text-white">
+                                    <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 rounded-xl">Lösen</button>
+                                </form>
+                                <p id="hangmanActionMessage" class="text-xs text-gray-400 min-h-5 mt-3"></p>
+                            </div>
+                            <div id="hangmanRoundResult" class="hidden w-full text-center mt-4 p-4 rounded-2xl bg-darker/60 border border-border">
+                                <p id="hangmanAnswer" class="text-lg font-black text-emerald-300"></p>
+                                <div id="hangmanRoundScores" class="space-y-2 mt-3"></div>
+                                <div id="hangmanRoundActions" class="mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -695,14 +816,32 @@
         let pongSnapshotReceivedAt = 0;
         let pongCountdown = 0;
         let pongCountdownTimer = null;
+        let pongPaused = false;
+        let pongViewPaused = false;
+        let pongPauseCountdown = 0;
         let pongWinnerText = '';
         let soundMuted = localStorage.getItem('wortketten_sound_muted') === 'true';
         let audioContext = null;
+        let activeOscillators = new Set();
+        let activeSoundGains = new Map();
+        let pendingSoundTimeouts = new Set();
+        let friendOnlineStatus = new Map();
+        let friendProbes = new Map();
+        let friendProbeTags = new WeakMap();
         let pongBallTrail = [];
         let pongHitParticles = [];
+        let hangmanPlayers = [];
+        let hangmanMode = 'custom';
+        let hangmanMaxErrors = 6;
+        let hangmanRounds = 3;
+        let hangmanRound = 1;
+        let hangmanState = null;
+        let hangmanWord = '';
+        let hangmanRoomActive = false;
+        let hangmanGameStarted = false;
 
         function getAudioContext() {
-            if (!audioContext) {
+            if (!audioContext || audioContext.state === 'closed') {
                 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                 if (!AudioContextClass) return null;
                 audioContext = new AudioContextClass();
@@ -712,11 +851,19 @@
         }
 
         function playTone(frequency, duration, type = 'sine', volume = 0.08, endFrequency = null) {
-            if (soundMuted) return;
+            if (soundMuted || document.hidden) return;
             const context = getAudioContext();
             if (!context) return;
             const oscillator = context.createOscillator();
             const gain = context.createGain();
+            activeOscillators.add(oscillator);
+            activeSoundGains.set(oscillator, gain);
+            oscillator.addEventListener('ended', () => {
+                activeOscillators.delete(oscillator);
+                activeSoundGains.delete(oscillator);
+                oscillator.disconnect();
+                gain.disconnect();
+            }, { once: true });
             oscillator.type = type;
             oscillator.frequency.setValueAtTime(frequency, context.currentTime);
             if (endFrequency) oscillator.frequency.exponentialRampToValueAtTime(endFrequency, context.currentTime + duration);
@@ -731,7 +878,11 @@
         function playWordSuccess(streak = 1) {
             const base = 520 + Math.min(Math.max(streak - 1, 0), 8) * 55;
             playTone(base, 0.12, 'sine', 0.07);
-            setTimeout(() => playTone(base * 1.25, 0.16, 'sine', 0.07), 90);
+            const timeout = setTimeout(() => {
+                pendingSoundTimeouts.delete(timeout);
+                playTone(base * 1.25, 0.16, 'sine', 0.07);
+            }, 90);
+            pendingSoundTimeouts.add(timeout);
         }
 
         function playWordError() {
@@ -746,6 +897,37 @@
             } else if (kind === 'point') {
                 playTone(620, 0.2, 'square', 0.06, 220);
             }
+        }
+
+        function stopAllSounds() {
+            pendingSoundTimeouts.forEach(timeout => clearTimeout(timeout));
+            pendingSoundTimeouts.clear();
+            activeOscillators.forEach(oscillator => {
+                oscillator.onended = null;
+                oscillator.stop();
+                oscillator.disconnect();
+                const gain = activeSoundGains.get(oscillator);
+                if (gain) gain.disconnect();
+            });
+            activeOscillators.clear();
+            activeSoundGains.clear();
+            const context = audioContext;
+            audioContext = null;
+            if (context && context.state !== 'closed') context.close();
+        }
+
+        function stopWordTimer() {
+            if (timerInterval !== null) clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function cancelPongLoops() {
+            if (pongHostLoop !== null) cancelAnimationFrame(pongHostLoop);
+            if (pongRenderLoop !== null) cancelAnimationFrame(pongRenderLoop);
+            if (pongCountdownTimer !== null) clearInterval(pongCountdownTimer);
+            pongHostLoop = null;
+            pongRenderLoop = null;
+            pongCountdownTimer = null;
         }
 
         function toggleSound() {
@@ -792,9 +974,26 @@
             }
 
             document.addEventListener('keydown', (e) => {
+                const targetTag = e.target && e.target.tagName;
+                if (hangmanState && hangmanState.status === 'playing' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) && /^[A-ZÄÖÜ]$/i.test(e.key)) {
+                    if (hangmanState.players[hangmanState.turnIndex] && hangmanState.players[hangmanState.turnIndex].id === myId) {
+                        e.preventDefault();
+                        guessHangmanLetter(e.key);
+                        return;
+                    }
+                }
                 if (!pongRunning) return;
                 if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { e.preventDefault(); localPongMove(-1); }
                 if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { e.preventDefault(); localPongMove(1); }
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    pausePongView();
+                    stopAllSounds();
+                } else if (isPongScreenVisible()) {
+                    resumePongView();
+                }
             });
 
             const pongCanvas = document.getElementById('pongCanvas');
@@ -862,6 +1061,7 @@
                     const tagDisplay = document.getElementById('myTagDisplay');
                     if (tagDisplay) tagDisplay.innerText = '#' + myTag;
                     showStatus('Verbunden', 'success');
+                    checkAllFriendsOnline();
                 });
 
                 peer.on('error', (err) => {
@@ -889,6 +1089,71 @@
             switchScreen('screenSetup');
         }
 
+        function checkAllFriendsOnline() {
+            friends.forEach(friend => checkFriendOnline(friend.tag));
+        }
+
+        function checkFriendOnline(tag) {
+            const friendTag = String(tag);
+            if (!friends.some(friend => String(friend.tag) === friendTag)) return;
+            const currentProbe = friendProbes.get(friendTag);
+            if (currentProbe && friendOnlineStatus.get(friendTag) === 'checking') return;
+            if (!peer || peer.destroyed || !peer.open) {
+                friendOnlineStatus.set(friendTag, 'checking');
+                renderFriendList();
+                ensurePeerReady(() => checkFriendOnline(friendTag));
+                return;
+            }
+            if (currentProbe) {
+                clearTimeout(currentProbe.timeout);
+                friendProbes.delete(friendTag);
+                if (currentProbe.connection.open) currentProbe.connection.close();
+            }
+            friendOnlineStatus.set(friendTag, 'checking');
+            renderFriendList();
+            const connection = peer.connect('wd-user-' + friendTag, { reliable: true });
+            const timeout = setTimeout(() => finishFriendProbe(friendTag, connection, false), 2500);
+            friendProbes.set(friendTag, { connection, timeout });
+            friendProbeTags.set(connection, friendTag);
+            setupConnectionHandlers(connection);
+            connection.on('open', () => {
+                const probe = friendProbes.get(friendTag);
+                if (probe && probe.connection === connection && connection.open) connection.send({ type: 'PING' });
+            });
+            connection.on('error', () => finishFriendProbe(friendTag, connection, false));
+            connection.on('close', () => finishFriendProbe(friendTag, connection, false));
+        }
+
+        function finishFriendProbe(tag, connection, online) {
+            const probe = friendProbes.get(tag);
+            if (!probe || probe.connection !== connection) return;
+            clearTimeout(probe.timeout);
+            friendProbes.delete(tag);
+            friendProbeTags.delete(connection);
+            friendOnlineStatus.set(tag, online ? 'online' : 'offline');
+            renderFriendList();
+            if (connection.open) connection.close();
+        }
+
+        function markFriendOnline(tag) {
+            const friendTag = String(tag);
+            if (!friends.some(friend => String(friend.tag) === friendTag)) return;
+            const probe = friendProbes.get(friendTag);
+            if (probe) {
+                clearTimeout(probe.timeout);
+                friendProbes.delete(friendTag);
+                friendProbeTags.delete(probe.connection);
+                if (probe.connection.open) probe.connection.close();
+            }
+            friendOnlineStatus.set(friendTag, 'online');
+            renderFriendList();
+        }
+
+        function markFriendOnlineFromPeer(peerId) {
+            const match = /^wd-user-(\d{4})$/.exec(String(peerId || ''));
+            if (match) markFriendOnline(match[1]);
+        }
+
         function renderFriendList() {
             const container = document.getElementById('friendListContainer');
             if (!container) return;
@@ -904,7 +1169,10 @@
                         </div>
                         <div>
                             <p class="text-xs font-bold text-white">${f.name} <span class="text-[10px] text-indigo-400 font-mono">#${f.tag}</span></p>
-                            <p class="text-[10px] text-gray-400">Status: Verbunden</p>
+                            <p class="flex items-center gap-1 text-[10px] ${friendOnlineStatus.get(String(f.tag)) === 'online' ? 'text-emerald-400' : 'text-gray-500'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${friendOnlineStatus.get(String(f.tag)) === 'online' ? 'bg-emerald-400' : 'bg-gray-500'}"></span>
+                                ${friendOnlineStatus.get(String(f.tag)) === 'checking' ? 'Prüfe…' : (friendOnlineStatus.get(String(f.tag)) === 'online' ? 'Online' : 'Offline')}
+                            </p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-1.5">
@@ -972,6 +1240,7 @@
 
         function acceptFriendRequest() {
             if (pendingFriendConn && pendingFriendData) {
+                const friendTag = pendingFriendData.tag;
                 const acceptMsg = { type: 'FRIEND_ACCEPT', name: myName, tag: myTag, id: myId };
                 if (pendingFriendConn.open) {
                     pendingFriendConn.send(acceptMsg);
@@ -987,6 +1256,7 @@
                     friends.push({ name: pendingFriendData.name, tag: pendingFriendData.tag, peerId: pendingFriendData.id });
                     localStorage.setItem('wortketten_friends', JSON.stringify(friends));
                     renderFriendList();
+                    checkFriendOnline(friendTag);
                 }
             }
             document.getElementById('friendRequestModal').classList.add('hidden');
@@ -1004,6 +1274,14 @@
         }
 
         function removeFriend(idx) {
+            const tag = String(friends[idx].tag);
+            const probe = friendProbes.get(tag);
+            if (probe) {
+                clearTimeout(probe.timeout);
+                friendProbes.delete(tag);
+                if (probe.connection.open) probe.connection.close();
+            }
+            friendOnlineStatus.delete(tag);
             friends.splice(idx, 1);
             localStorage.setItem('wortketten_friends', JSON.stringify(friends));
             renderFriendList();
@@ -1019,6 +1297,7 @@
                 const targetPeerId = 'wd-user-' + friendTag;
                 const c = peer.connect(targetPeerId);
                 c.on('open', () => {
+                    markFriendOnline(friendTag);
                     c.send({ type: 'LOBBY_INVITE', hostName: myName, hostTag: myTag });
                     alert('Einladung gesendet!');
                 });
@@ -1032,10 +1311,23 @@
             ensurePeerReady(() => {
                 const c = peer.connect('wd-user-' + friendTag);
                 c.on('open', () => {
+                    markFriendOnline(friendTag);
                     c.send({ type: 'PONG_LOBBY_INVITE', hostName: myName, hostTag: myTag });
                     alert('Pong-Einladung gesendet!');
                 });
                 c.on('error', () => alert('Pong-Einladung konnte nicht gesendet werden (Spieler offline).'));
+            });
+        }
+
+        function inviteFriendToHangman(friendTag) {
+            ensurePeerReady(() => {
+                const c = peer.connect('wd-user-' + friendTag);
+                c.on('open', () => {
+                    markFriendOnline(friendTag);
+                    c.send({ type: 'HANGMAN_LOBBY_INVITE', hostName: myName, hostTag: myTag });
+                    alert('Hangman-Einladung gesendet!');
+                });
+                c.on('error', () => alert('Hangman-Einladung konnte nicht gesendet werden (Spieler offline).'));
             });
         }
 
@@ -1049,6 +1341,9 @@
                 if (mode === 'pong') {
                     switchMainTab('pong');
                     joinPongLobby(hostTag);
+                } else if (mode === 'hangman') {
+                    switchMainTab('hangman');
+                    joinHangmanLobby(hostTag);
                 } else {
                     document.getElementById('roomCodeInput').value = hostTag;
                     joinGame();
@@ -1063,14 +1358,25 @@
         }
 
         function switchMainTab(tab) {
+            const leavingPong = !document.getElementById('screenPong').classList.contains('hidden') && tab !== 'pong';
+            const leavingWordGame = !document.getElementById('screenGame').classList.contains('hidden') && tab !== 'words';
+            if (leavingPong && (pongPlayers.length || pongState || pongRunning || pongCountdown > 0)) leavePongLobby(false);
+            else if (leavingPong) pausePongView();
+            if (leavingWordGame) leaveLobby();
             document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+            document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
             if (tab === 'pong') {
                 document.getElementById('tabPong').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white transition';
                 switchScreen('screenPong');
+                resumePongView();
+            } else if (tab === 'hangman') {
+                document.getElementById('tabHangman').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
+                switchScreen('screenHangman');
+                renderHangmanView();
             } else {
                 document.getElementById('tabWords').className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
-                switchScreen(pongRunning ? 'screenPong' : 'screenSetup');
+                switchScreen('screenSetup');
             }
         }
 
@@ -1168,6 +1474,427 @@
                 </button>`).join('');
         }
 
+        function escapeHangmanHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[char]);
+        }
+
+        function hangmanPublicPlayers() {
+            return hangmanPlayers.map(player => ({
+                id: player.id, name: player.name, score: player.score || 0,
+                roundPoints: player.roundPoints || 0
+            }));
+        }
+
+        function hostHangmanLobby() {
+            ensurePeerReady(() => {
+                isHost = true;
+                connections = [];
+                hangmanMode = document.getElementById('hangmanModeSelect').value;
+                hangmanMaxErrors = +document.getElementById('hangmanMaxErrorsSelect').value;
+                hangmanRounds = +document.getElementById('hangmanRoundsSelect').value;
+                hangmanRound = 1;
+                hangmanState = null;
+                hangmanWord = '';
+                hangmanGameStarted = false;
+                hangmanRoomActive = true;
+                hangmanPlayers = [{ id: myId, name: `${myName} #${myTag}`, score: 0, roundPoints: 0, conn: null }];
+                document.getElementById('hangmanRoomCode').innerText = '#' + myTag;
+                renderHangmanView();
+            });
+        }
+
+        function joinHangmanLobby(overrideCode = null) {
+            const code = (overrideCode || document.getElementById('hangmanRoomCodeInput').value).trim();
+            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
+            if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+            ensurePeerReady(() => {
+                isHost = false;
+                hangmanRoomActive = false;
+                hangmanGameStarted = false;
+                hangmanState = null;
+                hangmanWord = '';
+                conn = peer.connect('wd-user-' + code);
+                setupConnectionHandlers(conn);
+                conn.on('open', () => {
+                    conn.send({ type: 'HANGMAN_JOIN', id: myId, name: `${myName} #${myTag}` });
+                    document.getElementById('hangmanRoomCode').innerText = '#' + code;
+                    hangmanRoomActive = true;
+                    renderHangmanView();
+                    showStatus('Hangman-Lobby verbunden', 'success');
+                });
+                conn.on('error', () => alert('Die Hangman-Lobby wurde nicht gefunden oder ist offline.'));
+            });
+        }
+
+        function joinHangmanPlayer(data, senderConn) {
+            const playerId = senderConn.peer || data.id;
+            if (!/^wd-user-\d{4}$/.test(playerId)) {
+                senderConn.send({ type: 'HANGMAN_FULL' });
+                return;
+            }
+            const existing = hangmanPlayers.find(player => player.id === playerId);
+            if (existing) {
+                existing.name = String(data.name || existing.name).slice(0, 40);
+                existing.conn = senderConn;
+            } else {
+                hangmanPlayers.push({ id: playerId, name: String(data.name || 'Spieler').slice(0, 40), score: 0, roundPoints: 0, conn: senderConn });
+            }
+            if (!connections.includes(senderConn)) connections.push(senderConn);
+            senderConn.on('close', () => {
+                const removedIndex = hangmanPlayers.findIndex(player => player.conn === senderConn);
+                const removedPlayer = removedIndex >= 0 ? hangmanPlayers[removedIndex] : null;
+                hangmanPlayers = hangmanPlayers.filter(player => player.conn !== senderConn);
+                connections = connections.filter(connection => connection !== senderConn);
+                if (!hangmanState) {
+                    broadcastHangmanSync();
+                } else if (hangmanState.status !== 'over' && hangmanMode === 'custom' && hangmanPlayers.length < 2) {
+                    hangmanState = null;
+                    hangmanWord = '';
+                    hangmanGameStarted = false;
+                    broadcastHangmanSync();
+                } else if (removedPlayer && hangmanState.status !== 'over' && hangmanState.setterId === removedPlayer.id) {
+                    if (hangmanState.status === 'setting') {
+                        hangmanState = null;
+                        hangmanGameStarted = false;
+                        broadcastHangmanSync();
+                    } else {
+                        hangmanState.notice = `${removedPlayer.name} als Wortgeber hat die Lobby verlassen.`;
+                        finishHangmanRound(false);
+                        publishHangmanState();
+                    }
+                } else if (hangmanState) {
+                    if (removedIndex >= 0 && removedIndex < hangmanState.turnIndex) hangmanState.turnIndex--;
+                    else if (removedIndex >= 0 && removedIndex === hangmanState.turnIndex && hangmanPlayers.length) {
+                        hangmanState.turnIndex = removedIndex % hangmanPlayers.length;
+                        advanceHangmanTurn();
+                    }
+                    publishHangmanState();
+                }
+                renderHangmanView();
+            });
+            broadcastHangmanSync();
+            renderHangmanLobby();
+        }
+
+        function broadcastHangmanSync() {
+            broadcast({
+                type: 'HANGMAN_SYNC', mode: hangmanMode, maxErrors: hangmanMaxErrors,
+                rounds: hangmanRounds, players: hangmanPublicPlayers()
+            });
+        }
+
+        function renderHangmanView() {
+            const setup = document.getElementById('hangmanSetup');
+            const room = document.getElementById('hangmanRoom');
+            const game = document.getElementById('hangmanGame');
+            if (!hangmanRoomActive) {
+                setup.classList.remove('hidden');
+                room.classList.add('hidden');
+                game.classList.add('hidden');
+            } else if (hangmanState) {
+                setup.classList.add('hidden');
+                room.classList.add('hidden');
+                game.classList.remove('hidden');
+                renderHangmanGame();
+            } else {
+                setup.classList.add('hidden');
+                room.classList.remove('hidden');
+                game.classList.add('hidden');
+                renderHangmanLobby();
+            }
+        }
+
+        function renderHangmanLobby() {
+            const info = document.getElementById('hangmanLobbyInfo');
+            const playerList = document.getElementById('hangmanPlayerList');
+            if (!info || !playerList) return;
+            const modeLabel = hangmanMode === 'custom' ? 'Eigenes Wort · Wortgeber wechselt' : 'Zufallswort';
+            info.innerText = `${modeLabel} · ${hangmanRounds} Runden · ${hangmanMaxErrors} Fehlversuche`;
+            playerList.innerHTML = hangmanPublicPlayers().map((player, index) =>
+                `<span class="px-3 py-1.5 rounded-xl ${index === 0 ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)}${index === 0 ? ' · Host' : ''}</span>`
+            ).join('');
+            document.getElementById('hangmanStartButton').classList.toggle('hidden', !isHost);
+            document.getElementById('hangmanWaitingMessage').classList.toggle('hidden', isHost);
+            document.getElementById('hangmanFriendInviteSection').classList.toggle('hidden', !isHost || hangmanGameStarted);
+            renderHangmanFriendInvites();
+        }
+
+        function renderHangmanFriendInvites() {
+            const inviteList = document.getElementById('hangmanFriendInviteList');
+            if (!inviteList) return;
+            const available = friends.filter(friend => !hangmanPlayers.some(player => player.name && player.name.includes('#' + friend.tag)));
+            if (!available.length) {
+                inviteList.innerHTML = `<p class="text-[11px] text-gray-500 italic">${friends.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.'}</p>`;
+                return;
+            }
+            inviteList.innerHTML = available.map(friend => `
+                <button onclick="inviteFriendToHangman('${escapeHangmanHtml(friend.tag)}')" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i><span>${escapeHangmanHtml(friend.name)}</span>
+                </button>`).join('');
+        }
+
+        function startHangmanGame() {
+            if (!isHost) return;
+            if (hangmanPlayers.length < 2) return alert('Für Hangman brauchst du mindestens 2 Spieler.');
+            hangmanGameStarted = true;
+            hangmanRound = 1;
+            hangmanPlayers.forEach(player => { player.score = 0; player.roundPoints = 0; });
+            startHangmanRound();
+        }
+
+        function startHangmanRound() {
+            hangmanWord = '';
+            hangmanPlayers.forEach(player => { player.roundPoints = 0; });
+            const setterIndex = hangmanMode === 'custom' ? (hangmanRound - 1) % hangmanPlayers.length : -1;
+            const setter = setterIndex >= 0 ? hangmanPlayers[setterIndex] : null;
+            hangmanState = {
+                mode: hangmanMode, maxErrors: hangmanMaxErrors, rounds: hangmanRounds,
+                round: hangmanRound, status: setter ? 'setting' : 'playing',
+                setterId: setter ? setter.id : null,
+                turnIndex: setter ? (setterIndex + 1) % hangmanPlayers.length : (hangmanRound - 1) % hangmanPlayers.length,
+                mistakes: 0, guessedLetters: [], wordLength: 0, hint: '', notice: '', solved: false,
+                players: hangmanPublicPlayers()
+            };
+            if (!setter) {
+                const pool = [...new Set([...dictionaryDE, ...dictionaryEN])]
+                    .filter(word => /^[A-ZÄÖÜ]{3,16}$/.test(word));
+                if (!pool.length) return alert('Es ist kein passendes Zufallswort im Wörterbuch verfügbar.');
+                hangmanWord = pool[Math.floor(Math.random() * pool.length)];
+                hangmanState.wordLength = hangmanWord.length;
+                hangmanState.hint = 'Zufallswort';
+            }
+            broadcast({ type: 'HANGMAN_START', state: getPublicHangmanState() });
+            renderHangmanView();
+        }
+
+        function getPublicHangmanState() {
+            if (!hangmanState) return null;
+            const state = {
+                mode: hangmanState.mode, maxErrors: hangmanState.maxErrors, rounds: hangmanState.rounds,
+                round: hangmanState.round, status: hangmanState.status, setterId: hangmanState.setterId,
+                turnIndex: hangmanState.turnIndex, mistakes: hangmanState.mistakes,
+                guessedLetters: [...hangmanState.guessedLetters], wordLength: hangmanState.wordLength,
+                hint: hangmanState.hint, notice: hangmanState.notice, solved: hangmanState.solved,
+                revealedWord: hangmanState.status === 'playing'
+                    ? [...hangmanWord].map(letter => hangmanState.guessedLetters.includes(letter) ? letter : '')
+                    : [],
+                players: hangmanPublicPlayers()
+            };
+            if (hangmanState.status === 'over') state.answer = hangmanWord;
+            return state;
+        }
+
+        function publishHangmanState() {
+            if (!hangmanState) return;
+            hangmanState.players = hangmanPublicPlayers();
+            broadcast({ type: 'HANGMAN_STATE', state: getPublicHangmanState() });
+            renderHangmanView();
+        }
+
+        function submitHangmanWord() {
+            const word = document.getElementById('hangmanSecretWord').value.trim().toUpperCase();
+            const hint = document.getElementById('hangmanHintInput').value.trim();
+            document.getElementById('hangmanSetterFeedback').innerText = '';
+            if (isHost) setHangmanWord(word, hint, myId);
+            else if (conn && conn.open) conn.send({ type: 'HANGMAN_SET_WORD', word, hint, playerId: myId });
+        }
+
+        function setHangmanWord(word, hint, playerId, senderConn = null) {
+            const reply = text => {
+                if (senderConn && senderConn.open) senderConn.send({ type: 'HANGMAN_FEEDBACK', text });
+                else document.getElementById('hangmanSetterFeedback').innerText = text;
+            };
+            if (!hangmanState || hangmanState.status !== 'setting' || hangmanState.setterId !== playerId) return;
+            const normalized = String(word || '').trim().toUpperCase();
+            if (!/^[A-ZÄÖÜ]{3,16}$/.test(normalized)) return reply('Das Wort muss 3–16 Buchstaben enthalten (A–Z, Ä, Ö, Ü).');
+            hangmanWord = normalized;
+            hangmanState.wordLength = normalized.length;
+            hangmanState.hint = String(hint || '').trim().slice(0, 40);
+            hangmanState.status = 'playing';
+            hangmanState.notice = 'Das Wort steht fest. Viel Erfolg!';
+            publishHangmanState();
+        }
+
+        function isHangmanTurn(playerId) {
+            return hangmanState && hangmanState.status === 'playing' &&
+                hangmanState.setterId !== playerId &&
+                hangmanPlayers[hangmanState.turnIndex] &&
+                hangmanPlayers[hangmanState.turnIndex].id === playerId;
+        }
+
+        function isHangmanSender(playerId, senderConn) {
+            return hangmanPlayers.some(player => player.id === playerId && player.conn === senderConn);
+        }
+
+        function advanceHangmanTurn() {
+            if (!hangmanPlayers.length) return;
+            for (let i = 0; i < hangmanPlayers.length; i++) {
+                hangmanState.turnIndex = (hangmanState.turnIndex + 1) % hangmanPlayers.length;
+                if (!hangmanState.setterId || hangmanPlayers[hangmanState.turnIndex].id !== hangmanState.setterId) return;
+            }
+        }
+
+        function guessHangmanLetter(letter) {
+            const normalized = String(letter || '').toUpperCase();
+            if (!isHangmanTurn(myId) || !/^[A-ZÄÖÜ]$/.test(normalized)) return;
+            if (isHost) handleHangmanGuess(normalized, myId);
+            else if (conn && conn.open) conn.send({ type: 'HANGMAN_GUESS', letter: normalized, playerId: myId });
+        }
+
+        function handleHangmanGuess(letter, playerId) {
+            const normalized = String(letter || '').toUpperCase();
+            if (!isHangmanTurn(playerId) || !/^[A-ZÄÖÜ]$/.test(normalized) || hangmanState.guessedLetters.includes(normalized)) return;
+            hangmanState.guessedLetters.push(normalized);
+            const player = hangmanPlayers[hangmanState.turnIndex];
+            const found = [...hangmanWord].filter(char => char === normalized).length;
+            if (found) {
+                const points = found * 15;
+                player.score += points;
+                player.roundPoints += points;
+                hangmanState.notice = `${player.name}: ${found}× ${normalized} gefunden (+${points} Punkte).`;
+                const allFound = [...new Set(hangmanWord)].every(char => hangmanState.guessedLetters.includes(char));
+                if (allFound) finishHangmanRound(true);
+            } else {
+                hangmanState.mistakes++;
+                hangmanState.notice = `${player.name}: ${normalized} ist nicht enthalten.`;
+                if (hangmanState.mistakes >= hangmanState.maxErrors) finishHangmanRound(false);
+                else advanceHangmanTurn();
+            }
+            publishHangmanState();
+        }
+
+        function toggleHangmanSolve() {
+            if (!isHangmanTurn(myId)) return;
+            const form = document.getElementById('hangmanSolveForm');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) document.getElementById('hangmanSolveInput').focus();
+        }
+
+        function solveHangmanWord() {
+            const word = document.getElementById('hangmanSolveInput').value.trim().toUpperCase();
+            if (!isHangmanTurn(myId)) return;
+            if (isHost) handleHangmanSolve(word, myId);
+            else if (conn && conn.open) conn.send({ type: 'HANGMAN_SOLVE', word, playerId: myId });
+            document.getElementById('hangmanSolveInput').value = '';
+        }
+
+        function handleHangmanSolve(word, playerId) {
+            if (!isHangmanTurn(playerId)) return;
+            const player = hangmanPlayers[hangmanState.turnIndex];
+            if (String(word || '').trim().toUpperCase() === hangmanWord) {
+                player.score += 50;
+                player.roundPoints += 50;
+                hangmanState.notice = `${player.name} hat das Wort gelöst (+50 Punkte)!`;
+                finishHangmanRound(true);
+            } else {
+                hangmanState.mistakes += 2;
+                hangmanState.notice = `${player.name} hat falsch geraten (−2 Leben).`;
+                if (hangmanState.mistakes >= hangmanState.maxErrors) finishHangmanRound(false);
+                else advanceHangmanTurn();
+            }
+            publishHangmanState();
+        }
+
+        function finishHangmanRound(solved) {
+            hangmanState.status = 'over';
+            hangmanState.solved = solved;
+            hangmanState.answer = hangmanWord;
+        }
+
+        function nextHangmanRound() {
+            if (!isHost || !hangmanState || hangmanState.status !== 'over') return;
+            if (hangmanRound >= hangmanRounds) {
+                hangmanPlayers.forEach(player => { player.score = 0; });
+                hangmanRound = 1;
+            } else {
+                hangmanRound++;
+            }
+            startHangmanRound();
+        }
+
+        function renderHangmanGame() {
+            const state = hangmanState;
+            if (!state) return;
+            const playersForView = state.players || hangmanPublicPlayers();
+            const currentPlayer = playersForView[state.turnIndex];
+            const setter = playersForView.find(player => player.id === state.setterId);
+            const isSetter = state.setterId === myId;
+            const isMyTurn = state.status === 'playing' && currentPlayer && currentPlayer.id === myId && !isSetter;
+            document.getElementById('hangmanRoundLabel').innerText = `Runde ${state.round}/${state.rounds} · ${state.mode === 'custom' ? 'Eigenes Wort' : 'Zufallswort'}`;
+            document.getElementById('hangmanTurnLabel').innerText = state.status === 'setting'
+                ? `Wortgeber: ${setter ? setter.name : '---'}`
+                : state.status === 'over' ? (state.solved ? 'Wort erraten!' : 'Keine Leben mehr')
+                : `Am Zug: ${currentPlayer ? currentPlayer.name : '---'}${isMyTurn ? ' · Du bist dran' : ''}`;
+            document.getElementById('hangmanScoreboard').innerHTML = playersForView.map((player, index) =>
+                `<span class="px-3 py-1.5 rounded-xl ${index === state.turnIndex && state.status === 'playing' ? 'bg-indigo-600/30 border-indigo-400 text-white' : 'bg-darker border-border text-gray-300'} border text-xs font-bold">${escapeHangmanHtml(player.name)} <span class="text-cyan-300">${player.score} P</span></span>`
+            ).join('');
+            document.getElementById('hangmanLives').innerText = `${Math.max(0, state.maxErrors - state.mistakes)} / ${state.maxErrors}`;
+            document.getElementById('hangmanLivesBar').style.width = `${Math.max(0, (state.maxErrors - state.mistakes) / state.maxErrors * 100)}%`;
+            document.querySelectorAll('#hangmanDrawing .hangman-part').forEach(part => {
+                const visible = +part.dataset.step <= state.mistakes ||
+                    (state.status === 'over' && !state.solved && +part.dataset.step <= state.maxErrors);
+                part.classList.toggle('opacity-100', visible);
+                part.classList.toggle('opacity-0', !visible);
+            });
+            const setting = state.status === 'setting';
+            document.getElementById('hangmanSetterPrompt').classList.toggle('hidden', !setting || isSetter);
+            document.getElementById('hangmanSetWordForm').classList.toggle('hidden', !setting || !isSetter);
+            document.getElementById('hangmanGuessArea').classList.toggle('hidden', setting || state.status === 'over');
+            document.getElementById('hangmanRoundResult').classList.toggle('hidden', state.status !== 'over');
+            if (setting) {
+                document.getElementById('hangmanActionMessage').innerText = '';
+                return;
+            }
+            if (state.status === 'over') {
+                document.getElementById('hangmanAnswer').innerText = `${state.solved ? 'Erratenes Wort' : 'Gesuchtes Wort'}: ${state.answer || hangmanWord}`;
+                document.getElementById('hangmanRoundScores').innerHTML = playersForView.slice().sort((a, b) => b.roundPoints - a.roundPoints).map(player =>
+                    `<div class="flex justify-between rounded-lg bg-card px-3 py-2 text-xs"><span>${escapeHangmanHtml(player.name)}</span><span class="text-cyan-300">+${player.roundPoints} Runde · ${player.score} gesamt</span></div>`
+                ).join('');
+                document.getElementById('hangmanRoundActions').innerHTML = isHost
+                    ? `<button onclick="nextHangmanRound()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl">${state.round >= state.rounds ? 'Neue Partie starten' : 'Nächste Runde (Wortgeber wechselt)'}</button>`
+                    : '<p class="text-xs text-gray-400 italic">Warte auf den Host für die nächste Runde...</p>';
+                return;
+            }
+            document.getElementById('hangmanHint').innerText = state.hint ? `Hinweis: ${state.hint}` : '';
+            document.getElementById('hangmanWordDisplay').innerHTML = Array.from({ length: state.wordLength }, (_, index) => {
+                const letter = (state.revealedWord || [])[index] || '';
+                return `<span class="min-w-7 border-b-2 border-indigo-400 pb-1">${letter || '_'}</span>`;
+            }).join('');
+            const rows = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNMÄÖÜ'];
+            document.getElementById('hangmanKeyboard').innerHTML = rows.map(row =>
+                `<div class="flex justify-center gap-1">${[...row].map(letter => {
+                    const used = state.guessedLetters.includes(letter);
+                    return `<button type="button" ${!isMyTurn || used ? 'disabled' : ''} onclick="guessHangmanLetter('${letter}')" class="w-7 h-8 sm:w-9 sm:h-9 rounded-lg border text-xs sm:text-sm font-bold transition ${used ? 'bg-gray-800 border-border text-gray-600' : 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200 hover:bg-indigo-600/50 disabled:opacity-40 disabled:cursor-not-allowed'}">${letter}</button>`;
+                }).join('')}</div>`
+            ).join('');
+            document.getElementById('hangmanSolveButton').disabled = !isMyTurn;
+            document.getElementById('hangmanSolveButton').classList.toggle('opacity-40', !isMyTurn);
+            document.getElementById('hangmanActionMessage').innerText = state.notice || '';
+        }
+
+        function leaveHangmanLobby() {
+            if (isHost) {
+                broadcast({ type: 'HANGMAN_CLOSED' });
+                const ended = [...connections];
+                setTimeout(() => ended.forEach(connection => { if (connection && connection.open) connection.close(); }), 250);
+                connections = [];
+                if (peer) { peer.destroy(); peer = null; myId = ''; }
+            } else if (conn) {
+                conn.close();
+                conn = null;
+            }
+            isHost = false;
+            hangmanPlayers = [];
+            hangmanState = null;
+            hangmanWord = '';
+            hangmanRoomActive = false;
+            hangmanGameStarted = false;
+            renderHangmanView();
+            showStatus('Hangman-Lobby verlassen', 'success');
+        }
+
         function createPongState() {
             const paddles = [];
             if (pongMaxPlayers === 2) {
@@ -1186,6 +1913,7 @@
         function startPongGame() {
             if (!isHost) return;
             if (pongPlayers.length < 2) return alert('Für Pong brauchst du mindestens 2 Spieler.');
+            stopPongGame();
             if (pongMaxPlayers === 4) {
                 while (pongPlayers.length < 4) {
                     const index = pongPlayers.length;
@@ -1219,9 +1947,12 @@
             pongLastNetworkAt = 0;
             pongLastDrawAt = 0;
             pongLastTickAt = 0;
-            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
-            if (pongCountdownTimer) clearInterval(pongCountdownTimer);
             drawPong();
+            startPongCountdown();
+        }
+
+        function startPongCountdown() {
+            if (pongCountdownTimer !== null) clearInterval(pongCountdownTimer);
             pongCountdownTimer = setInterval(() => {
                 pongCountdown--;
                 if (pongCountdown > 0) {
@@ -1233,6 +1964,7 @@
                 pongCountdownTimer = null;
                 pongCountdown = 0;
                 pongRunning = true;
+                pongLastTickAt = 0;
                 broadcast({ type: 'PONG_COUNTDOWN', count: 0 });
                 pongHostLoop = requestAnimationFrame(pongHostTick);
             }, 1000);
@@ -1263,7 +1995,10 @@
         }
 
         function pongHostTick(timestamp) {
-            if (!isHost || !pongRunning || !pongState) return;
+            if (!isHost || !pongRunning || pongPaused || !pongState) {
+                pongHostLoop = null;
+                return;
+            }
             const elapsed = Math.min(timestamp - (pongLastTickAt || timestamp), 32);
             const frameScale = elapsed / (1000 / 60);
             pongLastTickAt = timestamp;
@@ -1326,6 +2061,7 @@
                 if (winnerText) {
                     pongWinnerText = winnerText;
                     pongRunning = false;
+                    pongHostLoop = null;
                     celebrate();
                     broadcast({
                         type: 'PONG_WIN',
@@ -1371,7 +2107,7 @@
         }
 
         function pongGuestRenderTick() {
-            if (isHost || (!pongRunning && pongCountdown <= 0)) {
+            if (isHost || pongPaused || pongViewPaused || (!pongRunning && pongCountdown <= 0)) {
                 pongRenderLoop = null;
                 return;
             }
@@ -1451,7 +2187,7 @@
             }
         }
 
-        function leavePongLobby() {
+        function leavePongLobby(returnToPongScreen = true) {
             stopPongGame();
             if (isHost) {
                 broadcast({ type: 'PONG_CLOSED' });
@@ -1467,21 +2203,83 @@
             pongState = null;
             document.getElementById('pongLobby').classList.remove('hidden');
             document.getElementById('pongArena').classList.add('hidden');
-            switchScreen('screenPong');
+            if (returnToPongScreen) switchScreen('screenPong');
             showStatus('Pong-Lobby verlassen', 'success');
+        }
+
+        function isPongScreenVisible() {
+            return !document.hidden && !document.getElementById('screenPong').classList.contains('hidden');
+        }
+
+        function pausePongGame() {
+            const hasActivity = pongRunning || pongCountdown > 0 || pongHostLoop !== null ||
+                pongRenderLoop !== null || pongCountdownTimer !== null;
+            if (!hasActivity || pongPaused) return;
+            pongPaused = true;
+            pongPauseCountdown = pongCountdown;
+            pongRunning = false;
+            cancelPongLoops();
+            stopAllSounds();
+            if (isHost) broadcast({ type: 'PONG_PAUSE', state: pongState, countdown: pongPauseCountdown });
+        }
+
+        function pausePongView() {
+            if (isHost) {
+                pausePongGame();
+                return;
+            }
+            if (!pongRunning && pongCountdown <= 0 && pongRenderLoop === null) return;
+            pongViewPaused = true;
+            if (pongRenderLoop !== null) {
+                cancelAnimationFrame(pongRenderLoop);
+                pongRenderLoop = null;
+            }
+            stopAllSounds();
+        }
+
+        function resumePongView() {
+            if (pongPaused) {
+                if (isHost) resumePongGame();
+                else pongViewPaused = false;
+                return;
+            }
+            pongViewPaused = false;
+            if (!isHost && (pongRunning || pongCountdown > 0) && pongRenderLoop === null) {
+                drawPong(interpolatePongState());
+                pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
+            }
+        }
+
+        function resumePongGame() {
+            if (!isHost || !pongPaused) return;
+            pongPaused = false;
+            pongRunning = false;
+            pongCountdown = pongPauseCountdown;
+            pongPauseCountdown = 0;
+            broadcast({ type: 'PONG_RESUME', state: pongState, countdown: pongCountdown });
+            drawPong();
+            if (pongCountdown > 0) {
+                startPongCountdown();
+            } else {
+                pongRunning = true;
+                pongLastTickAt = 0;
+                pongHostLoop = requestAnimationFrame(pongHostTick);
+            }
         }
 
         function stopPongGame() {
             pongRunning = false;
             pongCountdown = 0;
-            if (pongHostLoop) cancelAnimationFrame(pongHostLoop);
-            if (pongRenderLoop) cancelAnimationFrame(pongRenderLoop);
-            if (pongCountdownTimer) clearInterval(pongCountdownTimer);
-            pongHostLoop = null;
-            pongRenderLoop = null;
-            pongCountdownTimer = null;
+            pongPaused = false;
+            pongViewPaused = false;
+            pongPauseCountdown = 0;
+            cancelPongLoops();
+            stopWordTimer();
+            stopAllSounds();
             pongPreviousSnapshot = null;
             pongCurrentSnapshot = null;
+            pongState = null;
+            pongWinnerText = '';
         }
 
         function hostGame() {
@@ -1565,12 +2363,17 @@
             }
 
             isHost = false;
-            if (timerInterval) clearInterval(timerInterval);
+            stopWordTimer();
+            stopPongGame();
+            stopAllSounds();
             switchScreen('screenSetup');
             showStatus('Lobby verlassen', 'success');
         }
 
         function setupConnectionHandlers(c) {
+            c.on('open', () => {
+                if (!friendProbeTags.has(c)) markFriendOnlineFromPeer(c.peer);
+            });
             c.on('data', (data) => {
                 handleNetworkData(data, c);
             });
@@ -1592,10 +2395,19 @@
                         friends.push({ name: data.name, tag: data.tag, peerId: data.id });
                         localStorage.setItem('wortketten_friends', JSON.stringify(friends));
                         renderFriendList();
+                        checkFriendOnline(data.tag);
                     }
                     break;
                 case 'FRIEND_REJECT':
                     break;
+                case 'PING':
+                    if (senderConn && senderConn.open) senderConn.send({ type: 'PONG_ONLINE' });
+                    break;
+                case 'PONG_ONLINE': {
+                    const tag = friendProbeTags.get(senderConn);
+                    if (tag) finishFriendProbe(tag, senderConn, true);
+                    break;
+                }
                 case 'LOBBY_INVITE':
                     pendingLobbyHostId = data.hostTag;
                     pendingInviteMode = 'words';
@@ -1607,6 +2419,75 @@
                     pendingInviteMode = 'pong';
                     document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Pong-Lobby ein!`;
                     document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'HANGMAN_LOBBY_INVITE':
+                    pendingLobbyHostId = data.hostTag;
+                    pendingInviteMode = 'hangman';
+                    document.getElementById('lobbyInviteText').innerHTML = `<b>${data.hostName} #${data.hostTag}</b> lädt dich zu einer Hangman-Lobby ein!`;
+                    document.getElementById('lobbyInviteModal').classList.remove('hidden');
+                    break;
+                case 'HANGMAN_JOIN':
+                    if (isHost && hangmanRoomActive && !hangmanGameStarted) {
+                        joinHangmanPlayer(data, senderConn);
+                    } else {
+                        senderConn.send({ type: 'HANGMAN_FULL' });
+                    }
+                    break;
+                case 'HANGMAN_SYNC':
+                    hangmanRoomActive = true;
+                    hangmanGameStarted = false;
+                    hangmanState = null;
+                    hangmanWord = '';
+                    hangmanMode = data.mode;
+                    hangmanMaxErrors = data.maxErrors;
+                    hangmanRounds = data.rounds;
+                    hangmanPlayers = data.players || [];
+                    renderHangmanView();
+                    renderHangmanLobby();
+                    break;
+                case 'HANGMAN_FULL':
+                    alert('Diese Hangman-Lobby hat bereits begonnen oder ist nicht verfügbar.');
+                    if (conn) conn.close();
+                    conn = null;
+                    hangmanRoomActive = false;
+                    renderHangmanView();
+                    break;
+                case 'HANGMAN_START':
+                case 'HANGMAN_STATE':
+                    hangmanRoomActive = true;
+                    hangmanGameStarted = true;
+                    hangmanState = data.state;
+                    hangmanMode = data.state.mode;
+                    hangmanMaxErrors = data.state.maxErrors;
+                    hangmanRounds = data.state.rounds;
+                    hangmanRound = data.state.round;
+                    hangmanPlayers = data.state.players || hangmanPlayers;
+                    hangmanWord = '';
+                    renderHangmanView();
+                    break;
+                case 'HANGMAN_SET_WORD':
+                    if (isHost && isHangmanSender(data.playerId, senderConn)) setHangmanWord(data.word, data.hint, data.playerId, senderConn);
+                    break;
+                case 'HANGMAN_GUESS':
+                    if (isHost && isHangmanSender(data.playerId, senderConn)) handleHangmanGuess(data.letter, data.playerId);
+                    break;
+                case 'HANGMAN_SOLVE':
+                    if (isHost && isHangmanSender(data.playerId, senderConn)) handleHangmanSolve(data.word, data.playerId);
+                    break;
+                case 'HANGMAN_FEEDBACK':
+                    document.getElementById('hangmanActionMessage').innerText = data.text;
+                    document.getElementById('hangmanSetterFeedback').innerText = data.text;
+                    break;
+                case 'HANGMAN_CLOSED':
+                    hangmanRoomActive = false;
+                    hangmanGameStarted = false;
+                    hangmanState = null;
+                    hangmanPlayers = [];
+                    hangmanWord = '';
+                    isHost = false;
+                    if (conn) { conn.close(); conn = null; }
+                    renderHangmanView();
+                    showStatus('Der Host hat die Hangman-Lobby beendet.', 'warning');
                     break;
                 case 'PONG_JOIN':
                     if (isHost && pongPlayers.length < pongMaxPlayers) {
@@ -1640,6 +2521,7 @@
                     conn = null;
                     break;
                 case 'PONG_START':
+                    stopPongGame();
                     pongPlayers = data.players || pongPlayers;
                     pongMaxPlayers = data.maxPlayers || pongMaxPlayers;
                     pongWinScore = data.winScore || pongWinScore;
@@ -1656,7 +2538,8 @@
                     document.getElementById('pongArena').classList.remove('hidden');
                     renderPongLobby();
                     drawPong(pongState);
-                    if (pongRenderLoop) cancelAnimationFrame(pongRenderLoop);
+                    if (pongRenderLoop !== null) cancelAnimationFrame(pongRenderLoop);
+                    pongRenderLoop = null;
                     pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
                     break;
                 case 'PONG_WIN':
@@ -1664,8 +2547,34 @@
                     pongPlayers = data.players || pongPlayers;
                     pongWinnerText = data.winnerText;
                     pongRunning = false;
+                    pongCountdown = 0;
+                    pongPaused = false;
+                    cancelPongLoops();
                     celebrate();
                     drawPong();
+                    break;
+                case 'PONG_PAUSE':
+                    pongState = data.state || pongState;
+                    pongCountdown = data.countdown || 0;
+                    pongPauseCountdown = pongCountdown;
+                    pongPaused = true;
+                    pongRunning = false;
+                    cancelPongLoops();
+                    stopAllSounds();
+                    break;
+                case 'PONG_RESUME':
+                    pongPaused = false;
+                    pongPauseCountdown = 0;
+                    pongState = data.state || pongState;
+                    pongCountdown = data.countdown || 0;
+                    pongRunning = pongCountdown === 0;
+                    pongPreviousSnapshot = pongState;
+                    pongCurrentSnapshot = pongState;
+                    pongSnapshotReceivedAt = performance.now();
+                    if (isPongScreenVisible() && !pongViewPaused) {
+                        drawPong(pongState);
+                        pongRenderLoop = requestAnimationFrame(pongGuestRenderTick);
+                    }
                     break;
                 case 'PONG_SOUND':
                     triggerPongEffect(data.kind, data.x, data.y);
@@ -1689,16 +2598,18 @@
                         if (player) updatePongRemotePaddle(player, data.y);
                     }
                     break;
-                case 'PONG_CLOSED':
+                case 'PONG_CLOSED': {
+                    const pongScreenWasVisible = !document.getElementById('screenPong').classList.contains('hidden');
                     stopPongGame();
                     if (conn) { conn.close(); conn = null; }
                     pongPlayers = [];
                     isHost = false;
                     document.getElementById('pongLobby').classList.remove('hidden');
                     document.getElementById('pongArena').classList.add('hidden');
-                    switchScreen('screenPong');
+                    if (pongScreenWasVisible) switchScreen('screenPong');
                     showStatus('Der Host hat die Pong-Lobby beendet.', 'warning');
                     break;
+                }
                 case 'JOIN':
                     if (isHost) {
                         if (!connections.includes(senderConn)) connections.push(senderConn);
@@ -1740,7 +2651,8 @@
                     }
                     break;
                 case 'BACK_TO_LOBBY':
-                    clearInterval(timerInterval);
+                    stopWordTimer();
+                    stopPongGame();
                     players = data.players;
                     settings = data.settings || settings;
                     gameMode = data.gameMode || gameMode;
@@ -1776,7 +2688,8 @@
                     if (data.kind === 'error' || (data.kind === 'warning' && data.text.indexOf('⚠️') === 0)) playWordError();
                     break;
                 case 'HOST_CLOSED':
-                    clearInterval(timerInterval);
+                    stopWordTimer();
+                    stopPongGame();
                     if (conn) {
                         conn.close();
                         conn = null;
@@ -2116,7 +3029,9 @@
         function hostBackToLobby(skipConfirm = false) {
             if (!isHost) return;
             if (!skipConfirm && !confirm('Spiel abbrechen und alle zurück in die Lobby holen?')) return;
-            clearInterval(timerInterval);
+            stopWordTimer();
+            stopPongGame();
+            stopAllSounds();
             players.forEach(p => { p.score = 0; p.streak = 0; });
             round = 1; wordChain = []; lastScoreSummary = "";
             broadcast({ type: 'BACK_TO_LOBBY', players: pubPlayers(), settings, gameMode });
@@ -2202,7 +3117,7 @@
         }
 
         function startTimer() {
-            clearInterval(timerInterval);
+            stopWordTimer();
             const disp = document.getElementById('timerDisplay');
             if (settings.inf) {
                 timeLeft = 0;
@@ -2221,7 +3136,7 @@
                 timeLeft--; paint();
                 if (timeLeft > 0 && timeLeft <= 5) playTone(880, 0.07, 'sine', 0.045, 620);
                 if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
+                    stopWordTimer();
                     if (isHost && players[currentTurnIndex]) {
                         doPass(players[currentTurnIndex].id, true);
                     }
@@ -2230,7 +3145,8 @@
         }
 
         function showRoundOver(d) {
-            clearInterval(timerInterval);
+            stopWordTimer();
+            stopAllSounds();
             players = d.players.map(p => ({ ...p, conn: (players.find(x => x.id === p.id) || {}).conn }));
             const winner = players.find(p => p.name === d.winner);
             playWordSuccess(winner ? winner.streak : 1);
@@ -2255,7 +3171,7 @@
         }
 
         function switchScreen(screenId) {
-            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
+            ['screenOnboarding', 'screenSetup', 'screenPong', 'screenHangman', 'screenLobby', 'screenGame', 'screenGameOver'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
