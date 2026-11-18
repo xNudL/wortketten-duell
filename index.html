@@ -369,7 +369,7 @@
         .target-tile { background: linear-gradient(145deg, rgba(6,78,59,.34), rgba(9,22,32,.98)) !important; border-color: rgba(52,211,153,.48) !important; box-shadow: 0 0 24px rgba(16,185,129,.08); }
         .blackjack-card-scene {
             width: 4rem;
-            height: 6rem;
+            aspect-ratio: 226 / 314;
             flex: 0 0 auto;
             perspective: 900px;
         }
@@ -391,11 +391,11 @@
         .blackjack-card-inner.is-actionable::after {
             content: "";
             position: absolute;
-            inset: -3px;
+            inset: 0;
             z-index: 2;
             border: 2px solid rgba(34,211,238,.78);
-            border-radius: .85rem;
-            box-shadow: 0 0 0 1px rgba(34,211,238,.18), 0 0 14px rgba(34,211,238,.55), inset 0 0 10px rgba(34,211,238,.18);
+            border-radius: .65rem;
+            filter: drop-shadow(0 0 5px rgba(34,211,238,.7)) drop-shadow(0 0 11px rgba(34,211,238,.42));
             pointer-events: none;
             transform: translateZ(1px);
             animation: blackjackCardActionGlow 1.7s ease-in-out infinite;
@@ -405,21 +405,24 @@
         .blackjack-card-face {
             position: absolute;
             inset: 0;
-            overflow: hidden;
-            border: 1px solid #cbd5e1;
-            border-radius: .7rem;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            box-shadow: 0 8px 18px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.92);
+            background: transparent;
         }
         .blackjack-card-image {
             display: block;
             width: 100%;
             height: 100%;
-            border-radius: .62rem;
             object-fit: contain;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.6));
         }
-        .blackjack-card-front { background: linear-gradient(145deg, #fff 0%, #f8fafc 55%, #e2e8f0 100%); }
+        .blackjack-card-front { background: transparent; }
+        .blackjack-card-front.is-fallback {
+            border: 1px solid #cbd5e1;
+            border-radius: .65rem;
+            background: linear-gradient(145deg, #fff 0%, #f8fafc 55%, #e2e8f0 100%);
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.6));
+        }
         .blackjack-card-fallback {
             position: absolute;
             inset: .375rem;
@@ -437,12 +440,14 @@
         .blackjack-card-fallback-suit { align-self: center; font-size: 2rem; }
         .blackjack-card-fallback-corner.is-reversed { align-self: flex-end; transform: rotate(180deg); }
         .blackjack-card-back {
-            border-color: rgba(226,192,112,.75);
-            background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
-            box-shadow: inset 0 0 0 3px rgba(212,175,55,.24), 0 8px 18px rgba(0,0,0,.32);
             color: #fef3c7;
         }
-        .blackjack-card-back .blackjack-card-image { border-radius: .55rem; }
+        .blackjack-card-back.is-fallback {
+            border: 1px solid rgba(226,192,112,.75);
+            border-radius: .65rem;
+            background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.6));
+        }
         .blackjack-card-back-fallback {
             position: absolute;
             inset: 3px;
@@ -469,8 +474,8 @@
             background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
         }
         @keyframes blackjackCardActionGlow {
-            0%, 100% { opacity: .58; filter: brightness(.9); }
-            50% { opacity: 1; filter: brightness(1.2); }
+            0%, 100% { opacity: .58; }
+            50% { opacity: 1; }
         }
         .blackjack-card-front { transform: rotateY(180deg); }
         @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
