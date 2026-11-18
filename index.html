@@ -388,6 +388,18 @@
         }
         .blackjack-card-inner:not(:disabled) { cursor: pointer; }
         .blackjack-card-inner:focus-visible { outline: 2px solid rgba(252,211,77,.9); outline-offset: 3px; }
+        .blackjack-card-inner.is-actionable::after {
+            content: "";
+            position: absolute;
+            inset: -3px;
+            z-index: 2;
+            border: 2px solid rgba(34,211,238,.78);
+            border-radius: .85rem;
+            box-shadow: 0 0 0 1px rgba(34,211,238,.18), 0 0 14px rgba(34,211,238,.55), inset 0 0 10px rgba(34,211,238,.18);
+            pointer-events: none;
+            transform: translateZ(1px);
+            animation: blackjackCardActionGlow 1.7s ease-in-out infinite;
+        }
         .blackjack-card-inner.is-flipped { transform: rotateY(180deg); }
         .blackjack-card-inner.is-flip-pending { animation: blackjackCardFlip .68s cubic-bezier(.2,.8,.2,1) both; }
         .blackjack-card-face {
@@ -455,6 +467,10 @@
         .blackjack-card-back-fallback span { position: relative; }
         .blackjack-card-back-fallback {
             background: repeating-linear-gradient(45deg, #173f34 0 5px, #0d2b2c 5px 10px);
+        }
+        @keyframes blackjackCardActionGlow {
+            0%, 100% { opacity: .58; filter: brightness(.9); }
+            50% { opacity: 1; filter: brightness(1.2); }
         }
         .blackjack-card-front { transform: rotateY(180deg); }
         @keyframes blackjackCardFlip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
@@ -1065,6 +1081,7 @@
             .blackjack-card-scene.is-new { animation: none; }
             .blackjack-card-inner { transition: none; }
             .blackjack-card-inner.is-flip-pending { animation: none; transform: rotateY(180deg); }
+            .blackjack-card-inner.is-actionable::after { animation: none; }
             .blackjack-player-box { transition: none; }
             .blackjack-winner-card { animation: none; }
             .blackjack-player-box.has-blackjack-win,
@@ -4590,13 +4607,14 @@
             syncBlackjackTable();
         }
 
-        function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false, handIndex = 0) {
+        function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false, handIndex = 0, isActionable = canFlip) {
             const faceUp = blackjackCardIsFaceUp(card);
             const rank = card && typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) ? card.rank : '';
             const suit = card && ['♠', '♥', '♦', '♣'].includes(card.suit) ? card.suit : '';
             const hasValue = !!(rank && suit);
             const redSuit = hasValue && (suit === '♥' || suit === '♦');
             const label = faceUp && hasValue ? `${rank} ${suit}` : 'Verdeckte Karte';
+            const actionableDownCard = isActionable && !faceUp;
             const onClick = canFlip ? `onclick="blackjackFlipCard(${cardIndex}, ${dealerHand}, ${handIndex})"` : '';
             const newCardClass = card && card.isNewlyDealt ? 'is-new' : '';
             const animateFlip = faceUp && !!(card && card.isNewlyFlipped);
@@ -4607,7 +4625,7 @@
                 : '';
             const fallbackColor = redSuit ? 'is-red' : '';
             return `<div class="blackjack-card-scene ${newCardClass}">
-                <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : label}">
+                <button type="button" class="blackjack-card-inner ${faceUp && !animateFlip ? 'is-flipped' : ''} ${animateFlip ? 'is-flip-pending' : ''} ${actionableDownCard ? 'is-actionable' : ''}" ${onClick} ${canFlip ? '' : 'disabled'} aria-label="${canFlip ? 'Verdeckte Karte aufdecken' : label}" title="${canFlip ? 'Zum Aufdecken klicken' : actionableDownCard ? 'Wird jetzt vom aktiven Spieler aufgedeckt' : label}">
                     <span class="blackjack-card-face blackjack-card-back" aria-hidden="true">
                         <img class="blackjack-card-image" src="https://deckofcardsapi.com/static/img/back.png" alt="" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')">
                         <span class="blackjack-card-back-fallback"><span>✦<small>DECK</small></span></span>
@@ -4868,8 +4886,18 @@
                         const canFlip = isDealer
                             ? !!(isMyDealer && state && state.phase === 'dealer')
                             : !!(player.id === myId && isCurrentHand && hand.status === 'playing');
+                        const handNeedsFlip = isDealer
+                            ? !!(humanDealer && state && state.phase === 'dealer')
+                            : !!(state && state.phase === 'playing' && isCurrentHand && hand.status === 'playing');
                         const cardMarkup = hand.cards.map((card, index) =>
-                            blackjackCardMarkup(card, canFlip && card.isFlipped === false, index, isDealer, handIndex)
+                            blackjackCardMarkup(
+                                card,
+                                canFlip && card.isFlipped === false,
+                                index,
+                                isDealer,
+                                handIndex,
+                                handNeedsFlip && card.isFlipped === false
+                            )
                         ).join('');
                         const compactCardRow = hand.cards.length > 2 || (playerHands.length > 1 && !isActive);
                         const hasVisibleCard = hand.cards.some(blackjackCardIsFaceUp);
@@ -4971,8 +4999,7 @@
                 } else if (humanDealer && isDealer && state && state.phase === 'dealer') {
                     if (humanDealerHoleCardIndex >= 0) {
                         contextActions = `<div class="blackjack-context-actions">
-                            <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Decke deine verdeckte Karte auf' : `Warten auf ${escapeHtml(player.name)}, der die Dealer-Karte aufdeckt`}</p>
-                            <button id="blackjackDealerRevealButton" onclick="blackjackFlipCard(${humanDealerHoleCardIndex}, true)" ${isMyDealer ? '' : 'disabled'} class="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:bg-amber-400 active:scale-95 disabled:cursor-wait disabled:opacity-50">${isMyDealer ? 'Dealer-Karte aufdecken' : 'Warte auf Dealer-Aufdecken ...'}</button>
+                            <p class="mb-2 text-[9px] font-bold uppercase tracking-[.18em] text-amber-200/80">${isMyDealer ? 'Tippe auf deine leuchtende Karte, um sie aufzudecken.' : `Warten auf ${escapeHtml(player.name)}, der seine verdeckte Dealer-Karte aufdeckt.`}</p>
                         </div>`;
                     } else {
                         const canDealerAct = isMyDealer && visibleDealerCards.length > 0 && visibleDealerCards.every(blackjackCardIsFaceUp);
