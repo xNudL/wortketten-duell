@@ -1374,7 +1374,14 @@
 
         function updateDevToolsLock() {
             const overlay = document.getElementById('devtoolsOverlay');
-            if (!overlay || devToolsBypass) return;
+            if (!overlay) return;
+            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
+                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+            if (devToolsBypass || window.innerWidth < 768 || isTouchDevice) {
+                overlay.classList.remove('devtools-open');
+                overlay.setAttribute('aria-hidden', 'true');
+                return;
+            }
             const widthDiff = window.outerWidth > 0 ? Math.abs(window.outerWidth - window.innerWidth) : 0;
             const heightDiff = window.outerHeight > 0 ? Math.abs(window.outerHeight - window.innerHeight) : 0;
             const devToolsOpen = widthDiff > 160 || heightDiff > 160;
