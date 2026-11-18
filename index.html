@@ -443,11 +443,15 @@
         }
         .blackjack-player-box.is-compact { padding: .7rem; }
         #mainContent.blackjack-round-active {
+            overflow: hidden;
             justify-content: flex-start;
-            padding-top: .5rem;
-            padding-bottom: .5rem;
+            padding: 0 .75rem;
         }
         #screenBlackjack.blackjack-round-active {
+            display: flex;
+            flex: 1 1 0%;
+            min-height: 0;
+            flex-direction: column;
             margin-top: 0;
         }
         #screenBlackjack.blackjack-round-active #blackjackIntro,
@@ -455,41 +459,153 @@
             display: none;
         }
         #screenBlackjack.blackjack-round-active > .glass {
-            padding-top: .75rem;
-            padding-bottom: .75rem;
+            display: flex;
+            flex: 1 1 0%;
+            min-height: 0;
+            flex-direction: column;
+            overflow: hidden;
+            padding: .5rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackTable {
+            display: flex;
+            flex: 1 1 0%;
+            min-height: 0;
+            flex-direction: column;
         }
         #screenBlackjack.blackjack-round-active #blackjackTable > .flex {
-            margin-bottom: .5rem;
+            flex: 0 0 auto;
+            gap: .5rem;
+            margin-bottom: .3rem;
         }
         #screenBlackjack.blackjack-round-active #blackjackMessage {
-            margin-bottom: .75rem;
+            flex: 0 0 auto;
+            min-height: 1rem;
+            margin-bottom: .3rem;
         }
         #screenBlackjack.blackjack-round-active #blackjackFelt {
-            padding: .65rem;
+            display: flex;
+            flex: 1 1 0%;
+            min-height: 0;
+            flex-direction: column;
+            gap: .25rem;
+            padding: .45rem;
         }
         #screenBlackjack.blackjack-round-active #blackjackPlayersList {
-            gap: .55rem;
+            display: grid;
+            flex: 1 1 0%;
+            min-height: 0;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+            grid-auto-rows: max-content;
+            align-content: center;
+            align-items: start;
+            gap: .4rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box.is-active {
+            grid-column: auto;
+            width: auto;
+            justify-self: stretch;
+            transform: none;
+            padding: .45rem;
+            border-radius: .9rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box.has-split-hands.is-active {
+            grid-column: span 2;
         }
         #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact {
-            padding: .55rem;
-        }
-        #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact .blackjack-hand-zone {
-            min-height: 0;
-            margin-top: .35rem;
+            transform: none;
             padding: .4rem;
+            border-radius: .9rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
+            transform: none;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-avatar {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: .55rem;
+            font-size: .8rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box > div:first-child {
+            gap: .4rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box > div:first-child p {
+            font-size: 9px;
+            line-height: 1.1;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box > div:first-child .shrink-0 {
+            gap: .2rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box > div:first-child .shrink-0 span {
+            padding: .15rem .35rem;
+            font-size: 8px;
+            line-height: 1.1;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-zone {
+            min-height: 0;
+            gap: .3rem;
+            margin: .3rem 0 0;
+            padding: .3rem;
+            border-radius: .65rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel {
+            padding: .4rem;
+            border-radius: .6rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel > div:first-child {
+            margin-bottom: .25rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel > .mt-2 {
+            margin-top: .25rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel .mt-3 {
+            margin-top: .35rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-hand-panel .mt-3 button {
+            padding: .35rem .5rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-card-fan {
+            flex-wrap: nowrap;
+            gap: 0;
+            overflow: hidden;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-card-fan .blackjack-card-scene + .blackjack-card-scene {
+            margin-left: -2.5rem;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact .blackjack-hand-panel > div:first-child {
+            display: none;
+        }
+        #screenBlackjack.blackjack-round-active .blackjack-context-actions {
+            min-height: 0;
+            margin-top: .3rem;
+            padding-top: .3rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackFelt > div.relative.mt-5 {
+            flex: 0 0 auto;
+            margin-top: .3rem;
         }
         @media (max-height: 760px) {
             #screenBlackjack.blackjack-round-active > .glass {
-                padding-top: .5rem;
-                padding-bottom: .5rem;
+                padding: .35rem;
             }
             #screenBlackjack.blackjack-round-active #blackjackMessage {
-                margin-bottom: .4rem;
+                margin-bottom: .2rem;
+            }
+            #screenBlackjack.blackjack-round-active #blackjackFelt {
+                padding: .35rem;
+            }
+            #screenBlackjack.blackjack-round-active #blackjackPlayersList {
+                gap: .25rem;
+            }
+            #screenBlackjack.blackjack-round-active .blackjack-player-box.is-active,
+            #screenBlackjack.blackjack-round-active .blackjack-player-box.is-compact {
+                padding: .3rem;
             }
             #screenBlackjack.blackjack-round-active .blackjack-hand-zone {
-                min-height: 0;
-                margin-top: .45rem;
-                padding: .5rem;
+                margin-top: .2rem;
+                padding: .2rem;
+            }
+            #screenBlackjack.blackjack-round-active .blackjack-hand-panel {
+                padding: .3rem;
             }
         }
         #blackjackPlayersList.has-active .blackjack-player-box:not(.is-active) {
@@ -3947,6 +4063,7 @@
                         const cardMarkup = hand.cards.map((card, index) =>
                             blackjackCardMarkup(card, canFlip && card.isFlipped === false, index, isDealer, handIndex)
                         ).join('');
+                        const compactCardRow = hand.cards.length > 2 || (playerHands.length > 1 && !isActive);
                         const handTotal = hand.cards.some(blackjackCardIsFaceUp)
                             ? blackjackHandValue(hand.cards)
                             : '—';
@@ -3975,7 +4092,7 @@
                                 <span class="text-amber-100">${isDealer ? 'Dealer-Hand' : playerHands.length > 1 ? `Hand ${handIndex + 1}` : 'Spieler-Hand'}</span>
                                 <span class="${isCurrentHand ? 'text-emerald-200' : 'text-gray-400'}">${handStatus}</span>
                             </div>
-                            <div class="flex min-h-24 flex-wrap items-center justify-center gap-2">${cardMarkup}</div>
+                            <div class="flex min-h-24 flex-wrap items-center justify-center gap-2 ${compactCardRow ? 'blackjack-card-fan' : ''}">${cardMarkup}</div>
                             <div class="mt-2 flex justify-between text-[10px] font-semibold text-gray-300">
                                 <span>${isDealer ? `Dealerpunkte ${handTotal}` : `Punkte ${handTotal}`}</span>
                                 ${!isDealer ? `<span>Einsatz ${hand.bet} Chips</span>` : `<span>${state && state.dealerRevealed ? 'Offen' : 'Verdeckt'}</span>`}
@@ -4021,7 +4138,7 @@
                     </div>`;
                 }
 
-                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
+                return `<article class="blackjack-player-box p-4 ${isActive ? 'is-active' : hasActivePlayer ? 'is-compact' : ''} ${playerHands.length > 1 ? 'has-split-hands' : ''}" data-player-id="${escapeHtml(player.id)}" style="--player-color:${displayColor}">
                     <div class="flex min-w-0 items-center gap-3">
                         <div class="blackjack-player-avatar" aria-hidden="true">${escapeHtml(avatar)}</div>
                         <div class="min-w-0 flex-1">
