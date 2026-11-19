@@ -2422,6 +2422,11 @@
             }, []);
         }
 
+        /**
+         * Bereinigt eine Kartenliste, die über PeerJS vom Host kommt (Client-Seite, Schutz vor manipulierten Daten).
+         * Max. 12 Karten. Verdeckte Karten (isFlipped === false) verlieren rank/suit, damit nie ein Wert durchsickert.
+         * Offene Karten müssen ein gültiges rank (A,2-10,J,Q,K) und suit (♠♥♦♣) haben, sonst werden sie verworfen.
+         */
         function sanitizeBlackjackCards(cards) {
             if (!Array.isArray(cards)) return [];
             return cards.slice(0, 12).filter(card => {
@@ -2438,6 +2443,10 @@
             }));
         }
 
+        /**
+         * Bereinigt die Hände eines Spielers (max. 2 wegen Split). Erlaubte Status: playing, stood, bust, win, lose, push.
+         * Felder: cards, bet, status, natural (echtes Blackjack), doublePending (Double wartet auf Aufdecken), isSplit.
+         */
         function sanitizeBlackjackHands(hands) {
             return hands.slice(0, 2).filter(hand => hand && typeof hand === 'object').map(hand => ({
                 cards: sanitizeBlackjackCards(hand.cards),
@@ -2516,6 +2525,11 @@
             };
         }
 
+        /**
+         * Bereinigt den öffentlichen Tischzustand (getPublicBlackjackState) auf dem Client. Gibt null zurück, wenn ungültig.
+         * Phasen: betting -> dealing -> playing -> dealer -> settled. Neue Felder im State MÜSSEN hier ergänzt werden,
+         * sonst verwirft der Client sie stillschweigend.
+         */
         function sanitizeBlackjackState(value) {
             if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
             const phases = ['betting', 'dealing', 'playing', 'dealer', 'settled'];
@@ -2822,6 +2836,10 @@
             });
         }
 
+        /**
+         * Trägt das Rundenergebnis des LOKALEN Spielers einmal pro Runde in die Statistik ein (win / push / lose).
+         * Der Schlüssel Raumcode:Runde verhindert doppeltes Zählen. Dealer und Zuschauer ohne Hand zählen nicht.
+         */
         function recordBlackjackRoundStats() {
             if (!blackjackState || blackjackState.phase !== 'settled') return;
             const key = `${document.getElementById('blackjackRoomCode').textContent}:${blackjackState.round}`;
@@ -2958,6 +2976,10 @@
             };
         }
 
+        /**
+         * Vergleicht den aktuellen Zustand mit dem letzten Snapshot und spielt Sounds ab (Karte verteilt, Karte umgedreht,
+         * Runde gewonnen/verloren). Rein visuell/akustisch, verändert keinen Spielzustand.
+         */
         function playBlackjackStateSound() {
             if (!blackjackRoomActive || !blackjackState) {
                 blackjackAudioSnapshot = null;
@@ -3886,6 +3908,9 @@
             return sendLobbyInvitation(friendTag, 'HANGMAN_LOBBY_INVITE');
         }
 
+        /**
+         * Lädt einen Freund (per 4-stelligem Tag) zum eigenen Blackjack-Tisch ein (BLACKJACK_LOBBY_INVITE).
+         */
         function inviteFriendToBlackjack(friendTag) {
             return sendLobbyInvitation(friendTag, 'BLACKJACK_LOBBY_INVITE');
         }
@@ -3985,6 +4010,38 @@
             }
         }
 
+        /* =====================================================================================
+         * BLACKJACK – ÜBERSICHT (für Entwickler und KI-Assistenten)
+         * =====================================================================================
+         * Architektur: Peer-to-Peer über PeerJS. Der HOST (isHost === true) ist die einzige Instanz, die Regeln
+         * ausführt, Karten zieht und Guthaben ändert. CLIENTS senden nur Aktionen (BLACKJACK_BET, _ACTION, _DEAL,
+         * _DEALER_ACTION, _FLIP_CARD) und erhalten den Zustand per BLACKJACK_SYNC. Nachrichten werden im
+         * Netzwerk-Handler (switch über data.type, Suche: "case 'BLACKJACK_") verarbeitet.
+         * Faustregel: Funktionen "process*" laufen nur auf dem Host, "render*" nur zum Zeichnen, "schedule*" setzen
+         * Timer (immer mit Token prüfen, damit veraltete Timer nichts auslösen).
+         *
+         * Globale Variablen (Zeile ~2734): blackjackPlayers (Spieler inkl. Guthaben und Händen), blackjackState
+         * (Rundenzustand), blackjackDeck (6 Decks), blackjackDealerId ('bank' oder Spieler-ID).
+         *
+         * Rundenphasen (blackjackState.phase):
+         *   betting  -> Einsätze setzen (startBlackjackRound, processBlackjackBet)
+         *   dealing  -> Karten verteilen; bei Ass/Zehn als offener Dealerkarte zusätzlich PEEK (siehe unten)
+         *   playing  -> Spieler sind reihum dran: Karten umdrehen, hit/stand/double/split
+         *   dealer   -> Dealer deckt auf und zieht (Bank automatisch bis 17, menschlicher Dealer manuell)
+         *   settled  -> Auswertung (resolveBlackjackRound), danach nächste Runde möglich
+         *
+         * Wichtige Regeln: 6 Decks, Natural zahlt 3:2, Dealer zieht bis 17, Double nur auf 2 Karten, Split nur einmal
+         * bei gleichem Kartenwert, Mindesteinsatz BLACKJACK_MIN_BET in Zehnerschritten.
+         *
+         * Alle Karten werden verdeckt ausgeteilt und vom Spieler selbst umgedreht. Verdeckte Karten dürfen NIE mit
+         * rank/suit an Clients gehen (getPublicBlackjackState/Players und sanitizeBlackjackCards sorgen dafür).
+         *
+         * PEEK-REGEL (BLACKJACK_DEALER_PEEK): Zeigt der Dealer Ass oder 10/J/Q/K, wird direkt nach dem Austeilen seine
+         * verdeckte Karte geprüft (startBlackjackDealerPeek -> resolveBlackjackDealerPeek). Dealer-Blackjack beendet die
+         * Runde sofort; sonst läuft das Spiel normal weiter. Mit false gilt "No Peek" (europäische Regel).
+         *
+         * Nach jeder Zustandsänderung MUSS syncBlackjackTable() aufgerufen werden.
+         * ===================================================================================== */
         const BLACKJACK_SUITS = ['♠', '♥', '♦', '♣'];
         const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         const BLACKJACK_MAX_PLAYERS = 6;
@@ -3994,7 +4051,20 @@
         const BLACKJACK_CARD_REVEAL_DELAY_MS = 800;
         const BLACKJACK_BANK_RESULT_DELAY_MS = 1600;
         const BLACKJACK_TURN_PAUSE_MS = 1350;
+        // Dealer-Peek (US-Regel / "Hole Card"-Regel):
+        // true  = Zeigt der Dealer ein Ass oder eine Zehnerkarte (10/J/Q/K), schaut er SOFORT nach dem Austeilen
+        //         auf seine verdeckte Karte. Hat er Blackjack, endet die Runde direkt (kein Double/Split mehr gegen ein
+        //         Dealer-Blackjack). Hat er keins, geht das Spiel normal weiter.
+        // false = "No Peek" (europäische Regel): Der Dealer schaut nie vorzeitig, die verdeckte Karte wird erst im
+        //         Dealerzug nach allen Spielern aufgedeckt.
+        const BLACKJACK_DEALER_PEEK = true;
+        const BLACKJACK_PEEK_DELAY_MS = 1500;      // Pause, in der der Dealer "nachschaut"
+        const BLACKJACK_PEEK_REVEAL_DELAY_MS = 1700; // Pause zwischen Aufdecken des Dealer-Blackjacks und Auswertung
 
+        /**
+         * Erstellt einen Blackjack-Tisch: Dieser Client wird HOST (autoritativ für alle Spielregeln und den Kartenstapel).
+         * Der Raumcode ist der eigene 4-stellige Tag. Startguthaben kommt aus dem Auswahlfeld, Dealer ist zunächst die Bank.
+         */
         function hostBlackjackLobby() {
             const startingBankroll = Number(document.getElementById('blackjackStartingBankrollSelect').value);
             blackjackStartingBankroll = BLACKJACK_STARTING_BANKROLLS.includes(startingBankroll)
@@ -4021,6 +4091,10 @@
             });
         }
 
+        /**
+         * Tritt einem Tisch per 4-stelligem Code bei. Der Client sendet BLACKJACK_JOIN und erhält danach BLACKJACK_SYNC-Updates.
+         * Clients berechnen keine Regeln selbst, sie schicken nur Aktionen an den Host.
+         */
         function joinBlackjackLobby(overrideCode = null) {
             const code = String(overrideCode || document.getElementById('blackjackRoomCodeInput').value).trim();
             if (!/^\d{4}$/.test(code)) return showToast('Bitte gib einen gültigen vierstelligen Tischcode ein.', 'warning');
@@ -4049,6 +4123,9 @@
             });
         }
 
+        /**
+         * Erzeugt einen frisch gemischten Stapel aus 6 Decks (312 Karten, Fisher-Yates-Mischen).
+         */
         function createBlackjackDeck() {
             const deck = [];
             for (let pack = 0; pack < 6; pack++) {
@@ -4063,21 +4140,36 @@
             return deck;
         }
 
+        /**
+         * Zieht die oberste Karte (baut bei leerem Stapel einen neuen). Die Karte ist zunächst VERDECKT (isFlipped: false);
+         * Spieler drehen sie selbst um (blackjackFlipCard). isNewlyDealt steuert nur die Austeil-Animation.
+         */
         function drawBlackjackCard() {
             if (!blackjackDeck.length) blackjackDeck = createBlackjackDeck();
             return { ...blackjackDeck.pop(), isFlipped: false, isNewlyDealt: true };
         }
 
+        /**
+         * true, wenn die Karte offen liegt. Karten ohne isFlipped-Feld gelten als offen.
+         */
         function blackjackCardIsFaceUp(card) {
             return !!card && card.isFlipped !== false;
         }
 
+        /**
+         * true, wenn die erste OFFENE Dealerkarte ein Ass oder eine Zehnerkarte (10, J, Q, K) ist.
+         * Nur dann kann die verdeckte Karte ein Blackjack ergeben. Grundlage der Peek-Regel (siehe BLACKJACK_DEALER_PEEK).
+         */
         function blackjackDealerPeekRequired(cards) {
             const upCard = (cards || []).find(blackjackCardIsFaceUp);
             return !!upCard && (upCard.rank === 'A' || upCard.rank === '10' ||
                 ['J', 'Q', 'K'].includes(upCard.rank));
         }
 
+        /**
+         * Handwert nach Blackjack-Regeln. Zählt NUR offene Karten. Ass = 11, wird bei > 21 stufenweise zu 1 (soft/hard Hand).
+         * Für den Wert inklusive verdeckter Karten diese vorher als offen kopieren (siehe resolveBlackjackDealerPeek).
+         */
         function blackjackHandValue(cards) {
             let total = 0;
             let aces = 0;
@@ -4099,11 +4191,17 @@
             return total;
         }
 
+        /**
+         * Einzelwert einer Karte: Ass 11, Bildkarten 10, sonst Zahl. Wird für die Split-Prüfung genutzt.
+         */
         function blackjackCardValue(card) {
             if (!card || !BLACKJACK_RANKS.includes(card.rank)) return 0;
             return card.rank === 'A' ? 11 : ['J', 'Q', 'K'].includes(card.rank) ? 10 : Number(card.rank);
         }
 
+        /**
+         * Liefert die Hand, die der Spieler gerade spielt (currentHandIndex, wichtig nach einem Split).
+         */
         function getCurrentBlackjackHand(player) {
             if (!player || !Array.isArray(player.hands) || !player.hands.length) return null;
             const index = blackjackState && blackjackState.currentPlayerId === player.id
@@ -4112,6 +4210,10 @@
             return player.hands[index] || null;
         }
 
+        /**
+         * Split erlaubt, wenn: nur eine Hand, genau 2 offene Karten mit gleichem Wert (10 und König sind gleich)
+         * und genug Guthaben für einen zweiten Einsatz. Nur einmal pro Runde möglich (max. 2 Hände).
+         */
         function canSplitBlackjackHand(player, hand = getCurrentBlackjackHand(player)) {
             return !!hand && player.hands.length === 1 && hand.cards.length === 2 &&
                 hand.cards.every(blackjackCardIsFaceUp) &&
@@ -4119,6 +4221,10 @@
                 player.bankroll >= hand.bet;
         }
 
+        /**
+         * Baut die Spielerliste für den Versand an Clients. Verdeckte Karten werden auf { isFlipped: false } reduziert,
+         * damit kein Client fremde verdeckte Werte sieht. Enthält Guthaben, Einsatz, Status, Rolle (dealer/punter), Farbe, Badge.
+         */
         function getPublicBlackjackPlayers() {
             return blackjackPlayers.map(player => ({
                 id: player.id, name: player.name,
@@ -4138,6 +4244,10 @@
             }));
         }
 
+        /**
+         * Baut den öffentlichen Rundenzustand. Die verdeckte Dealerkarte bleibt verborgen, außer der Betrachter ist der
+         * menschliche Dealer. dealerTotal zählt nur offene Karten. Neue Felder auch in sanitizeBlackjackState ergänzen.
+         */
         function getPublicBlackjackState(viewerId = null) {
             if (!blackjackState) return null;
             const dealerCards = blackjackState.dealerCards.map(card => {
@@ -4168,6 +4278,10 @@
             };
         }
 
+        /**
+         * ZENTRALER UPDATE-PUNKT: Nach JEDER Zustandsänderung aufrufen. Der Host sendet BLACKJACK_SYNC an alle Clients
+         * (jeweils mit der Sicht des Empfängers) und rendert danach lokal neu (renderBlackjackView).
+         */
         function syncBlackjackTable() {
             if (isHost) {
                 connections.forEach(connection => {
@@ -4195,6 +4309,9 @@
             renderBlackjackView();
         }
 
+        /**
+         * Host-only, nur vor der ersten Runde: setzt das Startguthaben für alle Spieler zurück/neu.
+         */
         function setBlackjackStartingBankroll(value) {
             const startingBankroll = Number(value);
             if (!isHost || !blackjackRoomActive || blackjackState ||
@@ -4209,6 +4326,9 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Host-only, nur vor der ersten Runde: wählt Dealer (menschlicher Spieler oder "bank"). Mensch braucht >= 1 Punter.
+         */
         function setBlackjackDealer(dealerId) {
             if (!isHost || !blackjackRoomActive || blackjackState) return;
             const nextDealerId = String(dealerId);
@@ -4222,6 +4342,10 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Host-only. Startet eine neue Runde in Phase "betting": neuer Stapel, Hände geleert, Standardeinsatz gesetzt.
+         * Spieler mit weniger als dem Mindesteinsatz sind "broke" und schauen zu. Ein menschlicher Dealer setzt nicht.
+         */
         function startBlackjackRound() {
             if (!isHost || !blackjackRoomActive || !blackjackPlayers.length ||
                 (blackjackState && blackjackState.phase !== 'settled')) return;
@@ -4266,6 +4390,9 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Client-Aktion: validiert den Einsatz (Vielfaches von BLACKJACK_MIN_BET) und sendet ihn an den Host (BLACKJACK_BET).
+         */
         function placeBlackjackBet() {
             const input = document.getElementById('blackjackBetInput');
             const amount = input ? Number(input.value) : NaN;
@@ -4277,6 +4404,9 @@
             else if (conn && conn.open) conn.send({ type: 'BLACKJACK_BET', amount, playerId: myId });
         }
 
+        /**
+         * Host: übernimmt einen Einsatz (zieht ihn sofort vom Guthaben ab, sperrt den Einsatz) und prüft, ob alle gesetzt haben.
+         */
         function processBlackjackBet(amount, playerId, senderConn = null) {
             if (!isHost || !blackjackState || blackjackState.phase !== 'betting' ||
                 !Number.isSafeInteger(amount) || amount < BLACKJACK_MIN_BET ||
@@ -4294,6 +4424,10 @@
             advanceBlackjackBetting();
         }
 
+        /**
+         * Host: Wenn alle Punter ihren Einsatz gesperrt haben, werden Hände angelegt und Phase "dealing" beginnt.
+         * Bank teilt automatisch aus (scheduleBlackjackBankDeal), ein menschlicher Dealer klickt "Erste Karten austeilen".
+         */
         function advanceBlackjackBetting() {
             if (!isHost || !blackjackState || blackjackState.phase !== 'betting') return;
             const humanDealer = blackjackDealerId !== 'bank' &&
@@ -4338,6 +4472,10 @@
             }
         }
 
+        /**
+         * Host: Teilt aus. Reihenfolge: Spieler 1. Karte, Dealer OFFENE Karte, Spieler 2. Karte, Dealer VERDECKTE Karte (Hole Card).
+         * Alle Spielerkarten sind verdeckt und werden vom jeweiligen Spieler umgedreht. Danach: scheduleBlackjackFirstPlayerTurn.
+         */
         function dealBlackjackCards(dealerPlayerId = blackjackDealerId, senderConn = null) {
             if (!isHost || !blackjackState || blackjackState.phase !== 'dealing' ||
                 blackjackState.dealComplete) return;
@@ -4373,12 +4511,22 @@
             }
         }
 
+        /**
+         * Host: Nach kurzer Pause beginnt der erste Spielerzug. PEEK-REGEL: Zeigt der Dealer Ass/Zehn und BLACKJACK_DEALER_PEEK
+         * ist an, wird zuerst startBlackjackDealerPeek ausgeführt, erst danach wird die Phase "playing" erreicht.
+         */
         function scheduleBlackjackFirstPlayerTurn(turnToken) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
                 if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
                     blackjackState.phase !== 'dealing' || !blackjackState.dealComplete) return;
                 const currentPlayer = blackjackPlayers.find(player => player.status === 'playing');
+                // Peek-Regel: Bei Ass/Zehn als offener Dealerkarte zuerst die verdeckte Karte prüfen.
+                // dealComplete bleibt dabei true, damit ein menschlicher Dealer nicht erneut "Austeilen" sieht.
+                if (currentPlayer && BLACKJACK_DEALER_PEEK && blackjackDealerPeekRequired(blackjackState.dealerCards)) {
+                    startBlackjackDealerPeek(turnToken);
+                    return;
+                }
                 blackjackState.dealComplete = false;
                 if (!currentPlayer) {
                     beginBlackjackDealerTurn();
@@ -4392,6 +4540,89 @@
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
+        /**
+         * PEEK, Schritt 1 (nur Host): Der Dealer zeigt Ass oder Zehnerwert und schaut auf seine verdeckte Karte.
+         * Es wird nur eine Nachricht gesetzt und nach BLACKJACK_PEEK_DELAY_MS resolveBlackjackDealerPeek() ausgeführt.
+         * Die Phase bleibt 'dealing' und dealComplete bleibt true (Zustand "Karten sind verteilt, Peek läuft").
+         * Der turnToken verhindert, dass ein veralteter Timer (z. B. nach Rundenabbruch) noch etwas auslöst.
+         * Der Peek läuft immer automatisch auf dem Host (auch bei menschlichem Dealer), niemand muss etwas anklicken.
+         * Die verdeckte Karte wird dabei NICHT an die Clients verraten, solange kein Dealer-Blackjack vorliegt.
+         */
+        function startBlackjackDealerPeek(turnToken) {
+            if (!blackjackState) return;
+            const upCard = blackjackState.dealerCards.find(blackjackCardIsFaceUp);
+            const upCardText = upCard && upCard.rank === 'A' ? 'ein Ass' : 'eine Zehnerkarte';
+            blackjackState.message = `Der Dealer zeigt ${upCardText} und schaut auf seine verdeckte Karte (Peek) ...`;
+            syncBlackjackTable();
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealing' || !blackjackState.dealComplete) return;
+                resolveBlackjackDealerPeek(turnToken);
+            }, BLACKJACK_PEEK_DELAY_MS);
+        }
+
+        /**
+         * PEEK, Schritt 2 (nur Host): Prüft, ob Offene Karte + verdeckte Karte zusammen Blackjack (21 mit 2 Karten) ergeben.
+         *  - KEIN Dealer-Blackjack: Die verdeckte Karte bleibt verdeckt, der erste Spieler ist am Zug (Phase 'playing').
+         *  - Dealer-Blackjack: Die verdeckte Karte wird aufgedeckt, alle Spielerhände werden aufgedeckt und die Runde
+         *    wird nach kurzer Pause sofort ausgewertet (resolveBlackjackRound). Spieler mit eigenem Blackjack
+         *    bekommen ihren Einsatz zurück (Push), alle anderen verlieren. Kein Double/Split mehr möglich.
+         */
+        function resolveBlackjackDealerPeek(turnToken) {
+            if (!blackjackState) return;
+            const holeCard = blackjackState.dealerCards.find(card => card && card.isFlipped === false);
+            // blackjackHandValue() ignoriert verdeckte Karten, deshalb für die Prüfung alle Karten als offen behandeln.
+            const dealerHasBlackjack = !!holeCard && blackjackState.dealerCards.length === 2 &&
+                blackjackHandValue(blackjackState.dealerCards.map(card => ({ ...card, isFlipped: true }))) === 21;
+
+            if (!dealerHasBlackjack) {
+                blackjackState.dealComplete = false;
+                const firstPlayer = blackjackPlayers.find(player => player.status === 'playing');
+                if (!firstPlayer) {
+                    beginBlackjackDealerTurn();
+                    if (blackjackDealerId !== 'bank') syncBlackjackTable();
+                    return;
+                }
+                blackjackState.phase = 'playing';
+                blackjackState.currentPlayerId = firstPlayer.id;
+                blackjackState.currentHandIndex = 0;
+                blackjackState.message = `Kein Dealer-Blackjack. ${firstPlayer.name} ist am Zug. Drehe deine Karten um.`;
+                syncBlackjackTable();
+                return;
+            }
+
+            // Dealer hat Blackjack: verdeckte Karte aufdecken, dann nach kurzer Pause auswerten.
+            holeCard.isFlipped = true;
+            holeCard.isNewlyFlipped = true;
+            blackjackState.dealerRevealed = true;
+            blackjackState.message = 'Dealer-Blackjack! Die Runde endet sofort.';
+            syncBlackjackTable();
+            blackjackDealerTimer = setTimeout(() => {
+                blackjackDealerTimer = null;
+                if (turnToken !== blackjackDealerTurnToken || !isHost || !blackjackState ||
+                    blackjackState.phase !== 'dealing') return;
+                blackjackState.dealComplete = false;
+                // Alle (noch verdeckten) Spielerkarten aufdecken und Naturals bestimmen, damit die Auswertung
+                // korrekt zwischen "Push" (Spieler-Blackjack) und "Verlust" unterscheiden kann.
+                blackjackPlayers.forEach(player => (player.hands || []).forEach(hand => {
+                    hand.cards.forEach(card => {
+                        if (card && card.isFlipped === false) {
+                            card.isFlipped = true;
+                            card.isNewlyFlipped = true;
+                        }
+                    });
+                    hand.natural = !hand.isSplit && hand.cards.length === 2 && blackjackHandValue(hand.cards) === 21;
+                }));
+                resolveBlackjackRound();
+                blackjackState.message = `Dealer-Blackjack! ${blackjackState.message}`;
+                syncBlackjackTable();
+            }, BLACKJACK_PEEK_REVEAL_DELAY_MS);
+        }
+
+        /**
+         * Host: Wählt den nächsten Spieler mit Status "playing" (reihum). Gibt es keinen mehr, beginnt der Dealerzug.
+         */
         function advanceBlackjackTurn(previousPlayerId = blackjackState.currentPlayerId, previousIndexOverride = null) {
             cancelBlackjackTurnPause();
             blackjackState.turnTransition = false;
@@ -4413,6 +4644,9 @@
             beginBlackjackDealerTurn();
         }
 
+        /**
+         * Bricht die kurze Pause zwischen zwei Spielerzügen ab (ungültig machen per Token).
+         */
         function cancelBlackjackTurnPause() {
             if (blackjackTurnPauseTimer !== null) {
                 clearTimeout(blackjackTurnPauseTimer);
@@ -4421,6 +4655,9 @@
             blackjackTurnPauseToken++;
         }
 
+        /**
+         * Host: Beendet die aktuelle Hand mit kurzer Pause (Animation) und geht zur nächsten Hand (nach Split) oder zum nächsten Spieler.
+         */
         function advanceBlackjackHandOrPlayer(player, transitionControls = false) {
             if (!isHost || !blackjackRoomActive || !blackjackState ||
                 blackjackState.phase !== 'playing' || blackjackState.turnTransition) return;
@@ -4457,6 +4694,10 @@
             }, BLACKJACK_TURN_PAUSE_MS);
         }
 
+        /**
+         * Host: Startet den Dealerzug (Phase "dealer"). Bank: deckt die verdeckte Karte auf und zieht automatisch bis 17.
+         * Menschlicher Dealer: deckt selbst auf und wählt Ziehen/Halten (processBlackjackDealerAction).
+         */
         function beginBlackjackDealerTurn() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
@@ -4488,6 +4729,10 @@
             else scheduleBlackjackBankStep(turnToken);
         }
 
+        /**
+         * Bricht ALLE laufenden Dealer-/Deal-/Peek-Timer ab. Erhöht den Token, wodurch bereits geplante Timer wirkungslos werden.
+         * Immer aufrufen, wenn eine Runde endet, neu startet oder der Dealer wechselt.
+         */
         function cancelBlackjackDealerTurn() {
             cancelBlackjackTurnPause();
             if (blackjackDealerTimer !== null) {
@@ -4497,6 +4742,9 @@
             blackjackDealerTurnToken++;
         }
 
+        /**
+         * Host: Die Bank teilt nach kurzer Verzögerung automatisch aus (nur wenn Dealer = "bank").
+         */
         function scheduleBlackjackBankDeal(turnToken) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
@@ -4506,6 +4754,9 @@
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
+        /**
+         * Host: Die Bank deckt ihre verdeckte Karte nach kurzer Verzögerung auf, danach folgt scheduleBlackjackBankStep.
+         */
         function scheduleBlackjackHoleCardReveal(turnToken, cardIndex) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
@@ -4523,6 +4774,9 @@
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
+        /**
+         * Host: Ein Schritt der Bank: Wert < 17 -> Karte ziehen, sonst halten und die Runde auswerten (Dealer zieht bis 17, auch auf soft 17 hält er).
+         */
         function scheduleBlackjackBankStep(turnToken) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
@@ -4554,6 +4808,9 @@
             }, BLACKJACK_BOT_DELAY_MS);
         }
 
+        /**
+         * Host: Deckt die gerade von der Bank gezogene Karte auf und setzt den nächsten Bank-Schritt an.
+         */
         function scheduleBlackjackBankCardReveal(turnToken, cardIndex) {
             blackjackDealerTimer = setTimeout(() => {
                 blackjackDealerTimer = null;
@@ -4569,12 +4826,18 @@
             }, BLACKJACK_CARD_REVEAL_DELAY_MS);
         }
 
+        /**
+         * Summe der Gewinne (ohne Einsatz) aller gewonnenen Hände eines Spielers. Natural zahlt 3:2, sonst 1:1.
+         */
         function getBlackjackRoundWinnings(player) {
             return (player.hands || []).reduce((total, hand) => total + (
                 hand.status === 'win' ? Math.round(hand.bet * (hand.natural ? 1.5 : 1)) : 0
             ), 0);
         }
 
+        /**
+         * Spieler, die mitspielen können: kein menschlicher Dealer und Guthaben >= Mindesteinsatz.
+         */
         function getBlackjackEligiblePunters() {
             const hasHumanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
@@ -4584,6 +4847,9 @@
             );
         }
 
+        /**
+         * Bricht den Timer ab, der nach einer Runde ohne spielfähige Spieler zurück in den Warteraum führt.
+         */
         function cancelBlackjackLobbyReturn() {
             if (blackjackLobbyReturnTimer !== null) {
                 clearTimeout(blackjackLobbyReturnTimer);
@@ -4591,6 +4857,9 @@
             }
         }
 
+        /**
+         * Host: Setzt den Tisch zurück in den Warteraum (alle pleite): Guthaben wieder auf Startwert, kein Rundenzustand.
+         */
         function returnBlackjackToWaitingRoom() {
             if (!isHost || !blackjackRoomActive || !blackjackState ||
                 blackjackState.phase !== 'settled' || getBlackjackEligiblePunters().length) return;
@@ -4616,6 +4885,9 @@
             showStatus('Die Partie ist beendet. Alle bleiben im Blackjack-Warteraum.', 'success');
         }
 
+        /**
+         * Host: Wenn nach der Runde niemand mehr spielen kann, geht es nach 5 Sekunden zurück in den Warteraum.
+         */
         function scheduleBlackjackLobbyReturn() {
             cancelBlackjackLobbyReturn();
             if (!isHost || !blackjackRoomActive || !blackjackState ||
@@ -4632,6 +4904,11 @@
             }, 5000);
         }
 
+        /**
+         * Host: Wertet die Runde aus (Phase "settled"). Deckt alle Karten auf und vergleicht jede Hand mit dem Dealer:
+         * Bust verliert immer; Dealer-Blackjack schlägt alles außer Spieler-Blackjack (Push); Spieler-Blackjack zahlt 3:2;
+         * sonst höherer Wert gewinnt, Gleichstand = Push (Einsatz zurück). Zahlt Guthaben aus und setzt die Ergebnisnachricht.
+         */
         function resolveBlackjackRound() {
             if (!blackjackState) return;
             cancelBlackjackDealerTurn();
@@ -4702,6 +4979,9 @@
             scheduleBlackjackLobbyReturn();
         }
 
+        /**
+         * Host: Beendet den Zug eines MENSCHLICHEN Dealers, sobald alle Dealerkarten offen sind, und wertet aus.
+         */
         function finishManualBlackjackDealerTurn() {
             if (!blackjackState || blackjackState.phase !== 'dealer' ||
                 !blackjackState.dealerCards.every(blackjackCardIsFaceUp)) return;
@@ -4711,6 +4991,9 @@
             resolveBlackjackRound();
         }
 
+        /**
+         * Client-Aktion des menschlichen Dealers: "deal", "hit" oder "stand". Host führt direkt aus, Clients senden an den Host.
+         */
         function blackjackDealerAction(action) {
             if (!blackjackRoomActive || !['deal', 'hit', 'stand'].includes(action)) return;
             if (isHost) {
@@ -4720,6 +5003,10 @@
             }
         }
 
+        /**
+         * Host: Verarbeitet Dealer-Aktionen. Bei Ass/Zehn als offener Karte muss der Dealer zuerst seine verdeckte Karte aufdecken,
+         * bevor er ziehen oder halten darf. Ein Dealer darf nur ziehen, solange sein Wert unter 21 liegt.
+         */
         function processBlackjackDealerAction(action, playerId, senderConn = null) {
             if (!isHost || playerId !== blackjackDealerId || blackjackDealerId === 'bank') return;
             if (senderConn && !isBlackjackSender(playerId, senderConn)) return;
@@ -4763,6 +5050,9 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Client-Aktion eines Spielers: "hit", "stand", "double" oder "split". Host führt direkt aus, Clients senden an den Host.
+         */
         function blackjackPlayerAction(action) {
             if (!blackjackRoomActive || !['hit', 'stand', 'double', 'split'].includes(action)) return;
             if (isHost) {
@@ -4772,11 +5062,17 @@
             }
         }
 
+        /**
+         * Sicherheitsprüfung: Stammt die Nachricht wirklich von der Verbindung dieses Spielers? Verhindert Fremdaktionen.
+         */
         function isBlackjackSender(playerId, senderConn) {
             const player = blackjackPlayers.find(entry => entry.id === playerId);
             return !!player && player.conn === senderConn && senderConn && senderConn.open;
         }
 
+        /**
+         * Client-Aktion: Dreht eine eigene (oder als Dealer eine Dealer-)Karte um. Host führt direkt aus, Clients senden an den Host.
+         */
         function blackjackFlipCard(cardIndex, dealerHand = false, handIndex = 0) {
             if (!blackjackRoomActive) return;
             if (isHost) {
@@ -4786,6 +5082,10 @@
             }
         }
 
+        /**
+         * Host: Dreht eine Karte um und reagiert sofort: > 21 = Bust, genau 21 = Stand (bei 2 Karten und ohne Split = Natural/Blackjack),
+         * nach Double wird automatisch gehalten. Nur der Spieler am Zug darf seine Karten umdrehen.
+         */
         function processBlackjackCardFlip(playerId, cardIndex, dealerHand = false, senderConn = null, handIndex = 0) {
             if (!isHost || !blackjackState || !Number.isInteger(cardIndex) || cardIndex < 0) return;
             if (senderConn && !isBlackjackSender(playerId, senderConn)) return;
@@ -4845,6 +5145,10 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Host: Verarbeitet hit/stand/double/split des Spielers am Zug. Die Hand muss komplett aufgedeckt sein.
+         * double: Einsatz verdoppeln + genau 1 Karte, split: zwei Hände mit je einer neuen Karte, hit: Karte ziehen (verdeckt).
+         */
         function processBlackjackAction(action, playerId, senderConn = null) {
             if (!isHost || !blackjackState || blackjackState.phase !== 'playing' ||
                 blackjackState.turnTransition) return;
@@ -4882,6 +5186,10 @@
             syncBlackjackTable();
         }
 
+        /**
+         * Erzeugt das HTML einer Karte (3D-Flip-Animation, Kartenbild von deckofcardsapi.com mit Text-Fallback).
+         * canFlip = anklickbar zum Umdrehen; dealerHand/handIndex werden an blackjackFlipCard weitergegeben.
+         */
         function blackjackCardMarkup(card, canFlip = false, cardIndex = 0, dealerHand = false, handIndex = 0, isActionable = canFlip) {
             const faceUp = blackjackCardIsFaceUp(card);
             const rank = card && typeof card.rank === 'string' && /^(A|[2-9]|10|J|Q|K)$/.test(card.rank) ? card.rank : '';
@@ -4917,6 +5225,9 @@
             </div>`;
         }
 
+        /**
+         * Schaltet zwischen Setup-Ansicht und Tischansicht um und stößt renderBlackjackTable an.
+         */
         function renderBlackjackView() {
             const setup = document.getElementById('blackjackSetup');
             const table = document.getElementById('blackjackTable');
@@ -4933,6 +5244,9 @@
             renderBlackjackTable();
         }
 
+        /**
+         * Zeigt nach Rundenende das Ergebnis-Overlay (Gewinner, Verlierer oder Unentschieden).
+         */
         function renderBlackjackWinnerBanner() {
             const banner = document.getElementById('blackjackWinnerBanner');
             const isSettled = blackjackRoomActive && blackjackState && blackjackState.phase === 'settled';
@@ -4972,6 +5286,9 @@
             }
         }
 
+        /**
+         * Zeigt die Startguthaben-Auswahl nur dem Host und nur vor der ersten Runde.
+         */
         function renderBlackjackStartingBankrollChoice() {
             const control = document.getElementById('blackjackLobbyBankrollControl');
             const select = document.getElementById('blackjackLobbyBankrollSelect');
@@ -4980,10 +5297,16 @@
             select.value = String(blackjackStartingBankroll);
         }
 
+        /**
+         * Formatiert ein Guthaben als Zahl (de-DE) für die Anzeige.
+         */
         function formatBlackjackBalance(value) {
             return new Intl.NumberFormat('de-DE').format(value);
         }
 
+        /**
+         * Zählt eine Guthabenanzeige per requestAnimationFrame animiert zum neuen Wert.
+         */
         function animateBlackjackBalance(playerId, animation) {
             if (animation.frame !== null) return;
             const update = timestamp => {
@@ -5006,6 +5329,9 @@
             animation.frame = requestAnimationFrame(update);
         }
 
+        /**
+         * Rendert das Guthaben eines Spielers inklusive animiertem Zähler und "+/- Chips"-Einblendung.
+         */
         function renderBlackjackBalance(player, state) {
             const balance = safeNonNegativeInteger(player.bankroll);
             let animation = blackjackBalanceAnimations.get(player.id);
@@ -5040,6 +5366,9 @@
             return `<span class="blackjack-bankroll"><span class="blackjack-bankroll-counter" data-blackjack-balance="${escapeHtml(player.id)}">${formatBlackjackBalance(animation.value)}</span><span>Chips</span>${changeMarkup}</span>`;
         }
 
+        /**
+         * Übersetzt den Hand-Status in einen deutschen Anzeigetext (z. B. "Blackjack!", "Über 21").
+         */
         function getBlackjackHandStatus(hand) {
             return {
                 playing: 'Spielt',
@@ -5051,6 +5380,9 @@
             }[hand.status] || 'Bereit';
         }
 
+        /**
+         * Liefert CSS-Klassen für die Spielerbox (21, Bust, Spannung, Gewinner).
+         */
         function getBlackjackPlayerVisualClasses(player, state, handFlags) {
             return [
                 handFlags.has21 ? 'has-blackjack-21' : '',
@@ -5061,6 +5393,10 @@
             ].filter(Boolean).join(' ');
         }
 
+        /**
+         * Hauptrender-Funktion: zeichnet Dealer, alle Spielerboxen, Aktionsbuttons (Hit/Stand/Double/Split), Einsatzfeld,
+         * Nachrichtenzeile und Rundenstatus aus blackjackState/blackjackPlayers. Enthält keinen Spiellogik-Code.
+         */
         function renderBlackjackTable() {
             const state = blackjackState;
             document.getElementById('screenBlackjack').classList.toggle(
@@ -5425,6 +5761,9 @@
             });
         }
 
+        /**
+         * Zeigt an, wer Dealer ist (Name oder "Bank / KI").
+         */
         function renderBlackjackDealerRole() {
             const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
             document.getElementById('blackjackDealerRoleText').textContent = dealer
@@ -5432,6 +5771,9 @@
                 : 'Dealer: Bank / KI';
         }
 
+        /**
+         * Dealer-Auswahl (Bank oder Spieler) nur für den Host vor der ersten Runde.
+         */
         function renderBlackjackDealerRoleChoice() {
             const choice = document.getElementById('blackjackDealerRoleChoice');
             const select = document.getElementById('blackjackDealerSelect');
@@ -5444,6 +5786,9 @@
             select.value = blackjackDealerId;
         }
 
+        /**
+         * Zeigt Freunde, die noch nicht am Tisch sitzen, als Einladungsbuttons.
+         */
         function renderBlackjackFriendInvites() {
             const inviteList = document.getElementById('blackjackFriendInviteList');
             if (!inviteList) return;
@@ -5461,6 +5806,9 @@
             );
         }
 
+        /**
+         * Setzt den kompletten lokalen Blackjack-Zustand zurück und zeigt die Setup-Ansicht (z. B. wenn der Host den Tisch schließt).
+         */
         function returnBlackjackToSetup(message) {
             cancelBlackjackDealerTurn();
             cancelBlackjackLobbyReturn();
@@ -5478,6 +5826,9 @@
             if (message) showToast(message, 'warning');
         }
 
+        /**
+         * Verlässt den Tisch. Der Host sendet BLACKJACK_CLOSED an alle und baut die Verbindung ab, Clients schließen nur ihre Verbindung.
+         */
         function leaveBlackjackLobby(returnToScreen = true) {
             cancelBlackjackDealerTurn();
             cancelBlackjackLobbyReturn();
