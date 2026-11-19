@@ -1125,6 +1125,12 @@
             [id$="Modal"]:not(.hidden), [id$="Modal"]:not(.hidden) > .glass { animation: none !important; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
+            html.mg-fs-s { font-size: 87.5% !important; }
+        html.mg-fs-m { font-size: revert-layer; }
+        html.mg-fs-l { font-size: 112.5% !important; }
+        html.mg-fs-xl { font-size: 125% !important; }
+        html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+        html.reduce-motion #ambientCanvas, html.reduce-motion canvas#particles { display: none !important; }
     </style>
 </head>
 <body class="bg-darker text-gray-100 h-[100dvh] flex flex-col justify-between overflow-hidden selection:bg-indigo-500 selection:text-white">
@@ -8556,5 +8562,304 @@
         }
         function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
     </script>
+<script>
+/* ===== MINIGAMES Add-on: Einstellungen, Chat, QR, Benachrichtigungen, Statistiken ===== */
+(function () {
+    const $ = id => document.getElementById(id);
+    const SKEY = 'mg_settings_v1', HKEY = 'mg_history_v1', BKEY = 'mg_best_v1';
+    const defaults = { master: 1, sfx: 1, music: 0, reduce: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches,
+        vibrate: true, wake: true, bgSound: false, font: 'm' };
+    const S = Object.assign({}, defaults, readStoredJson(SKEY, {}) || {});
+    const save = () => writeStoredValue(SKEY, JSON.stringify(S));
+    const MODES = { words: 'Wortketten', pong: 'Pong', hangman: 'Hangman', blackjack: 'Blackjack' };
+    const EMOTES = ['🔥', '🧠', '😱', '😂', '👏', '❤️', '🎉', '😎', '🤔', '😭', '👀', '💀'];
+
+    /* ---------- Einstellungen anwenden ---------- */
+    function applySettings() {
+        const h = document.documentElement;
+        h.classList.toggle('reduce-motion', !!S.reduce);
+        ['s', 'm', 'l', 'xl'].forEach(f => h.classList.toggle('mg-fs-' + f, S.font === f));
+    }
+    const sfxVol = () => Math.max(0, Math.min(1, S.master * S.sfx));
+    const vib = p => { if (S.vibrate && navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} };
+
+    /* Lautstärke: playTone global umhüllen */
+    const origTone = playTone;
+    playTone = function (f, d, t, v, e) { return origTone(f, d, t, (v == null ? 0.08 : v) * sfxVol(), e); };
+    const origCelebrate = celebrate;
+    celebrate = function () { if (!S.reduce) origCelebrate(); };
+
+    /* Vibration bei Treffern/Fehlern */
+    [['playWordSuccess', [30]], ['playWordError', [90, 50, 90]], ['playGameWin', [60, 40, 60, 40, 140]], ['playGameLose', [260]]].forEach(([n, p]) => {
+        const o = window[n]; window[n] = function () { vib(p); return o.apply(this, arguments); };
+    });
+    const origPong = playPongSound;
+    playPongSound = function (k) { if (k === 'point') vib([50]); return origPong(k); };
+
+    /* Hintergrundmusik (ruhiger Pad-Loop, standardmäßig aus) */
+    let step = 0;
+    setInterval(() => {
+        if (S.music <= 0 || soundMuted || document.hidden) return;
+        const c = getAudioContext(); if (!c) return;
+        const root = [220, 196, 174.6, 196][step++ % 4];
+        [1, 1.25, 1.5].forEach(m => {
+            const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+            o.type = 'sine'; o.frequency.value = root * m;
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.linearRampToValueAtTime(0.05 * S.master * S.music, t + 1.2);
+            g.gain.linearRampToValueAtTime(0.0001, t + 3.8);
+            o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 4);
+        });
+    }, 3600);
+
+    /* ---------- Einstellungs-Dialog ---------- */
+    const gear = document.createElement('button');
+    gear.className = 'w-9 h-9 rounded-xl glass hover:bg-gray-700/50 flex items-center justify-center text-gray-300 transition cursor-pointer';
+    gear.title = 'Einstellungen'; gear.setAttribute('aria-label', 'Einstellungen');
+    gear.innerHTML = '<i class="fa-solid fa-gear text-sm"></i>';
+    $('soundToggle').insertAdjacentElement('afterend', gear);
+
+    const slider = (id, label) => `<label class="block text-xs font-bold text-gray-300">${label} <span id="${id}Val" class="text-indigo-300 font-mono"></span>
+        <input id="${id}" type="range" min="0" max="100" class="w-full mt-1 accent-indigo-500"></label>`;
+    const toggle = (id, label) => `<label class="flex items-center justify-between text-xs font-bold text-gray-300 cursor-pointer">${label}
+        <input id="${id}" type="checkbox" class="w-5 h-5 accent-indigo-500"></label>`;
+    const modal = document.createElement('div');
+    modal.id = 'mgSettings';
+    modal.className = 'fixed inset-0 bg-darker/80 backdrop-blur-sm z-[70] items-center justify-center p-4';
+    modal.style.display = 'none';
+    modal.innerHTML = `<div class="glass rounded-3xl p-6 max-w-md w-full border border-border shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto">
+        <div class="flex items-center justify-between"><h3 class="font-extrabold text-lg text-white"><i class="fa-solid fa-gear mr-2"></i>Einstellungen</h3>
+        <button id="mgSetClose" class="w-8 h-8 rounded-lg glass text-gray-300" aria-label="Schließen"><i class="fa-solid fa-xmark"></i></button></div>
+        ${slider('mgMaster', 'Gesamtlautstärke')}${slider('mgSfx', 'Effekte')}${slider('mgMusic', 'Musik')}
+        <label class="block text-xs font-bold text-gray-300">Schriftgröße
+          <select id="mgFont" class="w-full mt-1 bg-darker border border-border rounded-xl px-3 py-2 text-white">
+            <option value="s">Klein</option><option value="m">Normal</option><option value="l">Groß</option><option value="xl">Sehr groß</option></select></label>
+        ${toggle('mgReduce', 'Animationen reduzieren')}${toggle('mgVibrate', 'Vibration (Handy)')}
+        ${toggle('mgWake', 'Bildschirm während Partie wach halten')}${toggle('mgBg', 'Ton, wenn du im Hintergrund dran bist')}
+        <button id="mgSetOk" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs">Fertig</button></div>`;
+    document.body.appendChild(modal);
+    const syncUi = () => {
+        [['mgMaster', 'master'], ['mgSfx', 'sfx'], ['mgMusic', 'music']].forEach(([id, k]) => {
+            $(id).value = Math.round(S[k] * 100); $(id + 'Val').textContent = Math.round(S[k] * 100) + ' %';
+        });
+        $('mgFont').value = S.font; $('mgReduce').checked = S.reduce; $('mgVibrate').checked = S.vibrate;
+        $('mgWake').checked = S.wake; $('mgBg').checked = S.bgSound;
+    };
+    [['mgMaster', 'master'], ['mgSfx', 'sfx'], ['mgMusic', 'music']].forEach(([id, k]) =>
+        $(id).addEventListener('input', () => { S[k] = $(id).value / 100; $(id + 'Val').textContent = $(id).value + ' %'; save();
+            if (id !== 'mgMusic') playTone(660, 0.1, 'sine', 0.08); }));
+    $('mgFont').addEventListener('change', () => { S.font = $('mgFont').value; save(); applySettings(); });
+    [['mgReduce', 'reduce'], ['mgVibrate', 'vibrate'], ['mgWake', 'wake'], ['mgBg', 'bgSound']].forEach(([id, k]) =>
+        $(id).addEventListener('change', () => { S[k] = $(id).checked; save(); applySettings(); if (k === 'vibrate' && S.vibrate) vib(60); }));
+    const closeSet = () => { modal.style.display = 'none'; };
+    gear.onclick = () => { syncUi(); modal.style.display = 'flex'; };
+    $('mgSetClose').onclick = $('mgSetOk').onclick = closeSet;
+    modal.addEventListener('click', e => { if (e.target === modal) closeSet(); });
+    applySettings();
+
+    /* ---------- Du bist dran: Tab-Titel, Vibration, Ton, Wake Lock ---------- */
+    const baseTitle = document.title;
+    let wasMyTurn = false, blink = null, wl = null;
+    function myTurn() {
+        try {
+            if (!$('screenGame').classList.contains('hidden') && players[currentTurnIndex] && players[currentTurnIndex].id === myId) return true;
+            if (blackjackRoomActive && blackjackState && blackjackState.phase === 'playing' && blackjackState.currentPlayerId === myId) return true;
+        } catch (e) {}
+        return false;
+    }
+    function gameRunning() {
+        return !$('screenGame').classList.contains('hidden') || !!pongRunning || !!hangmanGameStarted || !!blackjackRoomActive;
+    }
+    function bgBeep() {
+        const c = getAudioContext(); if (!c || soundMuted) return;
+        [880, 1175].forEach((f, i) => {
+            const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + i * 0.16;
+            o.frequency.value = f; g.gain.setValueAtTime(0.12 * S.master, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+            o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.15);
+        });
+    }
+    function stopBlink() { if (blink) { clearInterval(blink); blink = null; } document.title = baseTitle; }
+    function startBlink() {
+        if (blink) return; let on = false;
+        blink = setInterval(() => { on = !on; document.title = on ? '🔔 Du bist dran!' : baseTitle; }, 1000);
+    }
+    async function wlSync() {
+        const need = S.wake && gameRunning() && !document.hidden && navigator.wakeLock;
+        if (need && !wl) {
+            try { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } catch (e) { wl = null; }
+        } else if (!need && wl) { try { await wl.release(); } catch (e) {} wl = null; }
+    }
+    setInterval(() => {
+        const now = myTurn();
+        if (now && !wasMyTurn) {
+            vib([200, 80, 200]);
+            if (document.hidden) { startBlink(); if (S.bgSound) bgBeep(); }
+        }
+        if (!now) stopBlink();
+        wasMyTurn = now; wlSync();
+    }, 500);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) { stopBlink(); wlSync(); }
+        /* schnelle Neuverbindung zum Vermittlungsserver nach Entsperren */
+        if (!document.hidden && peer && peer.disconnected && !peer.destroyed) { try { peer.reconnect(); } catch (e) {} }
+    });
+    window.addEventListener('beforeunload', e => {
+        if (gameRunning() && ((isHost && connections.length) || conn)) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    /* ---------- Lobby-Chat + mehr Emotes ---------- */
+    const clean = t => String(t == null ? '' : t).replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 200);
+    const lobby = $('screenLobby'), hostControls = $('hostControls');
+    const chat = document.createElement('div');
+    chat.className = 'mb-6 text-left rounded-2xl bg-dark/50 border border-border p-3';
+    chat.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Lobby-Chat</h3>
+        <div id="mgChatLog" class="h-32 overflow-y-auto space-y-1 text-xs text-gray-200" style="-webkit-user-select:text;user-select:text"></div>
+        <div class="flex gap-2 mt-2"><input id="mgChatInput" maxlength="200" placeholder="Nachricht schreiben…" class="flex-1 min-w-0 bg-darker border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        <button id="mgChatSend" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 rounded-xl text-xs" aria-label="Senden"><i class="fa-solid fa-paper-plane"></i></button></div>
+        <div id="mgChatEmotes" class="flex flex-wrap gap-1.5 mt-2"></div>`;
+    hostControls.parentElement.insertBefore(chat, hostControls);
+    function addChat(m) {
+        const log = $('mgChatLog'), row = document.createElement('div'), n = document.createElement('b');
+        n.textContent = m.name + ': '; n.style.color = m.color;
+        row.append(n, document.createTextNode(m.text));
+        log.appendChild(row);
+        while (log.children.length > 100) log.removeChild(log.firstChild);
+        log.scrollTop = log.scrollHeight;
+    }
+    function sendChat(text) {
+        text = clean(text); if (!text) return;
+        const msg = { type: 'CHAT', name: `${myName} #${myTag}`, text, color: myPlayerColor };
+        addChat(msg);
+        if (isHost) connections.forEach(c => { if (c && c.open) c.send(msg); });
+        else if (conn && conn.open) conn.send(msg);
+    }
+    const submitChat = () => { sendChat($('mgChatInput').value); $('mgChatInput').value = ''; };
+    $('mgChatSend').onclick = submitChat;
+    $('mgChatInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitChat(); });
+    EMOTES.forEach(em => {
+        const b = document.createElement('button'); b.textContent = em;
+        b.className = 'w-8 h-8 rounded-lg glass hover:bg-gray-700/50 text-base'; b.onclick = () => sendChat(em);
+        $('mgChatEmotes').appendChild(b);
+    });
+    /* Emote-Leiste im Spiel erweitern */
+    document.querySelectorAll('button[onclick="sendEmote(\'🔥\')"]').forEach(btn => {
+        EMOTES.slice(4).forEach(em => {
+            const b = btn.cloneNode(false); b.textContent = em; b.setAttribute('onclick', `sendEmote('${em}')`);
+            btn.parentElement.appendChild(b);
+        });
+        btn.parentElement.classList.add('flex-wrap', 'gap-y-2');
+    });
+
+    /* Netzwerk-Nachrichten CHAT und erweitertes EMOTE (inkl. Weiterleitung durch den Host) */
+    const origNet = handleNetworkData;
+    handleNetworkData = function (data, sender) {
+        if (data && typeof data === 'object' && (data.type === 'CHAT' || data.type === 'EMOTE')) {
+            const ok = isHost ? connections.includes(sender) : sender === conn;
+            if (data.type === 'CHAT') {
+                const text = clean(data.text), name = sanitizeNetworkPlayerName(data.name) || 'Spieler';
+                if (ok && text) {
+                    const m = { type: 'CHAT', name, text, color: normalizePlayerColor(data.color) };
+                    addChat(m);
+                    if (isHost) connections.forEach(c => { if (c !== sender && c && c.open) c.send(m); });
+                }
+                return;
+            }
+            if (EMOTES.includes(data.emote)) {
+                if (ok) {
+                    triggerFloatingEmote(data.emote);
+                    if (isHost) connections.forEach(c => { if (c !== sender && c && c.open) c.send({ type: 'EMOTE', emote: data.emote }); });
+                }
+                return;
+            }
+        }
+        return origNet(data, sender);
+    };
+
+    /* ---------- QR-Code für den Raum-Link ---------- */
+    const qrScript = document.createElement('script');
+    qrScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    document.head.appendChild(qrScript);
+    function inviteUrl() {
+        const u = new URL(location.href);
+        ['room', 'mode', 'game'].forEach(p => u.searchParams.delete(p));
+        u.hash = 'room=' + encodeURIComponent(myTag);
+        return u.href;
+    }
+    document.querySelectorAll('[onclick*="copyInviteLink"]').forEach(copyBtn => {
+        const qrBtn = document.createElement('button');
+        qrBtn.className = 'bg-gray-700/60 hover:bg-gray-600/70 text-white font-bold px-3 py-2.5 rounded-xl text-xs flex items-center gap-2 transition cursor-pointer';
+        qrBtn.innerHTML = '<i class="fa-solid fa-qrcode"></i><span>QR</span>';
+        const box = document.createElement('div');
+        box.className = 'hidden my-3 flex justify-center';
+        copyBtn.insertAdjacentElement('afterend', qrBtn);
+        const host = copyBtn.parentElement;
+        host.insertAdjacentElement('afterend', box);
+        qrBtn.onclick = () => {
+            if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+            if (typeof QRCode !== 'function') { showToast('QR-Code konnte nicht geladen werden (offline?).', 'warning'); return; }
+            box.innerHTML = '<div class="bg-white p-3 rounded-xl"></div>';
+            new QRCode(box.firstChild, { text: inviteUrl(), width: 168, height: 168 });
+            box.classList.remove('hidden');
+        };
+    });
+
+    /* ---------- Erweiterte Statistiken ---------- */
+    let history = readStoredJson(HKEY, []); if (!Array.isArray(history)) history = [];
+    let best = readStoredJson(BKEY, {}); if (!best || typeof best !== 'object') best = {};
+    let runStart = Date.now();
+    const origRecord = recordGameResult;
+    recordGameResult = function (mode, won) {
+        if (MODES[mode]) {
+            const ms = Date.now() - runStart;
+            history.unshift({ m: mode, r: won === true ? 'w' : won === false ? 'l' : 'd', t: Date.now() });
+            history = history.slice(0, 50); writeStoredValue(HKEY, JSON.stringify(history));
+            if (won === true && ms > 3000 && ms < 3600000 && (!best[mode] || ms < best[mode])) {
+                best[mode] = ms; writeStoredValue(BKEY, JSON.stringify(best));
+            }
+            runStart = Date.now();
+        }
+        return origRecord(mode, won);
+    };
+    const fmt = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+    const statsCard = $('screenStats').firstElementChild;
+    const extra = document.createElement('div');
+    extra.className = 'mt-6 space-y-3';
+    extra.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-wider text-gray-400">Verlauf der letzten Partien</h3>
+        <div id="mgHistory" class="rounded-2xl bg-darker/60 border border-border p-3 max-h-56 overflow-y-auto text-xs space-y-1"></div>
+        <button id="mgStatsReset" class="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"><i class="fa-solid fa-trash mr-1"></i> Statistiken zurücksetzen</button>`;
+    statsCard.appendChild(extra);
+    function renderExtraStats() {
+        Object.keys(MODES).forEach(mode => {
+            const rec = $('stats' + MODES[mode] + 'Record'); if (!rec) return;
+            const st = gameStats[mode], rate = st.played ? Math.round(st.wins / st.played * 100) : 0;
+            rec.textContent = `🔥 Rekord ${st.maxStreak} · Serie ${st.currentStreak}`;
+            let line = rec.nextElementSibling;
+            if (!line || !line.classList.contains('mg-extra')) {
+                line = document.createElement('div'); line.className = 'mg-extra mt-1 text-xs text-gray-300';
+                rec.insertAdjacentElement('afterend', line);
+            }
+            line.textContent = `📈 Winrate ${rate} %` + (best[mode] ? ` · ⏱ Bestzeit ${fmt(best[mode])}` : '');
+        });
+        const icon = { w: '✅ Sieg', l: '❌ Niederlage', d: '➖ Unentschieden' };
+        $('mgHistory').innerHTML = history.length ? '' : '<p class="text-gray-500 text-center">Noch keine Partien gespielt.</p>';
+        history.slice(0, 20).forEach(h => {
+            const row = document.createElement('div'); row.className = 'flex justify-between';
+            const a = document.createElement('span'); a.textContent = `${icon[h.r] || ''} · ${MODES[h.m] || h.m}`;
+            const b = document.createElement('span'); b.className = 'text-gray-500';
+            b.textContent = new Date(h.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            row.append(a, b); $('mgHistory').appendChild(row);
+        });
+    }
+    const origRender = renderStatsSummary;
+    renderStatsSummary = function () { origRender(); renderExtraStats(); };
+    $('mgStatsReset').onclick = () => {
+        if (!confirm('Alle Statistiken, Bestzeiten und den Verlauf wirklich löschen?')) return;
+        gameStats = emptyGameStats(); saveGameStats();
+        history = []; best = {}; removeStoredValue(HKEY); removeStoredValue(BKEY);
+        renderStatsSummary(); showToast('Statistiken zurückgesetzt.', 'success');
+    };
+    renderStatsSummary();
+})();
+</script>
 </body>
 </html>
