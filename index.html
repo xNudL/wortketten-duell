@@ -2,7 +2,7 @@
 <html lang="de" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>MINIGAMES | Arcade-Spiele</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,7 +29,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        #devtoolsOverlay { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 20%, rgba(99,102,241,.18), transparent 55%), rgba(5,8,18,.98); backdrop-filter: blur(18px); text-align: center; }
+        #devtoolsOverlay.devtools-open { display: flex; }
         html, body { height: 100dvh; overflow: hidden; }
+        .line-glow {
+            box-shadow: 0 0 0 1px rgba(129,140,248,.18), 0 0 14px rgba(34,211,238,.16), 0 8px 30px rgba(15,23,42,.18);
+        }
         body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
         body { min-height: 0; padding-bottom: 0; }
         #mainContent { flex: 1 1 0%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
@@ -1128,9 +1133,18 @@
     <canvas id="ambientParticles" aria-hidden="true"></canvas>
     <div id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
     <div id="customCursor" aria-hidden="true"></div>
+    <div id="devtoolsOverlay" aria-hidden="true">
+        <div class="max-w-md rounded-3xl border border-indigo-400/30 bg-gray-900/90 p-8 shadow-2xl shadow-indigo-950">
+            <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">
+                <i class="fa-solid fa-shield-halved text-2xl"></i>
+            </div>
+            <h2 class="text-2xl font-black text-white">Ansicht gesperrt</h2>
+            <p class="mt-3 text-sm leading-6 text-gray-300">Bitte schließe die Entwicklertools, um weiterzuspielen.</p>
+        </div>
+    </div>
 
     <!-- Header -->
-    <header class="w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 shrink-0 flex justify-between items-center shadow-lg">
+    <header class="line-glow w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 shrink-0 flex justify-between items-center shadow-lg">
         <div class="flex items-center space-x-3">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
                 <i class="fa-solid fa-link text-white text-sm"></i>
@@ -1141,7 +1155,7 @@
             </div>
         </div>
         
-        <nav class="flex items-center gap-1 p-1 rounded-xl bg-darker/70 border border-border">
+        <nav class="line-glow flex items-center gap-1 p-1 rounded-xl bg-darker/70 border border-border">
             <button id="tabWords" onclick="switchMainTab('words')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-link mr-1"></i> Wortketten</button>
             <button id="tabPong" onclick="switchMainTab('pong')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-table-tennis-paddle-ball mr-1"></i> Pong</button>
             <button id="tabHangman" onclick="switchMainTab('hangman')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition"><i class="fa-solid fa-person text-xs mr-1"></i> Hangman</button>
@@ -1496,7 +1510,6 @@
                                 <p id="hangmanHint" class="text-sm text-cyan-300 min-h-5 mb-3"></p>
                                 <p id="hangmanSetterSolution" class="hidden mb-3 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-base font-bold text-amber-200" aria-live="polite"></p>
                                 <div id="hangmanWordDisplay" class="flex flex-wrap justify-center gap-2 min-h-12 mb-4 font-mono text-2xl sm:text-3xl font-black text-white tracking-wider"></div>
-                                <div id="hangmanGuessedSummary" class="mb-3 text-xs text-gray-300"></div>
                                 <div id="hangmanKeyboard" class="space-y-2 mb-4"></div>
                                 <button id="hangmanSolveButton" onclick="toggleHangmanSolve()" class="text-xs font-bold text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg px-3 py-2 transition">Ganzes Wort lösen</button>
                                 <form id="hangmanSolveForm" class="hidden mt-2 flex gap-2" onsubmit="event.preventDefault(); solveHangmanWord();">
@@ -1593,7 +1606,7 @@
                         <div id="blackjackFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
                     </div>
 
-                    <div id="blackjackFelt" class="relative overflow-hidden rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
+                    <div id="blackjackFelt" class="line-glow relative overflow-visible rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
                         <div class="pointer-events-none absolute inset-3 rounded-[1.6rem] border border-amber-100/10"></div>
                         <div id="blackjackWinnerBanner" class="blackjack-winner-overlay hidden" aria-live="polite"></div>
                         <p id="blackjackMessage" class="relative mx-auto mb-5 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
@@ -2206,7 +2219,7 @@
                 { word: 'TETRIS', hint: 'Ein Klassiker, in dem fallende Steine passen müssen.' },
                 { word: 'PORTAL', hint: 'Ein Spiel mit Wissenschaft, Rätseln und Dimensionen.' },
                 { word: 'HALO', hint: 'Bekannte Sci-Fi-Spielreihe mit Rüstung und Weltraumkampf.' },
-                { word: 'SONIC', hint: 'Ein schneller, blau gefärbter Videospielheld.' },
+                { word: 'SONIC', hint: 'Ein schnelles, blaues Videospielmaskottchen.' },
                 { word: 'FORTNITE', hint: 'Beliebtes Spiel mit Bauen und Battle Royale.' },
                 { word: 'REGENBOGEN', hint: 'Farbiges Licht erscheint nach einem Schauer.' },
                 { word: 'GEWITTER', hint: 'Wetterereignis mit Blitz und Donner.' },
@@ -2218,14 +2231,14 @@
                 { word: 'WALD', hint: 'Ein Gebiet mit vielen Bäumen und Wildtieren.' },
                 { word: 'PALME', hint: 'Eine tropische Pflanze mit hohem Stamm und Blättern oben.' },
                 { word: 'ORCHIDEE', hint: 'Eine Zierpflanze mit besonders auffälligen Blüten.' },
-                { word: 'LIBELL', hint: 'Ein großes Insekt mit dünnem Körper und zwei Flügelpaaren.' },
-                { word: 'FRUEHLING', hint: 'Eine Jahreszeit mit Wachstum und mildem Wetter.' },
+                { word: 'LIBELLE', hint: 'Ein großes Insekt mit dünnem Körper und zwei Flügelpaaren.' },
+                { word: 'FRÜHLING', hint: 'Eine Jahreszeit mit Wachstum und mildem Wetter.' },
                 { word: 'KUECHENMESSER', hint: 'Ein scharfes Werkzeug zum Schneiden in der Küche.' },
                 { word: 'PFANNKUCHEN', hint: 'Ein flacher Teig wird in der Pfanne gebacken.' },
                 { word: 'SCHOKOLADE', hint: 'Eine süße Leckerei aus Kakao.' },
                 { word: 'SPAGHETTI', hint: 'Lange, dünne Nudeln aus Hartweizengrieß.' },
                 { word: 'SANDWICH', hint: 'Belag wird zwischen zwei Brotscheiben gelegt.' },
-                { word: 'OFENGEMUeSE', hint: 'Gemüse wird auf dem Blech im Ofen gegart.' },
+                { word: 'OFENGEMÜSE', hint: 'Gemüse wird auf dem Blech im Ofen gegart.' },
                 { word: 'ESSIG', hint: 'Eine saure Würzflüssigkeit für Salate und Speisen.' },
                 { word: 'KERZE', hint: 'Ein Docht leuchtet, wenn er entzündet wird.' },
                 { word: 'KALENDER', hint: 'Auf diesem Blatt oder Gerät stehen Tage und Termine.' },
@@ -2264,7 +2277,7 @@
                 { word: 'FORMELRennen', hint: 'Rennwagen fahren mit Höchsttempo auf einer Strecke.' },
                 { word: 'STARWARS', hint: 'Science-Fiction-Saga mit Sternenreichen und Lichtschwertern.' },
                 { word: 'BATMAN', hint: 'Ein maskierter Held verteidigt eine nächtliche Großstadt.' },
-                { word: 'SPIDERMA', hint: 'Der Name enthält einen Hinweis auf Spinne und Held.' },
+                { word: 'SPIDERMAN', hint: 'Der Name enthält einen Hinweis auf Spinne und Held.' },
                 { word: 'HARRYPOTTER', hint: 'Ein junger Zauberlehrling besucht eine bekannte Schule.' },
                 { word: 'DISNEYFILM', hint: 'Animierte Unterhaltung aus einem bekannten Studio.' },
                 { word: 'NARUTO', hint: 'Ein junger Ninja träumt davon, Dorfchef zu werden.' },
@@ -2293,7 +2306,7 @@
                 { word: 'SCHWEIZ', hint: 'Mitteleuropäisches Land der Berge und Neutralität.' },
                 { word: 'EINKAUFSZETTEL', hint: 'Eine kleine Liste zeigt, was eingekauft werden soll.' },
                 { word: 'WECKER', hint: 'Ein Gerät erinnert zu einer bestimmten Uhrzeit.' },
-                { word: 'GESCHIRRSPUELER', hint: 'Dieses Haushaltsgerät reinigt Teller und Besteck.' }
+                { word: 'GESCHIRRSPÜLER', hint: 'Dieses Haushaltsgerät reinigt Teller und Besteck.' }
             ],
             gaming: [
                 { word: 'MINECRAFT', hint: 'Baue, erkunde und gestalte eine Welt aus Blöcken.' },
@@ -2304,7 +2317,7 @@
                 { word: 'PORTAL', hint: 'Physikrätsel mit Verbindungen zwischen zwei Orten.' },
                 { word: 'OVERWATCH', hint: 'Team-Shooter mit Helden verschiedener Rollen.' },
                 { word: 'STARCRAFT', hint: 'Bekannte Echtzeit-Strategie im Weltraum.' },
-                { word: 'SONIC', hint: 'Ein schneller blaues Videospielmaskottchen.' },
+                { word: 'SONIC', hint: 'Ein schnelles, blaues Videospielmaskottchen.' },
                 { word: 'HALO', hint: 'Sci-Fi-Shooter mit einem gepanzerten Master Chief.' }
             ],
             anime: [
@@ -2723,6 +2736,7 @@
         let hangmanState = null;
         let hangmanWord = '';
         let recentHangmanWords = [];
+        let settings = { dictionaryMode: 'all', rounds: 3, diff: 'medium', inf: false, keep: false, wordLength: 0 };
         let hangmanMatchId = '';
         let recordedHangmanRounds = new Set();
         let hangmanRoomActive = false;
@@ -3173,8 +3187,10 @@
                         const other = particles[j];
                         const distance = Math.hypot(particle.x - other.x, particle.y - other.y);
                         if (distance < 118) {
-                            context.strokeStyle = `rgba(103, 232, 249, ${(1 - distance / 118) * .12})`;
+                        context.strokeStyle = `rgba(103, 232, 249, ${(1 - distance / 118) * .22})`;
                             context.lineWidth = .65;
+                        context.shadowBlur = 5;
+                        context.shadowColor = 'rgba(34, 211, 238, .55)';
                             context.beginPath();
                             context.moveTo(particle.x, particle.y);
                             context.lineTo(other.x, other.y);
@@ -3272,11 +3288,92 @@
             if (badge) badge.textContent = PLAYER_BADGES[myPlayerBadge];
         }
 
-        window.alert = function(msg) {
-            showToast(msg, 'error');
-        };
+        const devToolsBypass = new URLSearchParams(window.location.search).get('dev') === '1';
+
+        function updateDevToolsLock() {
+            const overlay = document.getElementById('devtoolsOverlay');
+            if (!overlay) return;
+            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
+                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+            if (devToolsBypass || window.innerWidth < 768 || isTouchDevice) {
+                overlay.classList.remove('devtools-open');
+                overlay.setAttribute('aria-hidden', 'true');
+                return;
+            }
+            const widthDiff = window.outerWidth > 0 ? Math.abs(window.outerWidth - window.innerWidth) : 0;
+            const heightDiff = window.outerHeight > 0 ? Math.abs(window.outerHeight - window.innerHeight) : 0;
+            const devToolsOpen = widthDiff > 160 || heightDiff > 160;
+            overlay.classList.toggle('devtools-open', devToolsOpen);
+            overlay.setAttribute('aria-hidden', String(!devToolsOpen));
+        }
+
+        function installClientGuards() {
+            document.addEventListener('contextmenu', event => {
+                const target = event.target;
+                if (!devToolsBypass && (!(target instanceof Element) || !target.closest('input, textarea'))) {
+                    event.preventDefault();
+                }
+            }, true);
+
+            document.addEventListener('keydown', event => {
+                const key = String(event.key || '').toLowerCase();
+                const zoomShortcut = (event.ctrlKey || event.metaKey) &&
+                    ['+', '-', '=', '0', 'add', 'subtract'].includes(key);
+                if (zoomShortcut) return;
+                const devToolsShortcut = event.key === 'F12' ||
+                    (event.ctrlKey && key === 'u') ||
+                    (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(key)) ||
+                    (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key));
+                if (devToolsShortcut && !devToolsBypass) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                const targetTag = event.target && event.target.tagName;
+                if (hangmanState && hangmanState.status === 'playing' &&
+                    !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) &&
+                    /^[A-ZÄÖÜ]$/i.test(event.key)) {
+                    if (hangmanState.players[hangmanState.turnIndex] &&
+                        hangmanState.players[hangmanState.turnIndex].id === myId) {
+                        event.preventDefault();
+                        guessHangmanLetter(event.key);
+                        return;
+                    }
+                }
+                if (pongRunning) {
+                    if (event.key === 'w' || event.key === 'W' || event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        localPongMove(-1);
+                    }
+                    if (event.key === 's' || event.key === 'S' || event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        localPongMove(1);
+                    }
+                }
+                if (event.key === 'Escape') {
+                    const openModal = [
+                        ['friendRequestModal', rejectFriendRequest],
+                        ['lobbyInviteModal', rejectLobbyInvite],
+                        ['rulesModal', closeRulesModal],
+                        ['addFriendModal', closeAddFriendModal],
+                        ['friendsModal', closeFriendsModal]
+                    ].find(([id]) => {
+                        const modal = document.getElementById(id);
+                        return modal && modal.classList.contains('hidden') === false;
+                    });
+                    if (openModal) openModal[1]();
+                }
+                if (!event.repeat && event.key.length === 1 &&
+                    !(event.target instanceof HTMLInputElement && event.target.id === 'wordInput')) {
+                    playChipClick();
+                }
+            }, true);
+
+            window.addEventListener('resize', updateDevToolsLock);
+            updateDevToolsLock();
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
+            installClientGuards();
             initAmbientParticles();
             initCustomCursor();
             const playerColorInput = document.getElementById('onboardingPlayerColor');
@@ -3302,11 +3399,6 @@
                     if (event.target === modal) close();
                 });
             });
-            document.addEventListener('keydown', event => {
-                if (event.key !== 'Escape') return;
-                const openModal = modalClosers.find(([id]) => !document.getElementById(id).classList.contains('hidden'));
-                if (openModal) openModal[1]();
-            });
             const soundButton = document.getElementById('soundToggle');
             soundButton.querySelector('i').className = `fa-solid ${soundMuted ? 'fa-volume-xmark' : 'fa-volume-high'} text-sm`;
             soundButton.setAttribute('aria-label', soundMuted ? 'Ton einschalten' : 'Ton ausschalten');
@@ -3317,11 +3409,6 @@
                 if (!button || button.disabled || button.classList.contains('blackjack-card-inner')) return;
                 playChipClick();
             });
-            document.addEventListener('keydown', event => {
-                if (event.repeat || event.key.length !== 1) return;
-                if (event.target instanceof HTMLInputElement && event.target.id === 'wordInput') return;
-                playChipClick();
-            });
             if (!myName || !myTag) {
                 switchScreen('screenOnboarding');
             } else {
@@ -3330,19 +3417,6 @@
                 startPendingRoomJoin();
             }
 
-            document.addEventListener('keydown', (e) => {
-                const targetTag = e.target && e.target.tagName;
-                if (hangmanState && hangmanState.status === 'playing' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) && /^[A-ZÄÖÜ]$/i.test(e.key)) {
-                    if (hangmanState.players[hangmanState.turnIndex] && hangmanState.players[hangmanState.turnIndex].id === myId) {
-                        e.preventDefault();
-                        guessHangmanLetter(e.key);
-                        return;
-                    }
-                }
-                if (!pongRunning) return;
-                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { e.preventDefault(); localPongMove(-1); }
-                if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { e.preventDefault(); localPongMove(1); }
-            });
 
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
@@ -3389,7 +3463,7 @@
         function saveProfileName() {
             const name = sanitizePlayerName(document.getElementById('onboardingNameInput').value);
             if (!name) {
-                alert('Bitte nutze einen Namen mit 1–15 Buchstaben, Zahlen, Leerzeichen, Bindestrich oder Apostroph.');
+                showToast('Bitte nutze einen Namen mit 1–15 Buchstaben, Zahlen, Leerzeichen, Bindestrich oder Apostroph.', 'warning');
                 return;
             }
             myName = name;
@@ -3741,8 +3815,8 @@
 
         async function sendFriendRequest() {
             const targetTag = sanitizePlayerTag(document.getElementById('friendTagInput').value.trim());
-            if (!targetTag) return alert('Bitte gib eine gültige 4-stellige ID ein.');
-            if (targetTag === myTag) return alert('Du kannst dich nicht selbst hinzufügen.');
+            if (!targetTag) return showToast('Bitte gib eine gültige 4-stellige ID ein.', 'warning');
+            if (targetTag === myTag) return showToast('Du kannst dich nicht selbst hinzufügen.', 'warning');
 
             let connection = null;
             try {
@@ -3987,8 +4061,8 @@
 
         function joinBlackjackLobby(overrideCode = null) {
             const code = String(overrideCode || document.getElementById('blackjackRoomCodeInput').value).trim();
-            if (!/^\d{4}$/.test(code)) return alert('Bitte gib einen gültigen vierstelligen Tischcode ein.');
-            if (code === myTag) return alert('Du kannst deinem eigenen Tisch nicht beitreten.');
+            if (!/^\d{4}$/.test(code)) return showToast('Bitte gib einen gültigen vierstelligen Tischcode ein.', 'warning');
+            if (code === myTag) return showToast('Du kannst deinem eigenen Tisch nicht beitreten.', 'warning');
             switchMainTab('blackjack');
             ensurePeerReady(() => {
                 isHost = false;
@@ -4034,6 +4108,12 @@
 
         function blackjackCardIsFaceUp(card) {
             return !!card && card.isFlipped !== false;
+        }
+
+        function blackjackDealerPeekRequired(cards) {
+            const upCard = (cards || []).find(blackjackCardIsFaceUp);
+            return !!upCard && (upCard.rank === 'A' || upCard.rank === '10' ||
+                ['J', 'Q', 'K'].includes(upCard.rank));
         }
 
         function blackjackHandValue(cards) {
@@ -4096,14 +4176,19 @@
             }));
         }
 
-        function getPublicBlackjackState() {
+        function getPublicBlackjackState(viewerId = null) {
             if (!blackjackState) return null;
-            const dealerCards = blackjackState.dealerCards.map(card => ({
-                ...(card.isFlipped === false ? {} : card),
-                isFlipped: card.isFlipped !== false,
-                isNewlyDealt: card.isNewlyDealt === true,
-                isNewlyFlipped: card.isNewlyFlipped === true
-            }));
+            const dealerCards = blackjackState.dealerCards.map(card => {
+                const isHoleCard = card && card.isFlipped === false;
+                const isDealerViewer = !!viewerId && viewerId === blackjackDealerId;
+                const canSeeHoleCard = isDealerViewer && isHoleCard;
+                return {
+                    ...(isHoleCard && !canSeeHoleCard ? {} : card),
+                    isFlipped: card.isFlipped !== false,
+                    isNewlyDealt: card.isNewlyDealt === true,
+                    isNewlyFlipped: card.isNewlyFlipped === true
+                };
+            });
             const visibleDealerCards = dealerCards.filter(blackjackCardIsFaceUp);
             return {
                 round: blackjackState.round,
@@ -4420,7 +4505,12 @@
                 blackjackState.phase = 'dealer';
                 blackjackState.currentPlayerId = null;
                 const dealer = blackjackPlayers.find(player => player.id === blackjackDealerId);
-                blackjackState.message = `Warten auf ${dealer.name}, der die verdeckte Dealer-Karte aufdeckt.`;
+                if (blackjackDealerPeekRequired(blackjackState.dealerCards)) {
+                    blackjackState.message = `${dealer.name} prüft die Hole Card, weil die offene Karte Ass oder Zehn wert ist.`;
+                } else {
+                    blackjackState.message = `${dealer.name} kann jetzt als Dealer ziehen oder halten.`;
+                }
+                syncBlackjackTable();
                 return;
             }
             blackjackState.phase = 'dealer';
@@ -4676,11 +4766,34 @@
                 return;
             }
             if (!blackjackState || blackjackState.phase !== 'dealer') return;
-            if (!blackjackState.dealerCards.every(blackjackCardIsFaceUp)) return;
+            const peekRequired = blackjackDealerPeekRequired(blackjackState.dealerCards);
+            const holeCard = blackjackState.dealerCards.find(card => card && card.isFlipped === false);
+            if (peekRequired && holeCard) return;
             if (action === 'stand') {
+                blackjackState.dealerCards.forEach(card => {
+                    if (card && card.isFlipped === false) {
+                        card.isFlipped = true;
+                        card.isNewlyFlipped = true;
+                    }
+                });
+                blackjackState.dealerRevealed = true;
                 finishManualBlackjackDealerTurn();
             } else if (action === 'hit') {
-                blackjackState.dealerCards.push(drawBlackjackCard());
+                if (!peekRequired) {
+                    blackjackState.dealerCards.forEach(card => {
+                        if (card && card.isFlipped === false) {
+                            card.isFlipped = true;
+                            card.isNewlyFlipped = true;
+                        }
+                    });
+                }
+                if (!peekRequired && blackjackHandValue(blackjackState.dealerCards) >= 21) {
+                    blackjackState.dealerRevealed = true;
+                    finishManualBlackjackDealerTurn();
+                    syncBlackjackTable();
+                    return;
+                }
+                blackjackState.dealerCards.push({ ...drawBlackjackCard(), isFlipped: false, isNewlyDealt: true });
                 blackjackState.message = `${blackjackPlayers.find(player => player.id === blackjackDealerId).name} zieht als Dealer eine Karte. Drehe sie um.`;
             } else {
                 return;
@@ -4721,7 +4834,7 @@
                 if (!card || card.isFlipped !== false) return;
                 card.isFlipped = true;
                 card.isNewlyFlipped = true;
-                if (cardIndex === 1) blackjackState.dealerRevealed = true;
+                blackjackState.dealerRevealed = blackjackState.dealerCards.every(blackjackCardIsFaceUp);
                 if (blackjackState.dealerCards.every(blackjackCardIsFaceUp)) {
                     if (blackjackHandValue(blackjackState.dealerCards) >= 21) {
                         finishManualBlackjackDealerTurn();
@@ -4965,6 +5078,27 @@
             return `<span class="blackjack-bankroll"><span class="blackjack-bankroll-counter" data-blackjack-balance="${escapeHtml(player.id)}">${formatBlackjackBalance(animation.value)}</span><span>Chips</span>${changeMarkup}</span>`;
         }
 
+        function getBlackjackHandStatus(hand) {
+            return {
+                playing: 'Spielt',
+                stood: hand.natural ? 'Blackjack!' : 'Hält',
+                bust: 'Über 21',
+                win: 'Gewonnen',
+                lose: 'Verloren',
+                push: 'Unentschieden'
+            }[hand.status] || 'Bereit';
+        }
+
+        function getBlackjackPlayerVisualClasses(player, state, handFlags) {
+            return [
+                handFlags.has21 ? 'has-blackjack-21' : '',
+                handFlags.hasBust ? 'has-bust' : '',
+                handFlags.hasTension ? 'has-tension' : '',
+                handFlags.hasWinning ? 'has-blackjack-win' : '',
+                'line-glow'
+            ].filter(Boolean).join(' ');
+        }
+
         function renderBlackjackTable() {
             const state = blackjackState;
             document.getElementById('screenBlackjack').classList.toggle(
@@ -4987,7 +5121,9 @@
             const humanDealer = blackjackDealerId !== 'bank' &&
                 blackjackPlayers.some(player => player.id === blackjackDealerId);
             const humanDealerHoleCardIndex = humanDealer
-                ? visibleDealerCards.findIndex(card => !blackjackCardIsFaceUp(card))
+                ? (blackjackDealerPeekRequired(viewerState.dealerCards)
+                    ? visibleDealerCards.findIndex(card => !blackjackCardIsFaceUp(card))
+                    : -1)
                 : -1;
             const tablePlayers = blackjackPlayers.map(player => ({
                 ...player,
@@ -5122,14 +5258,9 @@
                         if (handIsBust) playerHasBust = true;
                         if (handHasTension) playerHasTension = true;
                         if (isWinningHand) playerHasWinningHand = true;
-                        const handStatus = {
-                            playing: isCurrentHand ? 'Dein Zug' : 'Spielt',
-                            stood: hand.natural ? 'Blackjack!' : 'Hält',
-                            bust: 'Über 21',
-                            win: 'Gewonnen',
-                            lose: 'Verloren',
-                            push: 'Unentschieden'
-                        }[hand.status] || 'Bereit';
+                        const handStatus = hand.status === 'playing' && isCurrentHand
+                            ? 'Dein Zug'
+                            : getBlackjackHandStatus(hand);
                         let actions = '';
                         const isTurnTransitionHand = !!(state && state.turnTransition && isCurrentHand &&
                             player.id === state.currentPlayerId && handIndex === (state.currentHandIndex || 0));
@@ -5204,12 +5335,12 @@
                 const displayColor = isBank ? '#FBBF24' : playerDisplayColor(player);
                 const avatar = isBank ? '♠' : playerDisplayBadge(player);
                 const bankrollMarkup = !isBank ? renderBlackjackBalance(player, state) : '';
-                const playerVisualClasses = [
-                    playerHas21 ? 'has-blackjack-21' : '',
-                    playerHasBust ? 'has-bust' : '',
-                    playerHasTension ? 'has-tension' : '',
-                    playerHasWinningHand ? 'has-blackjack-win' : ''
-                ].filter(Boolean).join(' ');
+                const playerVisualClasses = getBlackjackPlayerVisualClasses(player, state, {
+                    has21: playerHas21,
+                    hasBust: playerHasBust,
+                    hasTension: playerHasTension,
+                    hasWinning: playerHasWinningHand
+                });
                 let contextActions = '';
 
                 if (humanDealer && isDealer && state && state.phase === 'dealing' && !state.dealComplete) {
@@ -5449,8 +5580,8 @@
 
         function joinPongLobby(overrideCode = null) {
             const code = (overrideCode || document.getElementById('pongRoomCodeInput').value).trim();
-            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
-            if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+            if (!/^\d{4}$/.test(code)) return showToast('Bitte gib eine gültige 4-stellige ID ein.', 'warning');
+            if (code === myTag) return showToast('Du kannst nicht deiner eigenen Lobby beitreten.', 'warning');
             ensurePeerReady(() => {
                 isHost = false;
                 conn = peer.connect('wd-user-' + code);
@@ -5464,7 +5595,7 @@
                     switchScreen('screenPong');
                     showStatus('Pong-Lobby betreten', 'success');
                 });
-                conn.on('error', () => alert('Die Pong-Lobby wurde nicht gefunden oder ist offline.'));
+                conn.on('error', () => showToast('Die Pong-Lobby wurde nicht gefunden oder ist offline.', 'error'));
             });
         }
 
@@ -5556,8 +5687,8 @@
 
         function joinHangmanLobby(overrideCode = null) {
             const code = (overrideCode || document.getElementById('hangmanRoomCodeInput').value).trim();
-            if (!/^\d{4}$/.test(code)) return alert('Bitte gib eine gültige 4-stellige ID ein.');
-            if (code === myTag) return alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+            if (!/^\d{4}$/.test(code)) return showToast('Bitte gib eine gültige 4-stellige ID ein.', 'warning');
+            if (code === myTag) return showToast('Du kannst nicht deiner eigenen Lobby beitreten.', 'warning');
             ensurePeerReady(() => {
                 isHost = false;
                 hangmanRoomActive = false;
@@ -5573,7 +5704,7 @@
                     renderHangmanView();
                     showStatus('Hangman-Lobby betreten', 'success');
                 });
-                conn.on('error', () => alert('Die Hangman-Lobby wurde nicht gefunden oder ist offline.'));
+                conn.on('error', () => showToast('Die Hangman-Lobby wurde nicht gefunden oder ist offline.', 'error'));
             });
         }
 
@@ -5752,7 +5883,7 @@
 
         function startHangmanGame() {
             if (!isHost) return;
-            if (hangmanPlayers.length < 2) return alert('Für Hangman brauchst du mindestens 2 Spieler.');
+            if (hangmanPlayers.length < 2) return showToast('Für Hangman brauchst du mindestens 2 Spieler.', 'warning');
             clearHangmanReactions();
             hangmanGameStarted = true;
             hangmanRound = 1;
@@ -5782,7 +5913,7 @@
                     entry && /^[A-ZÄÖÜ]{3,16}$/.test(entry.word) &&
                     typeof entry.hint === 'string' && entry.hint.trim()
                 );
-                if (!pool.length) return alert('Es ist kein passendes Zufallswort im Wörterbuch verfügbar.');
+                if (!pool.length) return showToast('Es ist kein passendes Zufallswort im Wörterbuch verfügbar.', 'error');
                 let availablePool = pool.filter(entry => !recentHangmanWords.includes(entry.word));
                 if (!availablePool.length) {
                     recentHangmanWords = [];
@@ -6043,7 +6174,7 @@
             wordDisplay.replaceChildren();
             const wordLength = Math.max(3, Math.min(16, Number(state.wordLength) || 0));
             const receivedReveal = Array.isArray(state.revealedWord) ? state.revealedWord : [];
-            const privateSolution = isSetter ? (state.secretWord || hangmanWord || '') : '';
+            const privateSolution = state.secretWord || hangmanWord || '';
             const revealByIndex = Array.from({ length: wordLength }, (_, index) => {
                 const revealLetter = sanitizeWord(receivedReveal[index] || '', 1, 1);
                 if (revealLetter) return revealLetter;
@@ -6058,12 +6189,6 @@
                     revealByIndex[index] || '\u00A0'
                 ));
             }
-            const revealedLetters = revealByIndex.filter(Boolean);
-            const wrongLetters = state.guessedLetters.filter(letter => !revealedLetters.includes(letter));
-            const guessedSummary = document.getElementById('hangmanGuessedSummary');
-            guessedSummary.innerHTML = `
-                <div><span class="font-bold text-red-300">Falsch:</span> ${wrongLetters.length ? wrongLetters.join(' · ') : '—'}</div>
-            `;
             const rows = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNMÄÖÜ'];
             document.getElementById('hangmanKeyboard').innerHTML = rows.map(row =>
                 `<div class="flex justify-center gap-1">${[...row].map(letter => {
@@ -6134,7 +6259,7 @@
 
         function startPongGame() {
             if (!isHost) return;
-            if (pongPlayers.length < 2) return alert('Für Pong brauchst du mindestens 2 Spieler.');
+            if (pongPlayers.length < 2) return showToast('Für Pong brauchst du mindestens 2 Spieler.', 'warning');
             stopPongGame();
             if (pongMaxPlayers === 4) {
                 while (pongPlayers.length < 4) {
@@ -6696,11 +6821,11 @@
         function joinGame(overrideTag = null) {
             const inputCode = sanitizePlayerTag(overrideTag || document.getElementById('roomCodeInput').value.trim());
             if (!inputCode) {
-                alert('Bitte gib eine gültige 4-stellige ID ein.');
+                showToast('Bitte gib eine gültige 4-stellige ID ein.', 'warning');
                 return;
             }
             if (inputCode === myTag) {
-                alert('Du kannst nicht deiner eigenen Lobby beitreten.');
+                showToast('Du kannst nicht deiner eigenen Lobby beitreten.', 'warning');
                 return;
             }
             
@@ -6721,9 +6846,9 @@
             
                 conn.on('error', (err) => {
                     const closed = err && err.type === 'peer-unavailable';
-                    alert(closed
+                    showToast(closed
                         ? 'Diese Lobby gibt es nicht mehr.'
-                        : 'Lobby nicht gefunden. Prüfe den Spielcode und versuche es erneut.');
+                        : 'Lobby nicht gefunden. Prüfe den Spielcode und versuche es erneut.', 'error');
                     showStatus('Lobby nicht verfügbar', 'error');
                 });
             });
@@ -7104,7 +7229,7 @@
                     }
                 case 'HANGMAN_FULL':
                     if (senderConn !== conn) break;
-                    alert('Diese Hangman-Lobby hat bereits begonnen oder ist nicht verfügbar.');
+                    showToast('Diese Hangman-Lobby hat bereits begonnen oder ist nicht verfügbar.', 'error');
                     if (conn) conn.close();
                     conn = null;
                     hangmanRoomActive = false;
@@ -7227,7 +7352,7 @@
                     }
                 case 'PONG_FULL':
                     if (senderConn !== conn) break;
-                    alert('Diese Pong-Lobby ist bereits voll.');
+                    showToast('Diese Pong-Lobby ist bereits voll.', 'warning');
                     if (conn) conn.close();
                     conn = null;
                     break;
@@ -7557,13 +7682,13 @@
             broadcast(msg);
         }
 
-        const DIFF = {
+        const DIFF = { easy: 40, medium: 30, hard: 20, inf: null };
+        const DIFF_CONFIG = {
             easy: {min:2,max:3,time:40,label:'Leicht'},
             medium: {min:4,max:5,time:30,label:'Mittel'},
             hard: {min:6,max:10,time:20,label:'Schwer'},
             inf: {min:4,max:5,time:0,label:'Unendlich ♾️'}
         };
-        let settings = { dictionaryMode: 'all', rounds: 3, diff: 'medium', inf: false, keep: false, wordLength: 0 };
         let round = 1;
         const pubPlayers = () => players.map(p => ({
             id: p.id, name: p.name, score: p.score, streak: p.streak || 0,
@@ -7608,7 +7733,7 @@
         }
 
         function pickPair() {
-            const d = DIFF[settings.diff], words = wordPool(), adj = new Map(words.map(w => [w, []]));
+            const d = DIFF_CONFIG[settings.diff], words = wordPool(), adj = new Map(words.map(w => [w, []]));
             for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++)
                 if (checkWordDifference(words[i], words[j])) { adj.get(words[i]).push(words[j]); adj.get(words[j]).push(words[i]); }
             const cands = [];
@@ -7662,7 +7787,7 @@
 
             document.getElementById('lblStartWord').textContent = wordChain[0];
             document.getElementById('lblTargetWord').innerHTML = paintTarget();
-            document.getElementById('roundLabel').textContent = `Runde ${round}/${settings.rounds} · ${DIFF[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
+            document.getElementById('roundLabel').textContent = `Runde ${round}/${settings.rounds} · ${DIFF_CONFIG[settings.diff].label} · Ziel (Opt: ${optimalSteps})`;
 
             const logEl = document.getElementById('lastScoreLog');
             if (lastScoreSummary) {
@@ -7800,7 +7925,7 @@
                 reasons.push(`${newHits}x Treffer +${hitPts}`);
             }
 
-            const speedPts = settings.inf ? 5 : Math.min(15, Math.round((Math.max(0, timeLeft) / DIFF[settings.diff].time) * 15));
+            const speedPts = settings.inf ? 5 : Math.min(15, Math.round((Math.max(0, timeLeft) / DIFF_CONFIG[settings.diff].time) * 15));
             if (speedPts > 0) {
                 rawPts += speedPts;
                 reasons.push(`Tempo +${speedPts}`);
@@ -7995,7 +8120,7 @@
                 disp.classList.remove('text-red-400'); disp.classList.add('text-violet-400');
                 return;
             }
-            timeLeft = DIFF[settings.diff].time;
+            timeLeft = DIFF_CONFIG[settings.diff].time;
             const paint = () => {
                 disp.textContent = timeLeft;
                 disp.classList.toggle('text-red-400', timeLeft <= 5);
@@ -8060,7 +8185,7 @@
         function updateLobbyUI() {
             const mt = gameMode === 'de' ? '🇩🇪 Deutsch' : (gameMode === 'en' ? '🇬🇧 Englisch' : '🌍 Alle Wörter');
             const lengthText = !settings.wordLength ? 'Alle Längen' : (settings.wordLength === 8 ? '8+ Buchstaben' : settings.wordLength + ' Buchstaben');
-            document.getElementById('lobbyModeBadgeText').textContent = `${mt} · ${settings.rounds} Runden · ${DIFF[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF[settings.diff].time + 's'} · ${lengthText}`;
+            document.getElementById('lobbyModeBadgeText').textContent = `${mt} · ${settings.rounds} Runden · ${DIFF_CONFIG[settings.diff].label}${settings.inf ? '' : ' · ' + DIFF_CONFIG[settings.diff].time + 's'} · ${lengthText}`;
             document.getElementById('lobbyPlayerCount').textContent = players.length;
             const list = document.getElementById('lobbyPlayerList');
             list.innerHTML = players.map(p => `
