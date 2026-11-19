@@ -3288,31 +3288,175 @@
             if (badge) badge.textContent = PLAYER_BADGES[myPlayerBadge];
         }
 
-        const devToolsBypass = new URLSearchParams(window.location.search).get('dev') === '1';
+        // ===== DevTools-Sperre (verschärft) =====
+        // Originale Funktionen vor dem Überschreiben sichern (für die Getter-Erkennung / Timer-Pause).
+        const nativeConsole = {
+            log: console.log.bind(console),
+            clear: typeof console.clear === 'function' ? console.clear.bind(console) : function () {}
+        };
+        const rawTimers = {
+            setTimeout: window.setTimeout.bind(window),
+            setInterval: window.setInterval.bind(window),
+            clearTimeout: window.clearTimeout.bind(window),
+            clearInterval: window.clearInterval.bind(window),
+            requestAnimationFrame: window.requestAnimationFrame.bind(window),
+            cancelAnimationFrame: window.cancelAnimationFrame.bind(window)
+        };
+        let devToolsActive = false;
+        let devToolsPaused = false;
+        let devToolsTimingHit = false;
+        let devToolsGetterHitAt = 0;
+        let pausedTimeouts = [];
+        let pausedFrames = [];
+        let timerGateInstalled = false;
+
+        function isLibraryTimerCall() {
+            try {
+                // Erkennt Aufrufe aus der PeerJS-Bibliothek anhand der Script-URL im Stacktrace.
+                return /\/peerjs[@.\/]/i.test(new Error().stack || '');
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Timer-Gate: Solange DevTools offen sind, laufen Spiel-Timer nicht weiter
+        // (Intervalle überspringen Ticks, Timeouts/Animation-Frames werden aufgeschoben).
+        // PeerJS-eigene Timer (Heartbeat) bleiben unberührt.
+        function installTimerGate() {
+            if (timerGateInstalled) return;
+            timerGateInstalled = true;
+
+            window.setTimeout = function (callback, delay, ...args) {
+                if (typeof callback !== 'function' || isLibraryTimerCall()) {
+                    return rawTimers.setTimeout(callback, delay, ...args);
+                }
+                const entry = { callback, args, id: null };
+                entry.id = rawTimers.setTimeout(() => {
+                    if (devToolsPaused) {
+                        pausedTimeouts.push(entry);
+                        return;
+                    }
+                    callback(...args);
+                }, delay);
+                return entry.id;
+            };
+            window.setInterval = function (callback, delay, ...args) {
+                if (typeof callback !== 'function' || isLibraryTimerCall()) {
+                    return rawTimers.setInterval(callback, delay, ...args);
+                }
+                return rawTimers.setInterval(() => {
+                    if (!devToolsPaused) callback(...args);
+                }, delay);
+            };
+            window.clearTimeout = function (id) {
+                pausedTimeouts = pausedTimeouts.filter(entry => entry.id !== id);
+                return rawTimers.clearTimeout(id);
+            };
+            window.clearInterval = function (id) {
+                return rawTimers.clearInterval(id);
+            };
+            window.requestAnimationFrame = function (callback) {
+                if (typeof callback !== 'function') return rawTimers.requestAnimationFrame(callback);
+                const entry = { callback, id: null };
+                entry.id = rawTimers.requestAnimationFrame(timestamp => {
+                    if (devToolsPaused) {
+                        pausedFrames.push(entry);
+                        return;
+                    }
+                    callback(timestamp);
+                });
+                return entry.id;
+            };
+            window.cancelAnimationFrame = function (id) {
+                pausedFrames = pausedFrames.filter(entry => entry.id !== id);
+                return rawTimers.cancelAnimationFrame(id);
+            };
+        }
+
+        function pauseGameForDevTools() {
+            devToolsPaused = true;
+        }
+
+        function resumeGameAfterDevTools() {
+            if (!devToolsPaused) return;
+            devToolsPaused = false;
+            const timeouts = pausedTimeouts;
+            const frames = pausedFrames;
+            pausedTimeouts = [];
+            pausedFrames = [];
+            timeouts.forEach(entry => {
+                try { entry.callback(...entry.args); } catch (error) { /* ignorieren */ }
+            });
+            const now = performance.now();
+            frames.forEach(entry => {
+                try { entry.callback(now); } catch (error) { /* ignorieren */ }
+            });
+        }
+
+        function isDevToolsExemptDevice() {
+            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
+                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+            return window.innerWidth < 768 || isTouchDevice;
+        }
+
+        // Getter-Trick: Ist die Konsole offen, liest sie die Eigenschaft "id" des geloggten Objekts aus.
+        function probeDevToolsGetter() {
+            try {
+                const probe = new Image();
+                Object.defineProperty(probe, 'id', {
+                    get() {
+                        devToolsGetterHitAt = Date.now();
+                        return '';
+                    }
+                });
+                nativeConsole.clear();
+                nativeConsole.log(probe);
+            } catch (error) { /* ignorieren */ }
+        }
+
+        function setDevToolsOpen(open, overlay) {
+            overlay.setAttribute('aria-hidden', String(!open));
+            if (open === devToolsActive) return;
+            devToolsActive = open;
+            overlay.classList.toggle('devtools-open', open);
+            if (open) pauseGameForDevTools();
+            else resumeGameAfterDevTools();
+        }
 
         function updateDevToolsLock() {
             const overlay = document.getElementById('devtoolsOverlay');
             if (!overlay) return;
-            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
-                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-            if (devToolsBypass || window.innerWidth < 768 || isTouchDevice) {
-                overlay.classList.remove('devtools-open');
-                overlay.setAttribute('aria-hidden', 'true');
+            if (isDevToolsExemptDevice()) {
+                devToolsTimingHit = false;
+                setDevToolsOpen(false, overlay);
                 return;
             }
             const widthDiff = window.outerWidth > 0 ? Math.abs(window.outerWidth - window.innerWidth) : 0;
             const heightDiff = window.outerHeight > 0 ? Math.abs(window.outerHeight - window.innerHeight) : 0;
-            const devToolsOpen = widthDiff > 160 || heightDiff > 160;
-            overlay.classList.toggle('devtools-open', devToolsOpen);
-            overlay.setAttribute('aria-hidden', String(!devToolsOpen));
+            const sizeOpen = widthDiff > 160 || heightDiff > 160;
+            const getterOpen = Date.now() - devToolsGetterHitAt < 1500;
+            setDevToolsOpen(sizeOpen || devToolsTimingHit || getterOpen, overlay);
         }
 
         function installClientGuards() {
+            installTimerGate();
+
             document.addEventListener('contextmenu', event => {
                 const target = event.target;
-                if (!devToolsBypass && (!(target instanceof Element) || !target.closest('input, textarea'))) {
+                if (!(target instanceof Element) || !target.closest('input, textarea')) {
                     event.preventDefault();
                 }
+            }, true);
+
+            const isEditableTarget = event => {
+                const target = event.target && event.target.nodeType === 3 ? event.target.parentElement : event.target;
+                return target instanceof Element && !!target.closest('input, textarea');
+            };
+            document.addEventListener('dragstart', event => {
+                if (!isEditableTarget(event)) event.preventDefault();
+            }, true);
+            document.addEventListener('selectstart', event => {
+                if (!isEditableTarget(event)) event.preventDefault();
             }, true);
 
             document.addEventListener('keydown', event => {
@@ -3320,14 +3464,21 @@
                 const zoomShortcut = (event.ctrlKey || event.metaKey) &&
                     ['+', '-', '=', '0', 'add', 'subtract'].includes(key);
                 if (zoomShortcut) return;
-                const devToolsShortcut = event.key === 'F12' ||
-                    (event.ctrlKey && key === 'u') ||
-                    (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(key)) ||
-                    (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key));
-                if (devToolsShortcut && !devToolsBypass) {
+                // Buchstaben über event.code lesen, damit Alt-Kombinationen auf dem Mac ebenfalls erkannt werden.
+                const code = String(event.code || '');
+                const letter = /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : key;
+                const devToolsShortcut = event.key === 'F12' || code === 'F12' ||
+                    (event.ctrlKey && letter === 'u') ||
+                    ((event.ctrlKey || event.metaKey) && letter === 's') ||
+                    (event.metaKey && event.altKey && ['i', 'j', 'c', 'u'].includes(letter)) ||
+                    (event.metaKey && event.shiftKey && letter === 'c') ||
+                    (event.ctrlKey && event.shiftKey && ['i', 'j', 'c', 'k', 'e', 'm', 'p'].includes(letter));
+                if (devToolsShortcut) {
                     event.preventDefault();
                     event.stopPropagation();
+                    return;
                 }
+                if (devToolsActive) return;
                 const targetTag = event.target && event.target.tagName;
                 if (hangmanState && hangmanState.status === 'playing' &&
                     !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) &&
@@ -3370,6 +3521,31 @@
 
             window.addEventListener('resize', updateDevToolsLock);
             updateDevToolsLock();
+
+            // Zusätzliche Erkennung: Timing-Check (debugger) + Getter-Trick, jede Sekunde.
+            // Läuft über die ungefilterten Original-Timer, damit die Pause sie nicht blockiert.
+            rawTimers.setInterval(() => {
+                if (isDevToolsExemptDevice()) {
+                    devToolsTimingHit = false;
+                    updateDevToolsLock();
+                    return;
+                }
+                const startedAt = performance.now();
+                debugger;
+                devToolsTimingHit = performance.now() - startedAt > 100;
+                probeDevToolsGetter();
+                updateDevToolsLock();
+            }, 1000);
+
+            // Konsole nach dem Laden stummschalten.
+            const silenceConsole = () => {
+                const noop = function () {};
+                ['log', 'info', 'warn', 'error', 'debug', 'table'].forEach(method => {
+                    try { console[method] = noop; } catch (error) { /* ignorieren */ }
+                });
+            };
+            if (document.readyState === 'complete') silenceConsole();
+            else window.addEventListener('load', silenceConsole, { once: true });
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -3534,6 +3710,7 @@
             if (!peer) {
                 const customId = 'wd-user-' + myTag;
                 peer = new Peer(customId);
+                const activePeer = peer;
                 
                 peer.on('open', (id) => {
                     myId = id;
@@ -3565,6 +3742,16 @@
 
                 peer.on('connection', (c) => {
                     setupConnectionHandlers(c);
+                });
+
+                peer.on('disconnected', () => {
+                    if (activePeer.destroyed) return;
+                    showStatus('Verbindung getrennt – verbinde neu...', 'warning');
+                    setTimeout(() => {
+                        if (peer === activePeer && !activePeer.destroyed && activePeer.disconnected) {
+                            try { activePeer.reconnect(); } catch (error) { console.warn('Neuverbindung fehlgeschlagen.', error); }
+                        }
+                    }, 2000);
                 });
             }
 
@@ -7618,9 +7805,11 @@
                     break;
                     }
                 case 'LIVE_TYPING':
+                    if (isHost ? !players.some(player => player.conn === senderConn) : senderConn !== conn) break;
                     showLiveTypingRemote(data.name, data.text, data.color, data.badge);
                     break;
                 case 'EMOTE':
+                    if (isHost ? !players.some(player => player.conn === senderConn) : senderConn !== conn) break;
                     if (['🔥', '🧠', '😱', '😂'].includes(data.emote)) triggerFloatingEmote(data.emote);
                     break;
                 case 'ROUND_OVER':
@@ -7658,6 +7847,7 @@
                     break;
                     }
                 case 'HOST_CLOSED':
+                    if (isHost || senderConn !== conn) break;
                     returnGuestToSetup('Die Spielleitung hat die Lobby beendet.');
                     break;
             }
