@@ -46,20 +46,23 @@
         .room-leave-button { flex: 0 0 auto; border: 1px solid rgba(248,113,113,.3); border-radius: .75rem; padding: .55rem .8rem; background: rgba(220,38,38,.14); color: #fca5a5; font-size: .75rem; font-weight: 700; transition: background-color .18s ease; cursor: pointer; }
         .room-leave-button:hover { background: rgba(220,38,38,.25); }
         .room-header-meta { flex: 1 1 12rem; min-width: 0; color: #d1d5db; font-size: .75rem; font-weight: 700; text-align: center; }
+        .room-header-layout > .room-header-meta { flex: 0 0 auto; width: 100%; }
+        .room-header-topline > .room-header-meta { flex: 1 1 12rem; width: auto; }
         .room-friend-invite-section { margin: 1rem 0; padding: 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(12,16,32,.5); text-align: center; }
         .room-friend-invite-title { margin-bottom: .75rem; color: #c7d2fe; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
         .room-friend-invite-list { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
         .room-friend-invite-button { display: inline-flex; min-height: 2.25rem; align-items: center; gap: .5rem; border: 1px solid rgba(129,140,248,.4); border-radius: .75rem; padding: .4rem .75rem; background: rgba(79,70,229,.22); color: #e0e7ff; font-size: .75rem; transition: background-color .18s ease; cursor: pointer; }
         .room-friend-invite-button:hover { background: rgba(79,70,229,.4); }
-        #floatingLobbyChat { position: fixed; right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); z-index: 80; width: min(23rem, calc(100vw - 1.5rem)); pointer-events: none; }
+        #floatingLobbyChat { position: fixed; right: 16px; bottom: 16px; z-index: 80; width: min(23rem, calc(100vw - 2rem)); pointer-events: none; }
         #floatingLobbyChat > * { pointer-events: auto; }
         #floatingLobbyChat [data-chat-content] { max-height: min(62dvh, 30rem); }
         #floatingLobbyChat [data-mg-chat-log] { max-height: min(38dvh, 18rem); }
         @media (max-width: 640px) {
-            #floatingLobbyChat { right: max(.5rem, env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom) + 4.75rem); width: min(22rem, calc(100vw - 1rem)); }
+            #floatingLobbyChat { right: 16px; bottom: calc(env(safe-area-inset-bottom) + 4.75rem); width: min(22rem, calc(100vw - 2rem)); }
             #floatingLobbyChat [data-chat-content] { max-height: calc(100dvh - env(safe-area-inset-bottom) - 6rem); }
             #floatingLobbyChat [data-mg-chat-log] { max-height: min(34dvh, 15rem); }
             .room-header-meta { flex-basis: 100%; text-align: left; }
+            .room-header-topline > .room-header-meta { flex-basis: 100%; width: 100%; }
         }
         body, body * { -webkit-user-select: none; user-select: none; }
         input, textarea { -webkit-user-select: text; user-select: text; }
@@ -987,14 +990,22 @@
             min-height: 0;
             flex-direction: column;
         }
-        #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongArena > .flex:first-child {
+        #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongArena > .room-header-layout {
             flex: 0 0 auto;
-            margin-bottom: .4rem;
+            margin: 0 0 .4rem;
+            gap: .35rem;
+        }
+        #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongArena > .room-header-layout .room-header-topline {
+            flex: 0 0 auto;
             gap: .4rem;
+        }
+        #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongTeamLabel {
+            flex: 0 0 auto;
+            margin: 0;
         }
         #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongFriendInviteSection {
             flex: 0 0 auto;
-            margin-bottom: .45rem;
+            margin: 0 0 .45rem;
             padding: .5rem .65rem;
         }
         #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongFriendInviteSection h3 {
@@ -1097,15 +1108,22 @@
             display: flex;
             flex: 1 1 0%;
             min-height: 0;
+            min-width: 0;
+            width: auto;
+            aspect-ratio: 8 / 5;
+            align-self: center;
             align-items: center;
             justify-content: center;
         }
         #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongCanvas {
+            display: block;
+            flex: 0 1 auto;
             width: auto;
-            height: auto;
+            height: 100%;
             max-width: 100%;
             max-height: 100%;
             aspect-ratio: 8 / 5;
+            object-fit: contain;
         }
         #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongArena > .mt-3 {
             flex: 0 0 auto;
@@ -1120,6 +1138,27 @@
             margin-top: .3rem;
             font-size: 10px;
         }
+        #screenHangman:not(.hidden) > .glass { padding: 1rem; }
+        #screenHangman > .glass > .text-center { margin-bottom: .75rem; }
+        #hangmanRoom .room-header-layout,
+        #hangmanGame .room-header-layout { gap: .45rem; margin-bottom: .6rem; }
+        #hangmanRoom #hangmanFriendInviteSection { margin: .6rem 0; padding: .75rem; }
+        #hangmanGame #hangmanScoreboard,
+        #hangmanGame [aria-label="Schnelle Hangman-Reaktionen"] { margin-bottom: .55rem; }
+        #hangmanGame #hangmanReactionFeed { margin-bottom: .5rem; }
+        #hangmanGame > .grid { gap: .75rem; }
+        #hangmanGame .glass { padding: .75rem; }
+        #hangmanDrawing { height: clamp(10rem, 22vh, 13rem); }
+        #screenBlackjack:not(.blackjack-round-active) > .glass { padding: 1rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackIntro { margin-bottom: .75rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackTable > .room-header-layout { gap: .5rem; margin-bottom: .6rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackDealerRolePanel { margin-bottom: .6rem; padding: .75rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackFelt { padding: 1rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackMessage { min-height: 0; margin-bottom: .5rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackPlayersList { gap: .6rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackFriendInviteSection { margin: .6rem 0; padding: .75rem; }
+        #screenBlackjack:not(.blackjack-round-active) #blackjackFelt > div.relative.mt-5 { margin-top: .6rem; }
+        #screenBlackjack:not(.blackjack-round-active) .blackjack-hand-zone { min-height: 5rem; margin-top: .55rem; padding: .55rem; }
         @media (max-width: 640px) {
             #pongPlayerList {
                 display: grid;
@@ -1128,6 +1167,37 @@
             }
             .pong-player-hud-card { min-width: 0; }
             .pong-hud-versus { display: none; }
+        }
+        @media (max-width: 640px), (max-height: 760px) {
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) {
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #screenPong:not(.hidden),
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #screenPong > .glass,
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongArena:not(.hidden) {
+                flex: 0 0 auto;
+                min-height: auto;
+                overflow: visible;
+            }
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongCanvasFrame {
+                flex: 0 0 auto;
+                width: min(100%, max(19.2rem, calc(40dvh * 1.6)));
+                aspect-ratio: 8 / 5;
+            }
+            #mainContent:has(#screenPong:not(.hidden) #pongArena:not(.hidden)) #pongCanvas {
+                max-height: none;
+            }
+            #mainContent.blackjack-round-active { overflow-x: hidden; overflow-y: auto; }
+            #screenBlackjack.blackjack-round-active,
+            #screenBlackjack.blackjack-round-active > .glass,
+            #screenBlackjack.blackjack-round-active #blackjackTable,
+            #screenBlackjack.blackjack-round-active #blackjackFelt {
+                flex: 0 0 auto;
+                min-height: auto;
+                overflow: visible;
+            }
+            #screenBlackjack.blackjack-round-active #blackjackPlayersList { flex: 0 0 auto; }
         }
         @media (prefers-reduced-motion: reduce) {
             body::before, .streak-badge::after, #timerDisplay.timer-critical, .player-score-card.is-active, .lobby-player-pill.is-active, .lobby-player-pill.is-host { animation: none; }
@@ -6044,6 +6114,8 @@
                 !isHost || !!pongState || pongPlayers.filter(player => !player.isBot).length < 2
             );
             renderPongFriendInvites();
+            const arena = document.getElementById('pongArena');
+            if (!pongState && arena && !arena.classList.contains('hidden')) drawPong();
         }
 
         function renderPongFriendInvites() {
@@ -6994,8 +7066,20 @@
             const canvas = document.getElementById('pongCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            const idlePreview = !stateOverride && !pongState;
+            if (idlePreview) {
+                pongBallTrail = [];
+                pongHitParticles = [];
+            }
             ctx.clearRect(0, 0, 800, 500);
-            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 800, 500);
+            const fieldGradient = ctx.createLinearGradient(0, 0, 800, 500);
+            fieldGradient.addColorStop(0, '#071827');
+            fieldGradient.addColorStop(.52, '#06111f');
+            fieldGradient.addColorStop(1, '#1a1020');
+            ctx.fillStyle = fieldGradient; ctx.fillRect(0, 0, 800, 500);
+            ctx.fillStyle = 'rgba(34, 211, 238, .035)'; ctx.fillRect(0, 0, 400, 500);
+            ctx.fillStyle = 'rgba(251, 113, 133, .035)'; ctx.fillRect(400, 0, 400, 500);
+            ctx.strokeStyle = 'rgba(148,163,184,.18)'; ctx.lineWidth = 2; ctx.strokeRect(12, 12, 776, 476);
             ctx.strokeStyle = 'rgba(148,163,184,.25)'; ctx.setLineDash([10, 12]); ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke(); ctx.setLineDash([]);
 
             const state = stateOverride || pongState || createPongState();
@@ -7076,6 +7160,17 @@
 
             ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 36px "Plus Jakarta Sans", system-ui, sans-serif'; ctx.textAlign = 'center';
             ctx.fillText(pongMaxPlayers === 4 ? `${state.blueScore}  ·  ${state.redScore}` : `${state.individualScore[0] || 0}  ·  ${state.individualScore[1] || 0}`, 400, 55);
+            if (idlePreview) {
+                const status = pongPlayers.length < 2 ? 'WARTET AUF SPIELER' : 'BEREIT';
+                ctx.fillStyle = 'rgba(2, 6, 23, .72)';
+                ctx.fillRect(238, 226, 324, 48);
+                ctx.strokeStyle = 'rgba(103, 232, 249, .35)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(238, 226, 324, 48);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.font = '800 18px "Plus Jakarta Sans", system-ui, sans-serif';
+                ctx.fillText(status, 400, 256);
+            }
             if (pongWinnerText) {
                 ctx.fillStyle = 'rgba(2, 6, 23, .72)';
                 ctx.fillRect(0, 0, 800, 500);
@@ -7091,6 +7186,16 @@
                 ctx.fillText(String(pongCountdown), 400, 285);
             }
         }
+
+        let pongResizeFrame = null;
+        window.addEventListener('resize', () => {
+            if (pongResizeFrame !== null) cancelAnimationFrame(pongResizeFrame);
+            pongResizeFrame = requestAnimationFrame(() => {
+                pongResizeFrame = null;
+                const arena = document.getElementById('pongArena');
+                if (isPongScreenVisible() && arena && !arena.classList.contains('hidden')) drawPong();
+            });
+        });
 
         function leavePongLobby(returnToPongScreen = true) {
             stopPongGame();
