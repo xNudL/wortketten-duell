@@ -37,6 +37,30 @@
         body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.18), transparent 50%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,.14), transparent 50%); background-attachment: fixed; }
         body { min-height: 0; padding-bottom: 0; }
         #mainContent { flex: 1 1 0%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+        .room-header-layout { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+        .room-header-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+        .room-id-card { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; min-width: 0; padding: .85rem 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(7,9,20,.48); }
+        .room-id-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .room-action-button { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; gap: .5rem; border: 1px solid rgba(129,140,248,.35); border-radius: .75rem; padding: .55rem .85rem; background: rgba(79,70,229,.24); color: #e0e7ff; font-size: .75rem; font-weight: 700; transition: background-color .18s ease, border-color .18s ease; cursor: pointer; }
+        .room-action-button:hover { border-color: rgba(129,140,248,.65); background: rgba(79,70,229,.4); }
+        .room-leave-button { flex: 0 0 auto; border: 1px solid rgba(248,113,113,.3); border-radius: .75rem; padding: .55rem .8rem; background: rgba(220,38,38,.14); color: #fca5a5; font-size: .75rem; font-weight: 700; transition: background-color .18s ease; cursor: pointer; }
+        .room-leave-button:hover { background: rgba(220,38,38,.25); }
+        .room-header-meta { flex: 1 1 12rem; min-width: 0; color: #d1d5db; font-size: .75rem; font-weight: 700; text-align: center; }
+        .room-friend-invite-section { margin: 1rem 0; padding: 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(12,16,32,.5); text-align: center; }
+        .room-friend-invite-title { margin-bottom: .75rem; color: #c7d2fe; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .room-friend-invite-list { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
+        .room-friend-invite-button { display: inline-flex; min-height: 2.25rem; align-items: center; gap: .5rem; border: 1px solid rgba(129,140,248,.4); border-radius: .75rem; padding: .4rem .75rem; background: rgba(79,70,229,.22); color: #e0e7ff; font-size: .75rem; transition: background-color .18s ease; cursor: pointer; }
+        .room-friend-invite-button:hover { background: rgba(79,70,229,.4); }
+        #floatingLobbyChat { position: fixed; right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); z-index: 80; width: min(23rem, calc(100vw - 1.5rem)); pointer-events: none; }
+        #floatingLobbyChat > * { pointer-events: auto; }
+        #floatingLobbyChat [data-chat-content] { max-height: min(62dvh, 30rem); }
+        #floatingLobbyChat [data-mg-chat-log] { max-height: min(38dvh, 18rem); }
+        @media (max-width: 640px) {
+            #floatingLobbyChat { right: max(.5rem, env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom) + 4.75rem); width: min(22rem, calc(100vw - 1rem)); }
+            #floatingLobbyChat [data-chat-content] { max-height: calc(100dvh - env(safe-area-inset-bottom) - 6rem); }
+            #floatingLobbyChat [data-mg-chat-log] { max-height: min(34dvh, 15rem); }
+            .room-header-meta { flex-basis: 100%; text-align: left; }
+        }
         body, body * { -webkit-user-select: none; user-select: none; }
         input, textarea { -webkit-user-select: text; user-select: text; }
         @media (min-width: 1024px) { html { font-size: 18px; } }
@@ -565,11 +589,15 @@
             min-height: 0;
             flex-direction: column;
         }
-        #screenBlackjack.blackjack-round-active #blackjackTable > .flex {
+        #screenBlackjack.blackjack-round-active #blackjackTable > .room-header-layout {
             flex: 0 0 auto;
             gap: .5rem;
             margin-bottom: .3rem;
         }
+        #screenBlackjack.blackjack-round-active .room-id-card { gap: .35rem .6rem; padding: .3rem .5rem; }
+        #screenBlackjack.blackjack-round-active .room-id-card .text-2xl { font-size: .9rem; line-height: 1.1; }
+        #screenBlackjack.blackjack-round-active .room-action-button,
+        #screenBlackjack.blackjack-round-active .room-leave-button { min-height: 2rem; padding: .3rem .5rem; }
         #screenBlackjack.blackjack-round-active #blackjackMessage {
             flex: 0 0 auto;
             min-height: 1rem;
@@ -1183,7 +1211,7 @@
     </header>
 
     <!-- Main Container -->
-    <main id="mainContent" class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-4 flex-grow flex flex-col justify-center relative">
+    <main id="mainContent" class="w-full max-w-7xl mx-auto px-3 sm:px-4 py-4 flex-grow flex flex-col justify-center relative">
 
         <!-- ONBOARDING SCREEN -->
         <div id="screenOnboarding" class="space-y-5 animate-fade-in z-20">
@@ -1371,20 +1399,26 @@
                 </div>
 
                 <div id="pongArena" class="hidden">
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
-                        <div class="text-left">
-                            <p class="text-[10px] text-gray-400 uppercase font-bold">Pong-Raum</p>
-                            <p id="pongRoomCode" class="text-xl font-mono font-black text-cyan-300">#----</p>
+                    <div class="room-header-layout">
+                        <div class="room-header-topline">
+                            <div class="room-id-card">
+                                <div>
+                                    <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Pong</p>
+                                    <p id="pongRoomCode" class="text-2xl font-mono font-black text-cyan-300 tracking-wider">#----</p>
+                                </div>
+                                <div class="room-id-actions">
+                                    <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
+                                </div>
+                            </div>
+                            <button onclick="leavePongLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
                         </div>
-                        <div id="pongTeamLabel" class="text-xs font-bold text-gray-300"></div>
-                        <button onclick="copyInviteLink()" class="bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-100 border border-cyan-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
-                        <button onclick="leavePongLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                        <div id="pongTeamLabel" class="room-header-meta"></div>
                     </div>
-                    <div id="pongFriendInviteSection" class="mb-4 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-300 mb-3">Freunde in diese Pong-Lobby einladen</h3>
-                        <div id="pongFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                    <div id="pongPlayerList" class="flex flex-wrap items-center justify-center gap-2"></div>
+                    <div id="pongFriendInviteSection" class="room-friend-invite-section">
+                        <h3 class="room-friend-invite-title">Freunde in diese Pong-Lobby einladen</h3>
+                        <div id="pongFriendInviteList" class="room-friend-invite-list"></div>
                     </div>
-                    <div id="pongPlayerList" class="flex flex-wrap items-center justify-center gap-2 mb-3"></div>
                     <div id="pongCanvasFrame" class="relative rounded-2xl overflow-hidden border border-cyan-500/30 bg-slate-950 shadow-2xl">
                         <canvas id="pongCanvas" width="800" height="500" class="w-full block touch-none"></canvas>
                     </div>
@@ -1441,16 +1475,25 @@
                 </div>
 
                 <div id="hangmanRoom" class="hidden">
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
-                        <div><p class="text-[10px] text-gray-400 uppercase font-bold">Hangman-Raum</p><p id="hangmanRoomCode" class="text-xl font-mono font-black text-indigo-300">#----</p></div>
-                        <p id="hangmanLobbyInfo" class="text-xs font-bold text-gray-300 text-center"></p>
-                        <button onclick="copyInviteLink()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
-                        <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    <div class="room-header-layout">
+                        <div class="room-header-topline">
+                            <div class="room-id-card">
+                                <div>
+                                    <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Hangman</p>
+                                    <p id="hangmanRoomCode" class="text-2xl font-mono font-black text-indigo-300 tracking-wider">#----</p>
+                                </div>
+                                <div class="room-id-actions">
+                                    <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
+                                </div>
+                            </div>
+                            <button onclick="leaveHangmanLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
+                        </div>
+                        <p id="hangmanLobbyInfo" class="room-header-meta"></p>
                     </div>
-                    <div id="hangmanPlayerList" class="flex flex-wrap justify-center gap-2 mb-4"></div>
-                    <div id="hangmanFriendInviteSection" class="mb-4 p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/20">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-3">Freunde in diese Hangman-Lobby einladen</h3>
-                        <div id="hangmanFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                    <div id="hangmanPlayerList" class="flex flex-wrap justify-center gap-2"></div>
+                    <div id="hangmanFriendInviteSection" class="room-friend-invite-section">
+                        <h3 class="room-friend-invite-title">Freunde in diese Hangman-Lobby einladen</h3>
+                        <div id="hangmanFriendInviteList" class="room-friend-invite-list"></div>
                     </div>
                     <div class="flex justify-center">
                         <button id="hangmanStartButton" onclick="startHangmanGame()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition"><i class="fa-solid fa-play mr-1"></i> Hangman starten</button>
@@ -1459,10 +1502,23 @@
                 </div>
 
                 <div id="hangmanGame" class="hidden">
-                    <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
-                        <div><p id="hangmanRoundLabel" class="text-xs font-bold uppercase tracking-wider text-indigo-300"></p><p id="hangmanTurnLabel" class="text-sm font-bold text-white mt-1"></p></div>
-                        <button onclick="copyInviteLink()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
-                        <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
+                    <div class="room-header-layout">
+                        <div class="room-header-topline">
+                            <div class="room-id-card">
+                                <div>
+                                    <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Hangman</p>
+                                    <p id="hangmanGameRoomCode" class="text-2xl font-mono font-black text-indigo-300 tracking-wider">#----</p>
+                                </div>
+                                <div class="room-id-actions">
+                                    <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
+                                </div>
+                            </div>
+                            <button onclick="leaveHangmanLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
+                        </div>
+                        <div class="room-header-meta">
+                            <p id="hangmanRoundLabel" class="text-xs font-bold uppercase tracking-wider text-indigo-300"></p>
+                            <p id="hangmanTurnLabel" class="mt-1 text-sm font-bold text-white"></p>
+                        </div>
                     </div>
                     <div id="hangmanScoreboard" class="flex flex-wrap justify-center gap-2 mb-4"></div>
                     <div class="mb-4 flex flex-wrap items-center justify-center gap-2" aria-label="Schnelle Hangman-Reaktionen">
@@ -1564,26 +1620,32 @@
                 </div>
 
                 <div id="blackjackTable" class="hidden">
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
-                        <div>
-                            <p class="text-[10px] text-gray-400 uppercase font-bold">Blackjack-Tisch</p>
-                            <p id="blackjackRoomCode" class="text-xl font-mono font-black text-emerald-300">#----</p>
+                    <div class="room-header-layout">
+                        <div class="room-header-topline">
+                            <div class="room-id-card">
+                                <div>
+                                    <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Blackjack</p>
+                                    <p id="blackjackRoomCode" class="text-2xl font-mono font-black text-emerald-300 tracking-wider">#----</p>
+                                </div>
+                                <div class="room-id-actions">
+                                    <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
+                                </div>
+                            </div>
+                            <button onclick="leaveBlackjackLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
                         </div>
-                        <p id="blackjackRoundLabel" class="text-xs font-bold text-gray-300">Warteraum</p>
-                        <label id="blackjackLobbyBankrollControl" class="hidden text-[10px] font-bold uppercase tracking-wider text-emerald-100/70">
-                            Startguthaben
-                            <select id="blackjackLobbyBankrollSelect" onchange="setBlackjackStartingBankroll(this.value)" class="mt-1 rounded-xl border border-emerald-300/20 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
-                                <option value="100">100 Chips</option>
-                                <option value="500">500 Chips</option>
-                                <option value="1000">1.000 Chips</option>
-                                <option value="2500">2.500 Chips</option>
-                                <option value="5000">5.000 Chips</option>
-                            </select>
-                        </label>
-                        <button onclick="copyInviteLink()" class="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-100 border border-emerald-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
-                        <button onclick="leaveBlackjackLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl transition">
-                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen
-                        </button>
+                        <div class="room-header-topline">
+                            <p id="blackjackRoundLabel" class="room-header-meta text-left">Warteraum</p>
+                            <label id="blackjackLobbyBankrollControl" class="hidden text-[10px] font-bold uppercase tracking-wider text-emerald-100/70">
+                                Startguthaben
+                                <select id="blackjackLobbyBankrollSelect" onchange="setBlackjackStartingBankroll(this.value)" class="mt-1 rounded-xl border border-emerald-300/20 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
+                                    <option value="100">100 Chips</option>
+                                    <option value="500">500 Chips</option>
+                                    <option value="1000">1.000 Chips</option>
+                                    <option value="2500">2.500 Chips</option>
+                                    <option value="5000">5.000 Chips</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
 
                     <div id="blackjackDealerRolePanel" class="mb-4 rounded-2xl border border-amber-300/20 bg-amber-950/10 p-4">
@@ -1600,16 +1662,15 @@
                             </label>
                         </div>
                     </div>
-                    <div id="blackjackFriendInviteSection" class="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4">
-                        <h3 class="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-300">Freunde an den Blackjack-Tisch einladen</h3>
-                        <div id="blackjackFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
-                    </div>
-
                     <div id="blackjackFelt" class="line-glow relative overflow-visible rounded-[2rem] border border-amber-200/30 bg-[radial-gradient(ellipse_at_center,_rgba(18,88,58,0.96),_rgba(4,38,34,0.98)_64%,_rgba(2,14,25,1)_100%)] p-4 shadow-[inset_0_0_60px_rgba(212,175,55,0.10),0_22px_60px_rgba(0,0,0,0.4)] sm:p-7">
                         <div class="pointer-events-none absolute inset-3 rounded-[1.6rem] border border-amber-100/10"></div>
                         <div id="blackjackWinnerBanner" class="blackjack-winner-overlay hidden" aria-live="polite"></div>
                         <p id="blackjackMessage" class="relative mx-auto mb-5 min-h-5 text-center text-sm font-bold text-amber-50" aria-live="polite"></p>
                         <div id="blackjackPlayersList" class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        <div id="blackjackFriendInviteSection" class="room-friend-invite-section relative">
+                            <h3 class="room-friend-invite-title">Freunde in diese Blackjack-Lobby einladen</h3>
+                            <div id="blackjackFriendInviteList" class="room-friend-invite-list"></div>
+                        </div>
                         <div class="relative mt-5 flex flex-wrap justify-center gap-2">
                             <button id="blackjackStartButton" onclick="startBlackjackRound()" class="hidden rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 transition-all duration-200 hover:bg-emerald-500 active:scale-95">Runde starten</button>
                         </div>
@@ -1623,7 +1684,7 @@
             <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80 text-center">
                 <div class="flex justify-between items-center mb-4">
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Warteraum</span>
-                    <button onclick="leaveLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer">
+                    <button onclick="leaveLobby()" class="room-leave-button">
                         <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Lobby verlassen
                     </button>
                 </div>
@@ -1631,25 +1692,26 @@
                 <h2 class="text-2xl font-black mt-3">Lobby aktiv</h2>
                 <p id="lobbyModeBadgeText" class="text-xs text-indigo-400 font-semibold mt-1">Modus: Alle Wörter</p>
                 
-                <div class="my-6 p-4 rounded-2xl bg-darker/60 border border-border inline-flex items-center space-x-4">
-                    <div>
-                        <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold text-left">Raum-ID</p>
-                        <p id="displayRoomCode" class="text-2xl font-mono font-black text-indigo-400 tracking-wider">---</p>
+                <div class="room-header-layout mx-auto w-full max-w-3xl">
+                    <div class="room-id-card mx-auto w-full justify-between">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold text-left">Raum-ID</p>
+                            <p id="displayRoomCode" class="text-2xl font-mono font-black text-indigo-400 tracking-wider">---</p>
+                        </div>
+                        <div class="room-id-actions">
+                            <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
+                        </div>
                     </div>
-                    <button onclick="copyInviteLink()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center space-x-2 transition cursor-pointer shadow-lg shadow-indigo-600/30">
-                        <i class="fa-solid fa-copy"></i>
-                        <span>ID kopieren</span>
-                    </button>
                 </div>
 
-                <div class="mb-6">
+                <div class="mb-0">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Mitspieler in der Lobby (<span id="lobbyPlayerCount">1</span>)</h3>
                     <div id="lobbyPlayerList" class="flex flex-wrap justify-center gap-2"></div>
                 </div>
 
-                <div id="hostFriendInviteSection" class="hidden mb-6 p-4 rounded-2xl bg-dark/50 border border-border">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Freunde in Lobby einladen</h3>
-                    <div id="lobbyFriendInviteList" class="flex flex-wrap justify-center gap-2"></div>
+                <div id="hostFriendInviteSection" class="room-friend-invite-section hidden">
+                    <h3 class="room-friend-invite-title">Freunde in diese Wortketten-Lobby einladen</h3>
+                    <div id="lobbyFriendInviteList" class="room-friend-invite-list"></div>
                 </div>
 
                 <div id="hostControls" class="hidden">
@@ -2648,14 +2710,14 @@
             return ['all', 'de', 'en'].includes(value) ? value : fallback;
         }
 
-        function renderFriendInviteButtons(container, available, buttonClass, emptyMessage, inviteFriend) {
+        function renderFriendInviteButtons(container, available, emptyMessage, inviteFriend) {
             container.replaceChildren();
             if (!available.length) {
                 container.appendChild(createTextElement('p', 'text-[11px] text-gray-500 italic', emptyMessage));
                 return;
             }
             available.forEach(friend => {
-                const button = createTextElement('button', buttonClass);
+                const button = createTextElement('button', 'room-friend-invite-button');
                 button.type = 'button';
                 button.addEventListener('click', () => inviteFriend(friend.tag));
                 const icon = createTextElement('i', 'fa-solid fa-paper-plane text-[10px]');
@@ -3715,7 +3777,6 @@
             renderFriendInviteButtons(
                 inviteList,
                 available,
-                'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
                 'Keine Freunde zum Einladen verfügbar.',
                 inviteFriendToLobby
             );
@@ -5839,7 +5900,6 @@
             renderFriendInviteButtons(
                 inviteList,
                 available,
-                'flex items-center space-x-1 rounded-xl border border-emerald-500/40 bg-emerald-600/30 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-600/50',
                 friends.length ? 'Alle Freunde sind bereits am Tisch.' : 'Keine Freunde zum Einladen verfügbar.',
                 inviteFriendToBlackjack
             );
@@ -5990,7 +6050,7 @@
             const inviteList = document.getElementById('pongFriendInviteList');
             if (!inviteList) return;
             if (pongPlayers.length >= pongMaxPlayers) {
-                renderFriendInviteButtons(inviteList, [], '', 'Lobby ist bereits voll.', inviteFriendToPong);
+                renderFriendInviteButtons(inviteList, [], 'Lobby ist bereits voll.', inviteFriendToPong);
                 return;
             }
             const available = friends.filter(friend =>
@@ -6001,7 +6061,6 @@
             renderFriendInviteButtons(
                 inviteList,
                 available,
-                'bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
                 friends.length && !available.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.',
                 inviteFriendToPong
             );
@@ -6184,6 +6243,8 @@
             const setup = document.getElementById('hangmanSetup');
             const room = document.getElementById('hangmanRoom');
             const game = document.getElementById('hangmanGame');
+            document.getElementById('hangmanGameRoomCode').textContent =
+                document.getElementById('hangmanRoomCode').textContent;
             if (!hangmanRoomActive) {
                 setup.classList.remove('hidden');
                 room.classList.add('hidden');
@@ -6229,7 +6290,6 @@
             renderFriendInviteButtons(
                 inviteList,
                 available,
-                'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1',
                 friends.length && !available.length ? 'Alle Freunde sind bereits in der Lobby.' : 'Keine Freunde zum Einladen verfügbar.',
                 inviteFriendToHangman
             );
@@ -8763,17 +8823,41 @@
 
     /* ---------- Lobby-Chat + mehr Emotes ---------- */
     const clean = t => String(t == null ? '' : t).replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 200);
-    const hostControls = $('hostControls'), chatLogs = [];
-    function createLobbyChat(mode) {
+    let chatOpen = false;
+    let unreadChatCount = 0;
+    function createLobbyChat() {
         const panel = document.createElement('div');
-        panel.className = 'mb-4 text-left rounded-2xl bg-dark/50 border border-border p-3';
-        panel.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Lobby-Chat</h3>
-            <div data-mg-chat-log class="h-32 overflow-y-auto space-y-1 text-xs text-gray-200" style="-webkit-user-select:text;user-select:text" aria-live="polite"></div>
-            <div class="flex gap-2 mt-2"><input data-mg-chat-input maxlength="200" placeholder="Nachricht schreiben…" class="flex-1 min-w-0 bg-darker border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-            <button data-mg-chat-send class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 rounded-xl text-xs" aria-label="Senden"><i class="fa-solid fa-paper-plane"></i></button></div>
-            <div data-mg-chat-emotes class="flex flex-wrap gap-1.5 mt-2"></div>`;
+        panel.id = 'floatingLobbyChat';
+        panel.className = 'hidden';
+        panel.setAttribute('aria-label', 'Lobby-Chat');
+        panel.innerHTML = `<button type="button" data-chat-toggle class="glass flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-400/30 px-4 py-3 text-left text-sm font-bold text-white shadow-xl shadow-black/30 transition hover:border-indigo-300/60" aria-expanded="false">
+                <span class="flex min-w-0 items-center gap-2"><i class="fa-solid fa-comments text-indigo-300" aria-hidden="true"></i><span>Lobby-Chat</span><span data-chat-unread class="hidden min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-black leading-4 text-white"></span></span>
+                <i data-chat-toggle-icon class="fa-solid fa-chevron-up text-xs text-gray-300 transition-transform" aria-hidden="true"></i>
+            </button>
+            <section data-chat-content class="hidden mt-2 flex flex-col overflow-hidden rounded-2xl border border-border bg-dark/95 p-3 text-left shadow-2xl backdrop-blur-xl" aria-label="Lobby-Chat-Nachrichten">
+                <div data-mg-chat-log class="min-h-20 flex-1 overflow-y-auto space-y-1 text-xs text-gray-200" style="-webkit-user-select:text;user-select:text" aria-live="polite"></div>
+                <div class="mt-2 flex gap-2"><input data-mg-chat-input maxlength="200" placeholder="Nachricht schreiben…" class="min-w-0 flex-1 rounded-xl border border-border bg-darker px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                <button data-mg-chat-send class="rounded-xl bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-500" aria-label="Senden"><i class="fa-solid fa-paper-plane"></i></button></div>
+                <div data-mg-chat-emotes class="mt-2 flex flex-wrap gap-1.5"></div>
+            </section>`;
+        const content = panel.querySelector('[data-chat-content]');
+        const toggle = panel.querySelector('[data-chat-toggle]');
+        const toggleIcon = panel.querySelector('[data-chat-toggle-icon]');
+        const unreadBadge = panel.querySelector('[data-chat-unread]');
         const log = panel.querySelector('[data-mg-chat-log]');
-        chatLogs.push(log);
+        const updateUnreadBadge = () => {
+            unreadBadge.textContent = unreadChatCount > 99 ? '99+' : String(unreadChatCount);
+            unreadBadge.classList.toggle('hidden', unreadChatCount === 0);
+        };
+        const setChatOpen = open => {
+            chatOpen = open;
+            content.classList.toggle('hidden', !open);
+            toggle.setAttribute('aria-expanded', String(open));
+            toggleIcon.classList.toggle('rotate-180', open);
+            if (open) unreadChatCount = 0;
+            updateUnreadBadge();
+        };
+        toggle.addEventListener('click', () => setChatOpen(!chatOpen));
         const input = panel.querySelector('[data-mg-chat-input]');
         const submit = () => { sendChat(input.value); input.value = ''; };
         panel.querySelector('[data-mg-chat-send]').onclick = submit;
@@ -8788,30 +8872,44 @@
             button.onclick = () => sendChat(emote);
             emotes.appendChild(button);
         });
-        panel.dataset.game = mode;
+        panel.updateUnreadBadge = updateUnreadBadge;
         return panel;
     }
-    const wordChat = createLobbyChat('words');
-    hostControls.parentElement.insertBefore(wordChat, hostControls);
-    $('pongArena').appendChild(createLobbyChat('pong'));
-    $('hangmanRoom').appendChild(createLobbyChat('hangman'));
-    $('hangmanGame').appendChild(createLobbyChat('hangman'));
-    $('blackjackTable').appendChild(createLobbyChat('blackjack'));
-    function addChat(m) {
-        chatLogs.forEach(log => {
-            const row = document.createElement('div'), name = document.createElement('b');
-            name.textContent = m.name + ': ';
-            name.style.color = m.color;
-            row.append(name, document.createTextNode(m.text));
-            log.appendChild(row);
-            while (log.children.length > 100) log.removeChild(log.firstChild);
-            log.scrollTop = log.scrollHeight;
-        });
+    const lobbyChat = createLobbyChat();
+    document.body.appendChild(lobbyChat);
+    function activeLobbyChatMode() {
+        const visible = id => !$(id).classList.contains('hidden');
+        if (visible('screenPong') && visible('pongArena')) return 'pong';
+        if (visible('screenHangman') && (visible('hangmanRoom') || visible('hangmanGame'))) return 'hangman';
+        if (visible('screenBlackjack') && visible('blackjackTable')) return 'blackjack';
+        if ((visible('screenLobby') || visible('screenGame') || visible('screenGameOver')) && players.length) return 'words';
+        return '';
+    }
+    function updateLobbyChatMode() {
+        const mode = activeLobbyChatMode();
+        lobbyChat.dataset.game = mode;
+        lobbyChat.classList.toggle('hidden', !mode);
+    }
+    updateLobbyChatMode();
+    setInterval(updateLobbyChatMode, 350);
+    function addChat(m, incoming = true) {
+        const log = lobbyChat.querySelector('[data-mg-chat-log]');
+        const row = document.createElement('div'), name = document.createElement('b');
+        name.textContent = m.name + ': ';
+        name.style.color = m.color;
+        row.append(name, document.createTextNode(m.text));
+        log.appendChild(row);
+        while (log.children.length > 100) log.removeChild(log.firstChild);
+        log.scrollTop = log.scrollHeight;
+        if (incoming && !chatOpen) {
+            unreadChatCount += 1;
+            lobbyChat.updateUnreadBadge();
+        }
     }
     function sendChat(text) {
         text = clean(text); if (!text) return;
         const msg = { type: 'CHAT', name: `${myName} #${myTag}`, text, color: myPlayerColor };
-        addChat(msg);
+        addChat(msg, false);
         if (isHost) connections.forEach(c => { if (c && c.open) c.send(msg); });
         else if (conn && conn.open) conn.send(msg);
     }
@@ -9522,10 +9620,12 @@
     }
     document.querySelectorAll('[onclick*="copyInviteLink"]').forEach(copyBtn => {
         const qrBtn = document.createElement('button');
-        qrBtn.className = 'bg-gray-700/60 hover:bg-gray-600/70 text-white font-bold px-3 py-2.5 rounded-xl text-xs flex items-center gap-2 transition cursor-pointer';
+        qrBtn.type = 'button';
+        qrBtn.className = 'room-action-button';
+        qrBtn.setAttribute('aria-label', 'QR-Code für den Raum anzeigen');
         qrBtn.innerHTML = '<i class="fa-solid fa-qrcode"></i><span>QR</span>';
         const box = document.createElement('div');
-        box.className = 'hidden my-3 flex justify-center';
+        box.className = 'hidden room-qr-preview flex basis-full justify-center';
         copyBtn.insertAdjacentElement('afterend', qrBtn);
         const host = copyBtn.parentElement;
         host.insertAdjacentElement('afterend', box);
