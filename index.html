@@ -17,6 +17,7 @@
                         card: '#121a2d',
                         border: '#28324a'
                     }
+
                 }
             }
         }
@@ -1376,6 +1377,7 @@
                             <p id="pongRoomCode" class="text-xl font-mono font-black text-cyan-300">#----</p>
                         </div>
                         <div id="pongTeamLabel" class="text-xs font-bold text-gray-300"></div>
+                        <button onclick="copyInviteLink()" class="bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-100 border border-cyan-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
                         <button onclick="leavePongLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
                     </div>
                     <div id="pongFriendInviteSection" class="mb-4 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
@@ -1442,6 +1444,7 @@
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
                         <div><p class="text-[10px] text-gray-400 uppercase font-bold">Hangman-Raum</p><p id="hangmanRoomCode" class="text-xl font-mono font-black text-indigo-300">#----</p></div>
                         <p id="hangmanLobbyInfo" class="text-xs font-bold text-gray-300 text-center"></p>
+                        <button onclick="copyInviteLink()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
                         <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
                     </div>
                     <div id="hangmanPlayerList" class="flex flex-wrap justify-center gap-2 mb-4"></div>
@@ -1458,6 +1461,7 @@
                 <div id="hangmanGame" class="hidden">
                     <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
                         <div><p id="hangmanRoundLabel" class="text-xs font-bold uppercase tracking-wider text-indigo-300"></p><p id="hangmanTurnLabel" class="text-sm font-bold text-white mt-1"></p></div>
+                        <button onclick="copyInviteLink()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
                         <button onclick="leaveHangmanLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen</button>
                     </div>
                     <div id="hangmanScoreboard" class="flex flex-wrap justify-center gap-2 mb-4"></div>
@@ -1576,6 +1580,7 @@
                                 <option value="5000">5.000 Chips</option>
                             </select>
                         </label>
+                        <button onclick="copyInviteLink()" class="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-100 border border-emerald-500/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Einladen</span></button>
                         <button onclick="leaveBlackjackLobby()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl transition">
                             <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Verlassen
                         </button>
@@ -1977,6 +1982,26 @@
                 localStorage.removeItem(key);
             } catch (error) {
                 console.warn(`Lokaler Eintrag "${key}" konnte nicht entfernt werden.`, error);
+            }
+        }
+
+        const SESSION_PLAYER_ID_KEY = 'wortketten_player_id_v1';
+
+        function readSessionPlayerTag() {
+            try {
+                const match = /^wd-user-(\d{4})$/.exec(sessionStorage.getItem(SESSION_PLAYER_ID_KEY) || '');
+                return match ? match[1] : '';
+            } catch (error) {
+                console.warn('Die Spieler-ID konnte nicht aus der Sitzung gelesen werden.', error);
+                return '';
+            }
+        }
+
+        function storeSessionPlayerId(playerId) {
+            try {
+                sessionStorage.setItem(SESSION_PLAYER_ID_KEY, playerId);
+            } catch (error) {
+                console.warn('Die Spieler-ID konnte nicht in der Sitzung gespeichert werden.', error);
             }
         }
 
@@ -2677,12 +2702,13 @@
         }
 
         let peer = null;
+        let peerShutdownPending = false;
         let conn = null;
         let connections = [];
         let isHost = false;
         let myId = '';
         let myName = sanitizePlayerName(readStoredValue(PROFILE_NAME_STORAGE_KEY, ''));
-        let myTag = sanitizePlayerTag(readStoredValue(PROFILE_TAG_STORAGE_KEY, ''));
+        let myTag = sanitizePlayerTag(readSessionPlayerTag()) || sanitizePlayerTag(readStoredValue(PROFILE_TAG_STORAGE_KEY, ''));
         let myPlayerColor = normalizePlayerColor(readStoredValue(PLAYER_COLOR_KEY));
         let myPlayerBadge = normalizePlayerBadge(readStoredValue(PLAYER_BADGE_KEY));
         let players = [];
@@ -3449,6 +3475,7 @@
             myTag = Math.floor(1000 + Math.random() * 9000).toString();
             writeStoredValue(PROFILE_NAME_STORAGE_KEY, myName);
             writeStoredValue(PROFILE_TAG_STORAGE_KEY, myTag);
+            storeSessionPlayerId('wd-user-' + myTag);
             myPlayerColor = normalizePlayerColor(document.getElementById('onboardingPlayerColor').value);
             myPlayerBadge = normalizePlayerBadge(document.getElementById('onboardingPlayerBadge').value);
             writeStoredValue(PLAYER_COLOR_KEY, myPlayerColor);
@@ -3517,6 +3544,7 @@
                 
                 peer.on('open', (id) => {
                     myId = id;
+                    storeSessionPlayerId(id);
                     if (isHost && players[0]) players[0].id = myId;
                     const tagDisplay = document.getElementById('myTagDisplay');
                     if (tagDisplay) tagDisplay.textContent = '#' + myTag;
@@ -3528,6 +3556,7 @@
                     if (err.type === 'unavailable-id') {
                         myTag = Math.floor(1000 + Math.random() * 9000).toString();
                         writeStoredValue(PROFILE_TAG_STORAGE_KEY, myTag);
+                        storeSessionPlayerId('wd-user-' + myTag);
                         peer.destroy();
                         peer = null;
                         initPeerAndSetup();
@@ -3701,6 +3730,10 @@
         function closeAddFriendModal() { document.getElementById('addFriendModal').classList.add('hidden'); }
 
         function ensurePeerReady(callback) {
+            if (peerShutdownPending) {
+                setTimeout(() => ensurePeerReady(callback), 275);
+                return;
+            }
             if (!peer || peer.destroyed) {
                 peer = null;
                 initPeerAndSetup();
@@ -5842,6 +5875,7 @@
                 broadcast({ type: 'BLACKJACK_CLOSED' });
                 const endedConnections = [...connections];
                 const hostPeer = peer;
+                peerShutdownPending = true;
                 setTimeout(() => {
                     endedConnections.forEach(connection => { if (connection && connection.open) connection.close(); });
                     if (peer === hostPeer && hostPeer) {
@@ -5849,6 +5883,7 @@
                         peer = null;
                         myId = '';
                     }
+                    peerShutdownPending = false;
                 }, 250);
                 connections = [];
             } else if (conn) {
@@ -6534,6 +6569,7 @@
                 broadcast({ type: 'HANGMAN_CLOSED' });
                 const ended = [...connections];
                 const hostPeer = peer;
+                peerShutdownPending = true;
                 setTimeout(() => {
                     ended.forEach(connection => { if (connection && connection.open) connection.close(); });
                     if (peer === hostPeer && hostPeer) {
@@ -6541,6 +6577,7 @@
                         peer = null;
                         myId = '';
                     }
+                    peerShutdownPending = false;
                 }, 250);
                 connections = [];
             } else if (conn) {
@@ -7001,6 +7038,7 @@
                 broadcast({ type: 'PONG_CLOSED' });
                 const ended = [...connections];
                 const hostPeer = peer;
+                peerShutdownPending = true;
                 setTimeout(() => {
                     ended.forEach(c => { if (c && c.open) c.close(); });
                     if (peer === hostPeer && hostPeer) {
@@ -7008,6 +7046,7 @@
                         peer = null;
                         myId = '';
                     }
+                    peerShutdownPending = false;
                 }, 250);
                 connections = [];
             } else if (conn) {
@@ -7183,6 +7222,7 @@
                 if (pongPlayers.length) broadcast({ type: 'PONG_CLOSED' });
                 const endedConnections = [...connections];
                 const hostPeer = peer;
+                peerShutdownPending = true;
                 setTimeout(() => {
                     endedConnections.forEach(c => { if (c && c.open) c.close(); });
                     if (peer === hostPeer && hostPeer) {
@@ -7190,6 +7230,7 @@
                         peer = null;
                         myId = '';
                     }
+                    peerShutdownPending = false;
                 }, 250);
                 connections = [];
                 players = [];
@@ -8432,7 +8473,7 @@
             setTimeout(() => el.remove(), 1800);
         }
 
-        function startTimer() {
+        function startTimer(initialTime = null) {
             stopWordTimer();
             const disp = document.getElementById('timerDisplay');
             if (settings.inf) {
@@ -8442,7 +8483,9 @@
                 disp.classList.remove('text-red-400'); disp.classList.add('text-violet-400');
                 return;
             }
-            timeLeft = DIFF_CONFIG[settings.diff].time;
+            timeLeft = Number.isInteger(initialTime) && initialTime > 0
+                ? Math.min(initialTime, DIFF_CONFIG[settings.diff].time)
+                : DIFF_CONFIG[settings.diff].time;
             const paint = () => {
                 disp.textContent = timeLeft;
                 disp.classList.toggle('text-red-400', timeLeft <= 5);
@@ -8528,14 +8571,25 @@
         function copyInviteLink() {
             const inviteUrl = new URL(window.location.href);
             ['room', 'mode', 'game'].forEach(parameter => inviteUrl.searchParams.delete(parameter));
-            inviteUrl.hash = 'room=' + encodeURIComponent(myTag);
+            const game = !document.getElementById('screenPong').classList.contains('hidden') ? 'pong'
+                : !document.getElementById('screenHangman').classList.contains('hidden') ? 'hangman'
+                : !document.getElementById('screenBlackjack').classList.contains('hidden') ? 'blackjack'
+                : 'words';
+            inviteUrl.searchParams.set('game', game);
+            inviteUrl.hash = 'room=' + encodeURIComponent(currentInviteTag());
             if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
                 showToast('Die Zwischenablage ist in diesem Browser nicht verfügbar.', 'warning');
                 return;
             }
             navigator.clipboard.writeText(inviteUrl.href)
-                .then(() => showToast('Einladungslink für Raum #' + myTag + ' kopiert!', 'success'))
+                .then(() => showToast('Einladungslink für Raum #' + currentInviteTag() + ' kopiert!', 'success'))
                 .catch(() => showToast('Der Einladungslink konnte nicht kopiert werden.', 'error'));
+        }
+
+        function currentInviteTag() {
+            return !isHost && conn && /^wd-user-\d{4}$/.test(conn.peer)
+                ? conn.peer.slice(-4)
+                : myTag;
         }
 
         function showStatus(text, type) {
@@ -8709,22 +8763,50 @@
 
     /* ---------- Lobby-Chat + mehr Emotes ---------- */
     const clean = t => String(t == null ? '' : t).replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 200);
-    const lobby = $('screenLobby'), hostControls = $('hostControls');
-    const chat = document.createElement('div');
-    chat.className = 'mb-6 text-left rounded-2xl bg-dark/50 border border-border p-3';
-    chat.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Lobby-Chat</h3>
-        <div id="mgChatLog" class="h-32 overflow-y-auto space-y-1 text-xs text-gray-200" style="-webkit-user-select:text;user-select:text"></div>
-        <div class="flex gap-2 mt-2"><input id="mgChatInput" maxlength="200" placeholder="Nachricht schreiben…" class="flex-1 min-w-0 bg-darker border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-        <button id="mgChatSend" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 rounded-xl text-xs" aria-label="Senden"><i class="fa-solid fa-paper-plane"></i></button></div>
-        <div id="mgChatEmotes" class="flex flex-wrap gap-1.5 mt-2"></div>`;
-    hostControls.parentElement.insertBefore(chat, hostControls);
+    const hostControls = $('hostControls'), chatLogs = [];
+    function createLobbyChat(mode) {
+        const panel = document.createElement('div');
+        panel.className = 'mb-4 text-left rounded-2xl bg-dark/50 border border-border p-3';
+        panel.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Lobby-Chat</h3>
+            <div data-mg-chat-log class="h-32 overflow-y-auto space-y-1 text-xs text-gray-200" style="-webkit-user-select:text;user-select:text" aria-live="polite"></div>
+            <div class="flex gap-2 mt-2"><input data-mg-chat-input maxlength="200" placeholder="Nachricht schreiben…" class="flex-1 min-w-0 bg-darker border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <button data-mg-chat-send class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 rounded-xl text-xs" aria-label="Senden"><i class="fa-solid fa-paper-plane"></i></button></div>
+            <div data-mg-chat-emotes class="flex flex-wrap gap-1.5 mt-2"></div>`;
+        const log = panel.querySelector('[data-mg-chat-log]');
+        chatLogs.push(log);
+        const input = panel.querySelector('[data-mg-chat-input]');
+        const submit = () => { sendChat(input.value); input.value = ''; };
+        panel.querySelector('[data-mg-chat-send]').onclick = submit;
+        input.addEventListener('keydown', event => { if (event.key === 'Enter') submit(); });
+        const emotes = panel.querySelector('[data-mg-chat-emotes]');
+        EMOTES.forEach(emote => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = emote;
+            button.className = 'w-8 h-8 rounded-lg glass hover:bg-gray-700/50 text-base';
+            button.setAttribute('aria-label', `Emote ${emote}`);
+            button.onclick = () => sendChat(emote);
+            emotes.appendChild(button);
+        });
+        panel.dataset.game = mode;
+        return panel;
+    }
+    const wordChat = createLobbyChat('words');
+    hostControls.parentElement.insertBefore(wordChat, hostControls);
+    $('pongArena').appendChild(createLobbyChat('pong'));
+    $('hangmanRoom').appendChild(createLobbyChat('hangman'));
+    $('hangmanGame').appendChild(createLobbyChat('hangman'));
+    $('blackjackTable').appendChild(createLobbyChat('blackjack'));
     function addChat(m) {
-        const log = $('mgChatLog'), row = document.createElement('div'), n = document.createElement('b');
-        n.textContent = m.name + ': '; n.style.color = m.color;
-        row.append(n, document.createTextNode(m.text));
-        log.appendChild(row);
-        while (log.children.length > 100) log.removeChild(log.firstChild);
-        log.scrollTop = log.scrollHeight;
+        chatLogs.forEach(log => {
+            const row = document.createElement('div'), name = document.createElement('b');
+            name.textContent = m.name + ': ';
+            name.style.color = m.color;
+            row.append(name, document.createTextNode(m.text));
+            log.appendChild(row);
+            while (log.children.length > 100) log.removeChild(log.firstChild);
+            log.scrollTop = log.scrollHeight;
+        });
     }
     function sendChat(text) {
         text = clean(text); if (!text) return;
@@ -8733,14 +8815,6 @@
         if (isHost) connections.forEach(c => { if (c && c.open) c.send(msg); });
         else if (conn && conn.open) conn.send(msg);
     }
-    const submitChat = () => { sendChat($('mgChatInput').value); $('mgChatInput').value = ''; };
-    $('mgChatSend').onclick = submitChat;
-    $('mgChatInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitChat(); });
-    EMOTES.forEach(em => {
-        const b = document.createElement('button'); b.textContent = em;
-        b.className = 'w-8 h-8 rounded-lg glass hover:bg-gray-700/50 text-base'; b.onclick = () => sendChat(em);
-        $('mgChatEmotes').appendChild(b);
-    });
     /* Emote-Leiste im Spiel erweitern */
     document.querySelectorAll('button[onclick="sendEmote(\'🔥\')"]').forEach(btn => {
         EMOTES.slice(4).forEach(em => {
@@ -8775,6 +8849,662 @@
         return origNet(data, sender);
     };
 
+    /* ---------- Wiederverbindung, 30-Sekunden-Karenz und Host-Übergabe ---------- */
+    const RECONNECT_GRACE_MS = 30000;
+    let hostBackup = null;
+    let hostInfo = null;
+    let hostRecovery = null;
+    let lastBackupSent = 0;
+    let lastInfoSent = 0;
+
+    function roomMode() {
+        if (blackjackRoomActive) return 'blackjack';
+        if (hangmanRoomActive) return 'hangman';
+        if (pongPlayers.length) return 'pong';
+        if (players.length) return 'words';
+        return null;
+    }
+
+    function roomPlayers(mode) {
+        if (mode === 'blackjack') return blackjackPlayers;
+        if (mode === 'hangman') return hangmanPlayers;
+        if (mode === 'pong') return pongPlayers;
+        return players;
+    }
+
+    function plainPlayers(list) {
+        return list.map(player => {
+            const copy = Object.assign({}, player);
+            delete copy.conn;
+            delete copy._mgGraceTimer;
+            delete copy._mgDisconnecting;
+            return copy;
+        });
+    }
+
+    function createHostSnapshot(mode) {
+        if (mode === 'words') {
+            return {
+                players: plainPlayers(players), settings, gameMode, round, currentTurnIndex,
+                wordChain, targetWord, optimalSteps, timeLeft, lastScoreSummary,
+                inGame: !$('screenGame').classList.contains('hidden'),
+                gameOver: !$('screenGameOver').classList.contains('hidden'),
+                roundStatsRecorded: wordRoundStatsRecorded
+            };
+        }
+        if (mode === 'pong') {
+            const state = pongState ? {
+                ...pongState,
+                nextPowerUpAt: Math.max(0, (pongState.nextPowerUpAt || 0) - performance.now()),
+                activePowerUps: (pongState.activePowerUps || []).map(effect => ({
+                    ...effect,
+                    expiresAt: Math.max(0, effect.expiresAt - performance.now())
+                }))
+            } : null;
+            return {
+                players: plainPlayers(pongPlayers), maxPlayers: pongMaxPlayers, winScore: pongWinScore,
+                running: pongRunning, countdown: pongCountdown, paused: pongPaused, state,
+                winnerText: pongWinnerText, statsRecorded: pongStatsRecorded
+            };
+        }
+        if (mode === 'hangman') {
+            return {
+                players: plainPlayers(hangmanPlayers), mode: hangmanMode, category: hangmanCategory,
+                maxErrors: hangmanMaxErrors, rounds: hangmanRounds, round: hangmanRound,
+                state: hangmanState, word: hangmanWord, matchId: hangmanMatchId,
+                gameStarted: hangmanGameStarted
+            };
+        }
+        if (mode === 'blackjack') {
+            return {
+                players: plainPlayers(blackjackPlayers), state: blackjackState, deck: blackjackDeck,
+                dealerId: blackjackDealerId, startingBankroll: blackjackStartingBankroll,
+                statsRecordedKey: blackjackStatsRecordedKey, celebrationKey: blackjackCelebrationKey
+            };
+        }
+        return null;
+    }
+
+    function publishHostHandoffState() {
+        if (!isHost || !myId) return;
+        const mode = roomMode();
+        if (!mode) return;
+        const activePlayers = roomPlayers(mode);
+        const candidate = activePlayers.find(player =>
+            player.id !== myId && !player.isBot && player.conn && player.conn.open
+        );
+        const now = Date.now();
+        if (now - lastInfoSent >= 1500) {
+            const info = {
+                type: 'MG_HOST_INFO', mode, hostId: myId, hostTag: myTag,
+                candidateId: candidate ? candidate.id : ''
+            };
+            connections.forEach(connection => {
+                if (connection && connection.open) connection.send(info);
+            });
+            lastInfoSent = now;
+        }
+        if (!candidate || now - lastBackupSent < 500) return;
+        const backup = {
+            type: 'MG_HOST_BACKUP', mode, hostId: myId, hostTag: myTag,
+            candidateId: candidate.id, state: createHostSnapshot(mode), sentAt: now
+        };
+        candidate.conn.send(backup);
+        lastBackupSent = now;
+    }
+
+    function clearPlayerGrace(player) {
+        if (player && player._mgGraceTimer) {
+            clearTimeout(player._mgGraceTimer);
+            delete player._mgGraceTimer;
+        }
+        if (player) delete player._mgDisconnectedAt;
+    }
+
+    function syncDisconnectedPlayerRemoval(mode, playerId, connection) {
+        const list = roomPlayers(mode);
+        const index = list.findIndex(player => player.id === playerId);
+        if (index < 0 || list[index].conn || list[index]._mgDisconnecting !== connection) return;
+        const [removed] = list.splice(index, 1);
+        delete removed._mgDisconnecting;
+        if (mode === 'words') {
+            if (currentTurnIndex > index) currentTurnIndex--;
+            else if (currentTurnIndex >= players.length) currentTurnIndex = 0;
+            if (!$('screenGame').classList.contains('hidden') &&
+                players.filter(player => !player.isBot).length < 2) {
+                abortWordGameForPlayerShortage();
+                return;
+            }
+            broadcast({ type: 'SYNC_PLAYERS', players: pubPlayers(), gameMode, settings });
+            updateLobbyUI();
+        } else if (mode === 'pong') {
+            assignPongTeams();
+            if ((pongRunning || pongCountdown > 0 || pongPaused) &&
+                pongPlayers.filter(player => !player.isBot).length < 2) {
+                abortPongForPlayerShortage();
+                return;
+            }
+            broadcast({
+                type: 'PONG_SYNC',
+                players: pongPlayers.map(player => ({
+                    id: player.id, name: player.name, score: player.score, team: player.team,
+                    color: playerDisplayColor(player), badge: playerDisplayBadge(player)
+                })),
+                maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning
+            });
+            renderPongLobby();
+        } else if (mode === 'hangman') {
+            if (hangmanGameStarted && hangmanPlayers.filter(player => !player.isBot).length < 2) {
+                abortHangmanForPlayerShortage();
+                return;
+            }
+            if (hangmanState && hangmanState.setterId === playerId) {
+                if (hangmanState.status === 'setting') {
+                    hangmanState = null;
+                    hangmanGameStarted = false;
+                    broadcastHangmanSync();
+                } else {
+                    hangmanState.notice = `${removed.name} als Wortgeber ist nicht zurückgekehrt.`;
+                    finishHangmanRound(false);
+                }
+            } else if (hangmanState) {
+                if (index < hangmanState.turnIndex) hangmanState.turnIndex--;
+                else if (index === hangmanState.turnIndex && hangmanPlayers.length) {
+                    hangmanState.turnIndex = index % hangmanPlayers.length;
+                    advanceHangmanTurn();
+                }
+                publishHangmanState();
+            } else {
+                broadcastHangmanSync();
+            }
+            renderHangmanView();
+        } else if (mode === 'blackjack') {
+            if (removed.id === blackjackDealerId) {
+                blackjackDealerId = 'bank';
+                if (blackjackState && blackjackState.phase === 'dealer') beginBlackjackDealerTurn();
+            } else if (blackjackState && blackjackState.phase === 'playing' &&
+                blackjackState.currentPlayerId === removed.id) {
+                advanceBlackjackTurn(removed.id, index - 1);
+            }
+            syncBlackjackTable();
+        }
+    }
+
+    function markRoomPlayerDisconnected(connection) {
+        if (!isHost) return;
+        const mode = roomMode();
+        if (!mode) return;
+        const player = roomPlayers(mode).find(entry => entry.conn === connection);
+        if (!player) return;
+        player.conn = null;
+        player._mgDisconnectedAt = Date.now();
+        player._mgDisconnecting = connection;
+        connections = connections.filter(entry => entry !== connection);
+        clearPlayerGrace(player);
+        player._mgDisconnectedAt = Date.now();
+        player._mgDisconnecting = connection;
+        player._mgGraceTimer = setTimeout(() => {
+            delete player._mgGraceTimer;
+            syncDisconnectedPlayerRemoval(mode, player.id, connection);
+        }, RECONNECT_GRACE_MS);
+    }
+
+    function reconnectRoomPlayer(mode, connection) {
+        const player = roomPlayers(mode).find(entry => entry.id === connection.peer);
+        if (!player) return null;
+        clearPlayerGrace(player);
+        player.conn = connection;
+        player.isBot = false;
+        if (!connections.includes(connection)) connections.push(connection);
+        return player;
+    }
+
+    function sendCurrentRoomState(connection, mode, lobbyAlreadySynced = false) {
+        if (!connection || !connection.open) return;
+        if (mode === 'words') {
+            connection.send({
+                type: 'MG_WORD_STATE', players: pubPlayers(), settings, gameMode,
+                round, currentTurnIndex, wordChain, targetWord, optimalSteps, timeLeft,
+                lastScoreSummary, inGame: !$('screenGame').classList.contains('hidden'),
+                gameOver: !$('screenGameOver').classList.contains('hidden'),
+                roundStatsRecorded: wordRoundStatsRecorded
+            });
+        } else if (mode === 'pong') {
+            if (!lobbyAlreadySynced) {
+                connection.send({
+                    type: 'PONG_SYNC',
+                    players: pongPlayers.map(player => ({
+                        id: player.id, name: player.name, score: player.score, team: player.team,
+                        color: playerDisplayColor(player), badge: playerDisplayBadge(player)
+                    })),
+                    maxPlayers: pongMaxPlayers, winScore: pongWinScore, running: pongRunning
+                });
+            }
+            if (pongState) {
+                const message = {
+                    players: pongPlayers.map(player => ({
+                        id: player.id, name: player.name, score: player.score, team: player.team,
+                        isBot: !!player.isBot, color: playerDisplayColor(player), badge: playerDisplayBadge(player)
+                    })),
+                    maxPlayers: pongMaxPlayers, winScore: pongWinScore, state: pongState, countdown: pongCountdown
+                };
+                connection.send(pongWinnerText
+                    ? Object.assign({ type: 'PONG_WIN', winnerText: pongWinnerText }, message)
+                    : Object.assign({ type: 'PONG_START' }, message));
+            }
+        } else if (mode === 'hangman') {
+            connection.send({
+                type: 'HANGMAN_SYNC', mode: hangmanMode, category: hangmanCategory,
+                maxErrors: hangmanMaxErrors, rounds: hangmanRounds,
+                players: hangmanPublicPlayers()
+            });
+            if (hangmanState) {
+                const state = getPublicHangmanState();
+                if (hangmanState.status === 'playing' && connection.peer === hangmanState.setterId) {
+                    state.secretWord = hangmanWord;
+                }
+                connection.send({ type: 'HANGMAN_STATE', state });
+            }
+        }
+    }
+
+    function clearHostRecovery() {
+        if (!hostRecovery) return;
+        clearTimeout(hostRecovery.timeout);
+        clearTimeout(hostRecovery.retry);
+        hostRecovery = null;
+    }
+
+    function modeJoinMessage(mode) {
+        if (mode === 'pong') return { type: 'PONG_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge };
+        if (mode === 'hangman') return { type: 'HANGMAN_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge };
+        if (mode === 'blackjack') return { type: 'BLACKJACK_JOIN', id: myId, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge };
+        return { type: 'JOIN', id: myId, tag: myTag, name: `${myName} #${myTag}`, color: myPlayerColor, badge: myPlayerBadge };
+    }
+
+    function connectToRoomHost(targetId, mode) {
+        if (!peer || !peer.open || !targetId || targetId === myId) return;
+        if (conn && conn.open && conn.peer === targetId) return;
+        if (conn && conn.open) conn.close();
+        const nextConnection = peer.connect(targetId);
+        conn = nextConnection;
+        setupConnectionHandlers(nextConnection);
+        nextConnection.on('open', () => {
+            if (conn !== nextConnection) return;
+            nextConnection.send(modeJoinMessage(mode));
+            if (mode === 'pong') {
+                switchMainTab('pong');
+                document.getElementById('pongRoomCode').textContent = '#' + targetId.slice(-4);
+            } else if (mode === 'hangman') {
+                switchMainTab('hangman');
+                document.getElementById('hangmanRoomCode').textContent = '#' + targetId.slice(-4);
+            } else if (mode === 'blackjack') {
+                switchMainTab('blackjack');
+                document.getElementById('blackjackRoomCode').textContent = '#' + targetId.slice(-4);
+            } else {
+                switchScreen('screenLobby');
+            }
+        });
+    }
+
+    function beginGuestRecovery(connection) {
+        if (hostRecovery || connection !== conn || isHost) return;
+        const mode = roomMode();
+        if (!mode) return;
+        const oldHostId = connection.peer;
+        const candidateId = hostInfo && hostInfo.mode === mode && hostInfo.candidateId
+            ? hostInfo.candidateId
+            : roomPlayers(mode).find(player => player.id !== oldHostId && !player.isBot)?.id;
+        hostRecovery = {
+            mode, oldHostId, candidateId: candidateId || '',
+            deadline: Date.now() + RECONNECT_GRACE_MS, timeout: null, retry: null
+        };
+        conn = null;
+        showStatus('Verbindung verloren – Wiederverbindung läuft (30 s Karenzzeit).', 'warning');
+        const attemptReconnect = () => {
+            if (!hostRecovery || Date.now() >= hostRecovery.deadline) return;
+            if ((!conn || (!conn.open && !conn._mgConnecting)) && peer && peer.open) {
+                const nextConnection = peer.connect(oldHostId);
+                nextConnection._mgConnecting = true;
+                conn = nextConnection;
+                setupConnectionHandlers(nextConnection);
+                nextConnection.on('open', () => {
+                    nextConnection._mgConnecting = false;
+                    if (conn === nextConnection) nextConnection.send(modeJoinMessage(mode));
+                });
+                nextConnection.on('error', () => { nextConnection._mgConnecting = false; });
+            }
+            if (hostRecovery) hostRecovery.retry = setTimeout(attemptReconnect, 2500);
+        };
+        attemptReconnect();
+        hostRecovery.timeout = setTimeout(() => {
+            if (!hostRecovery) return;
+            const recovery = hostRecovery;
+            if (myId === recovery.candidateId && hostBackup &&
+                hostBackup.hostId === recovery.oldHostId &&
+                hostBackup.candidateId === myId && hostBackup.mode === recovery.mode &&
+                hostBackup.state) {
+                promoteFromHostBackup(hostBackup);
+                return;
+            }
+            const candidateIdForJoin = recovery.candidateId;
+            clearHostRecovery();
+            if (candidateIdForJoin) {
+                showStatus('Die Spielleitung wird gewechselt – verbinde mit dem neuen Host.', 'warning');
+                connectToRoomHost(candidateIdForJoin, recovery.mode);
+            } else {
+                returnGuestToSetup('Die Spielleitung ist nicht zurückgekehrt und es gibt keinen verfügbaren Ersatz-Host.');
+            }
+        }, RECONNECT_GRACE_MS);
+    }
+
+    function restoreHostSnapshot(backup) {
+        if (!backup || !backup.state || !Array.isArray(backup.state.players) ||
+            !/^wd-user-\d{4}$/.test(backup.hostId || '') || !['words', 'pong', 'hangman', 'blackjack'].includes(backup.mode)) {
+            return false;
+        }
+        const state = backup.state;
+        const formerHostId = backup.hostId;
+        connections = [];
+        conn = null;
+        isHost = true;
+        if (backup.mode === 'words') {
+            players = state.players.filter(player => player.id !== formerHostId).map(player => ({
+                ...player, conn: null, isHost: player.id === myId
+            }));
+            if (!players.some(player => player.id === myId)) return false;
+            settings = sanitizeGameSettings(state.settings);
+            gameMode = sanitizeGameMode(state.gameMode);
+            round = state.round;
+            const currentPlayerId = state.players[state.currentTurnIndex] && state.players[state.currentTurnIndex].id;
+            currentTurnIndex = Math.max(0, players.findIndex(player => player.id === currentPlayerId));
+            wordChain = Array.isArray(state.wordChain) ? state.wordChain.slice() : [];
+            targetWord = sanitizeWord(state.targetWord) || targetWord;
+            optimalSteps = safeNonNegativeInteger(state.optimalSteps);
+            timeLeft = safeNonNegativeInteger(state.timeLeft);
+            lastScoreSummary = sanitizePlainText(state.lastScoreSummary);
+            wordRoundStatsRecorded = state.roundStatsRecorded === true;
+            $('displayRoomCode').textContent = myTag;
+            updateLobbyUI();
+            if (state.inGame && wordChain.length) {
+                switchScreen('screenGame');
+                renderGame();
+                startTimer(timeLeft);
+            } else if (state.gameOver && players.length) {
+                const winner = players[currentTurnIndex] || players[0];
+                showRoundOver({
+                    winner: winner.name, winnerId: winner.id, round, total: settings.rounds,
+                    final: round >= settings.rounds, lastScoreSummary,
+                    target: targetWord, chain: wordChain, players: pubPlayers()
+                });
+            } else {
+                switchScreen('screenLobby');
+            }
+        } else if (backup.mode === 'pong') {
+            const formerHost = state.players.find(player => player.id === formerHostId);
+            const matchWasActive = !!state.state && (state.running || state.countdown > 0 || state.paused);
+            pongPlayers = state.players.filter(player => player.id !== formerHostId).map(player => ({ ...player, conn: null }));
+            if (matchWasActive && formerHost) {
+                pongPlayers.unshift({ ...formerHost, isBot: true, conn: null });
+            }
+            if (!pongPlayers.some(player => player.id === myId)) return false;
+            pongMaxPlayers = [2, 4].includes(state.maxPlayers) ? state.maxPlayers : 2;
+            pongWinScore = [5, 10, 20, 30, 40, 50].includes(state.winScore) ? state.winScore : 10;
+            pongRunning = state.running === true;
+            pongCountdown = safeNonNegativeInteger(state.countdown, 0, 3);
+            pongPaused = state.paused === true;
+            pongState = state.state ? sanitizePongState(state.state) : null;
+            if (pongState) {
+                const now = performance.now();
+                pongState.nextPowerUpAt = now + safeNonNegativeInteger(pongState.nextPowerUpAt, 0, 60000);
+                pongState.activePowerUps = (pongState.activePowerUps || []).map(effect => ({
+                    ...effect,
+                    expiresAt: now + safeNonNegativeInteger(effect.expiresAt, 0, 60000)
+                }));
+            }
+            pongWinnerText = sanitizePlainText(state.winnerText, 120);
+            pongStatsRecorded = state.statsRecorded === true;
+            $('pongRoomCode').textContent = '#' + myTag;
+            pongPreviousSnapshot = pongState;
+            pongCurrentSnapshot = pongState;
+            document.getElementById('pongLobby').classList.toggle('hidden', !!pongState);
+            document.getElementById('pongArena').classList.toggle('hidden', !pongState);
+            switchMainTab('pong');
+            renderPongLobby();
+            if (pongState) drawPong(pongState);
+            if (pongRunning && pongState && !pongPaused) {
+                pongLastTickAt = 0;
+                pongHostLoop = requestAnimationFrame(pongHostTick);
+            } else if (pongCountdown > 0 && !pongPaused) {
+                startPongCountdown();
+            }
+        } else if (backup.mode === 'hangman') {
+            hangmanPlayers = state.players.filter(player => player.id !== formerHostId).map(player => ({ ...player, conn: null }));
+            if (!hangmanPlayers.some(player => player.id === myId)) return false;
+            hangmanMode = state.mode === 'random' ? 'random' : 'custom';
+            hangmanCategory = state.category;
+            hangmanMaxErrors = state.maxErrors;
+            hangmanRounds = state.rounds;
+            hangmanRound = state.round;
+            hangmanState = state.state;
+            hangmanWord = state.word;
+            hangmanMatchId = state.matchId;
+            hangmanGameStarted = state.gameStarted === true;
+            if (hangmanState) {
+                const oldTurnPlayer = state.state.players[state.state.turnIndex];
+                hangmanState.players = hangmanPublicPlayers();
+                hangmanState.turnIndex = Math.max(0, hangmanPlayers.findIndex(player => player.id === (oldTurnPlayer && oldTurnPlayer.id)));
+            }
+            hangmanRoomActive = true;
+            $('hangmanRoomCode').textContent = '#' + myTag;
+            switchMainTab('hangman');
+            renderHangmanView();
+        } else if (backup.mode === 'blackjack') {
+            blackjackPlayers = state.players.filter(player => player.id !== formerHostId).map(player => ({ ...player, conn: null }));
+            if (!blackjackPlayers.some(player => player.id === myId)) return false;
+            blackjackRoomActive = true;
+            blackjackState = state.state;
+            blackjackDeck = Array.isArray(state.deck) ? state.deck : [];
+            blackjackDealerId = state.dealerId === formerHostId ? 'bank' : state.dealerId;
+            blackjackStartingBankroll = state.startingBankroll;
+            blackjackStatsRecordedKey = state.statsRecordedKey;
+            blackjackCelebrationKey = state.celebrationKey;
+            $('blackjackRoomCode').textContent = '#' + myTag;
+            if (blackjackState && blackjackState.turnTransition) {
+                blackjackState.turnTransition = false;
+                blackjackState.turnTransitionControls = false;
+            }
+            if (blackjackState && blackjackState.phase === 'playing' &&
+                blackjackState.currentPlayerId === formerHostId) {
+                const oldIndex = state.players.findIndex(player => player.id === formerHostId);
+                advanceBlackjackTurn(formerHostId, oldIndex - 1);
+            } else if (blackjackState && blackjackState.phase === 'dealer' && blackjackDealerId === 'bank') {
+                beginBlackjackDealerTurn();
+            } else if (blackjackState && blackjackState.phase === 'dealing' && blackjackState.dealComplete) {
+                scheduleBlackjackFirstPlayerTurn(blackjackDealerTurnToken);
+            } else if (blackjackState && blackjackState.phase === 'settled') {
+                scheduleBlackjackLobbyReturn();
+            }
+            switchMainTab('blackjack');
+            renderBlackjackView();
+        } else {
+            return false;
+        }
+        hostInfo = { mode: backup.mode, hostId: myId, hostTag: myTag, candidateId: '' };
+        clearHostRecovery();
+        showStatus('Du bist die neue Spielleitung.', 'success');
+        return true;
+    }
+
+    function promoteFromHostBackup(backup) {
+        if (!restoreHostSnapshot(backup)) {
+            returnGuestToSetup('Der gespeicherte Spielstand konnte nicht übernommen werden.');
+            return;
+        }
+        hostBackup = null;
+        publishHostHandoffState();
+    }
+
+    function clearRecoveryState() {
+        clearHostRecovery();
+        hostBackup = null;
+        hostInfo = null;
+    }
+
+    const previousLeaveLobby = leaveLobby;
+    leaveLobby = function () {
+        clearRecoveryState();
+        return previousLeaveLobby.apply(this, arguments);
+    };
+    const previousLeavePongLobby = leavePongLobby;
+    leavePongLobby = function () {
+        clearRecoveryState();
+        return previousLeavePongLobby.apply(this, arguments);
+    };
+    const previousLeaveHangmanLobby = leaveHangmanLobby;
+    leaveHangmanLobby = function () {
+        clearRecoveryState();
+        return previousLeaveHangmanLobby.apply(this, arguments);
+    };
+    const previousLeaveBlackjackLobby = leaveBlackjackLobby;
+    leaveBlackjackLobby = function () {
+        clearRecoveryState();
+        return previousLeaveBlackjackLobby.apply(this, arguments);
+    };
+    const previousReturnGuestToSetup = returnGuestToSetup;
+    returnGuestToSetup = function () {
+        clearRecoveryState();
+        return previousReturnGuestToSetup.apply(this, arguments);
+    };
+    const previousReturnBlackjackToSetup = returnBlackjackToSetup;
+    returnBlackjackToSetup = function () {
+        clearRecoveryState();
+        return previousReturnBlackjackToSetup.apply(this, arguments);
+    };
+
+    const previousGuestDisconnect = handleGuestHostDisconnect;
+    handleGuestHostDisconnect = function (connection) {
+        if (connection === conn && !isHost && openedPeerConnections.has(connection)) {
+            beginGuestRecovery(connection);
+            return;
+        }
+        return previousGuestDisconnect(connection);
+    };
+
+    const previousSetupConnectionHandlers = setupConnectionHandlers;
+    setupConnectionHandlers = function (connection) {
+        previousSetupConnectionHandlers(connection);
+        connection.on('close', () => markRoomPlayerDisconnected(connection));
+    };
+
+    const previousNetworkHandler = handleNetworkData;
+    handleNetworkData = function (data, sender) {
+        if (data && data.type === 'MG_HOST_INFO') {
+            if (!isHost && sender === conn && typeof data.hostId === 'string') hostInfo = data;
+            return;
+        }
+        if (data && data.type === 'MG_HOST_BACKUP') {
+            if (!isHost && sender === conn && data.candidateId === myId && data.state &&
+                ['words', 'pong', 'hangman', 'blackjack'].includes(data.mode)) {
+                hostBackup = Object.assign({}, data, { receivedAt: Date.now() });
+            }
+            return;
+        }
+        if (data && ['HOST_CLOSED', 'PONG_CLOSED', 'HANGMAN_CLOSED', 'BLACKJACK_CLOSED'].includes(data.type)) {
+            clearHostRecovery();
+            hostBackup = null;
+            hostInfo = null;
+        }
+        if (data && isHost && sender && sender.peer) {
+            if (data.type === 'JOIN' && players.some(player => player.id === sender.peer)) {
+                const player = reconnectRoomPlayer('words', sender);
+                if (player) {
+                    player.name = sanitizeNetworkPlayerName(data.name) || player.name;
+                    player.color = normalizePlayerColor(data.color);
+                    player.badge = normalizePlayerBadge(data.badge);
+                }
+            } else if (data.type === 'PONG_JOIN') {
+                const player = pongPlayers.find(entry => entry.id === sender.peer && !entry.conn);
+                if (player && pongPlayers.length <= pongMaxPlayers) {
+                    reconnectRoomPlayer('pong', sender);
+                    player.name = sanitizeNetworkPlayerName(data.name) || player.name;
+                    player.color = normalizePlayerColor(data.color);
+                    player.badge = normalizePlayerBadge(data.badge);
+                    assignPongTeams();
+                    sendCurrentRoomState(sender, 'pong');
+                    renderPongLobby();
+                    return;
+                }
+            } else if (data.type === 'HANGMAN_JOIN') {
+                const player = hangmanPlayers.find(entry => entry.id === sender.peer && !entry.conn);
+                if (player) {
+                    reconnectRoomPlayer('hangman', sender);
+                    player.name = sanitizeNetworkPlayerName(data.name) || player.name;
+                    player.color = normalizePlayerColor(data.color);
+                    player.badge = normalizePlayerBadge(data.badge);
+                    sendCurrentRoomState(sender, 'hangman');
+                    renderHangmanView();
+                    return;
+                }
+            }
+        }
+        const result = previousNetworkHandler(data, sender);
+        if (data && isHost && sender && sender.open) {
+            if (data.type === 'JOIN' && players.some(player => player.id === sender.peer && player.conn === sender)) {
+                sendCurrentRoomState(sender, 'words');
+            } else if (data.type === 'PONG_JOIN' && pongPlayers.some(player => player.id === sender.peer && player.conn === sender)) {
+                sendCurrentRoomState(sender, 'pong', true);
+            } else if (data.type === 'HANGMAN_JOIN' && hangmanPlayers.some(player => player.id === sender.peer && player.conn === sender)) {
+                sendCurrentRoomState(sender, 'hangman');
+            }
+        }
+        if (data && sender === conn &&
+            ['SYNC_PLAYERS', 'MG_WORD_STATE', 'PONG_SYNC', 'HANGMAN_SYNC', 'HANGMAN_STATE', 'BLACKJACK_SYNC'].includes(data.type)) {
+            clearHostRecovery();
+            hostInfo = null;
+            hostBackup = null;
+        }
+        if (data && data.type === 'MG_WORD_STATE' && !isHost && sender === conn) {
+            const safePlayers = sanitizePlayerRecords(data.players, 16);
+            if (!safePlayers.some(player => player.id === myId)) return result;
+            players = safePlayers;
+            settings = sanitizeGameSettings(data.settings);
+            gameMode = sanitizeGameMode(data.gameMode);
+            round = safeNonNegativeInteger(data.round, 1);
+            currentTurnIndex = Math.min(safeNonNegativeInteger(data.currentTurnIndex), players.length - 1);
+            wordChain = Array.isArray(data.wordChain)
+                ? data.wordChain.map(word => sanitizeWord(word)).filter(Boolean).slice(0, 200)
+                : [];
+            targetWord = sanitizeWord(data.targetWord) || targetWord;
+            optimalSteps = safeNonNegativeInteger(data.optimalSteps);
+            timeLeft = safeNonNegativeInteger(data.timeLeft);
+            lastScoreSummary = sanitizePlainText(data.lastScoreSummary);
+            wordRoundStatsRecorded = data.roundStatsRecorded === true;
+            if (data.inGame) {
+                switchScreen('screenGame');
+                renderGame();
+            } else if (data.gameOver && players.length) {
+                const winner = players[currentTurnIndex] || players[0];
+                showRoundOver({
+                    winner: winner.name, winnerId: winner.id, round, total: settings.rounds,
+                    final: round >= settings.rounds, lastScoreSummary,
+                    target: targetWord, chain: wordChain, players: pubPlayers()
+                });
+            } else {
+                switchScreen('screenLobby');
+                updateLobbyUI();
+            }
+        }
+        if (data && isHost && ['JOIN', 'PONG_JOIN', 'HANGMAN_JOIN', 'BLACKJACK_JOIN'].includes(data.type)) {
+            publishHostHandoffState();
+        }
+        return result;
+    };
+
+    setInterval(() => {
+        if (isHost) publishHostHandoffState();
+    }, 250);
+
     /* ---------- QR-Code für den Raum-Link ---------- */
     const qrScript = document.createElement('script');
     qrScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
@@ -8782,7 +9512,12 @@
     function inviteUrl() {
         const u = new URL(location.href);
         ['room', 'mode', 'game'].forEach(p => u.searchParams.delete(p));
-        u.hash = 'room=' + encodeURIComponent(myTag);
+        const game = !$('screenPong').classList.contains('hidden') ? 'pong'
+            : !$('screenHangman').classList.contains('hidden') ? 'hangman'
+            : !$('screenBlackjack').classList.contains('hidden') ? 'blackjack'
+            : 'words';
+        u.searchParams.set('game', game);
+        u.hash = 'room=' + encodeURIComponent(currentInviteTag());
         return u.href;
     }
     document.querySelectorAll('[onclick*="copyInviteLink"]').forEach(copyBtn => {
