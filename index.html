@@ -29,8 +29,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        #devtoolsOverlay { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 20%, rgba(99,102,241,.18), transparent 55%), rgba(5,8,18,.98); backdrop-filter: blur(18px); text-align: center; }
-        #devtoolsOverlay.devtools-open { display: flex; }
         html, body { height: 100dvh; overflow: hidden; }
         .line-glow {
             box-shadow: 0 0 0 1px rgba(129,140,248,.18), 0 0 14px rgba(34,211,238,.16), 0 8px 30px rgba(15,23,42,.18);
@@ -1133,16 +1131,6 @@
     <canvas id="ambientParticles" aria-hidden="true"></canvas>
     <div id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
     <div id="customCursor" aria-hidden="true"></div>
-    <div id="devtoolsOverlay" aria-hidden="true">
-        <div class="max-w-md rounded-3xl border border-indigo-400/30 bg-gray-900/90 p-8 shadow-2xl shadow-indigo-950">
-            <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">
-                <i class="fa-solid fa-shield-halved text-2xl"></i>
-            </div>
-            <h2 class="text-2xl font-black text-white">Ansicht gesperrt</h2>
-            <p class="mt-3 text-sm leading-6 text-gray-300">Bitte schließe die Entwicklertools, um weiterzuspielen.</p>
-        </div>
-    </div>
-
     <!-- Header -->
     <header class="line-glow w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 shrink-0 flex justify-between items-center shadow-lg">
         <div class="flex items-center space-x-3">
@@ -3288,197 +3276,12 @@
             if (badge) badge.textContent = PLAYER_BADGES[myPlayerBadge];
         }
 
-        // ===== DevTools-Sperre (verschärft) =====
-        // Originale Funktionen vor dem Überschreiben sichern (für die Getter-Erkennung / Timer-Pause).
-        const nativeConsole = {
-            log: console.log.bind(console),
-            clear: typeof console.clear === 'function' ? console.clear.bind(console) : function () {}
-        };
-        const rawTimers = {
-            setTimeout: window.setTimeout.bind(window),
-            setInterval: window.setInterval.bind(window),
-            clearTimeout: window.clearTimeout.bind(window),
-            clearInterval: window.clearInterval.bind(window),
-            requestAnimationFrame: window.requestAnimationFrame.bind(window),
-            cancelAnimationFrame: window.cancelAnimationFrame.bind(window)
-        };
-        let devToolsActive = false;
-        let devToolsPaused = false;
-        let devToolsTimingHit = false;
-        let devToolsGetterHitAt = 0;
-        let pausedTimeouts = [];
-        let pausedFrames = [];
-        let timerGateInstalled = false;
-
-        function isLibraryTimerCall() {
-            try {
-                // Erkennt Aufrufe aus der PeerJS-Bibliothek anhand der Script-URL im Stacktrace.
-                return /\/peerjs[@.\/]/i.test(new Error().stack || '');
-            } catch (error) {
-                return false;
-            }
-        }
-
-        // Timer-Gate: Solange DevTools offen sind, laufen Spiel-Timer nicht weiter
-        // (Intervalle überspringen Ticks, Timeouts/Animation-Frames werden aufgeschoben).
-        // PeerJS-eigene Timer (Heartbeat) bleiben unberührt.
-        function installTimerGate() {
-            if (timerGateInstalled) return;
-            timerGateInstalled = true;
-
-            window.setTimeout = function (callback, delay, ...args) {
-                if (typeof callback !== 'function' || isLibraryTimerCall()) {
-                    return rawTimers.setTimeout(callback, delay, ...args);
-                }
-                const entry = { callback, args, id: null };
-                entry.id = rawTimers.setTimeout(() => {
-                    if (devToolsPaused) {
-                        pausedTimeouts.push(entry);
-                        return;
-                    }
-                    callback(...args);
-                }, delay);
-                return entry.id;
-            };
-            window.setInterval = function (callback, delay, ...args) {
-                if (typeof callback !== 'function' || isLibraryTimerCall()) {
-                    return rawTimers.setInterval(callback, delay, ...args);
-                }
-                return rawTimers.setInterval(() => {
-                    if (!devToolsPaused) callback(...args);
-                }, delay);
-            };
-            window.clearTimeout = function (id) {
-                pausedTimeouts = pausedTimeouts.filter(entry => entry.id !== id);
-                return rawTimers.clearTimeout(id);
-            };
-            window.clearInterval = function (id) {
-                return rawTimers.clearInterval(id);
-            };
-            window.requestAnimationFrame = function (callback) {
-                if (typeof callback !== 'function') return rawTimers.requestAnimationFrame(callback);
-                const entry = { callback, id: null };
-                entry.id = rawTimers.requestAnimationFrame(timestamp => {
-                    if (devToolsPaused) {
-                        pausedFrames.push(entry);
-                        return;
-                    }
-                    callback(timestamp);
-                });
-                return entry.id;
-            };
-            window.cancelAnimationFrame = function (id) {
-                pausedFrames = pausedFrames.filter(entry => entry.id !== id);
-                return rawTimers.cancelAnimationFrame(id);
-            };
-        }
-
-        function pauseGameForDevTools() {
-            devToolsPaused = true;
-        }
-
-        function resumeGameAfterDevTools() {
-            if (!devToolsPaused) return;
-            devToolsPaused = false;
-            const timeouts = pausedTimeouts;
-            const frames = pausedFrames;
-            pausedTimeouts = [];
-            pausedFrames = [];
-            timeouts.forEach(entry => {
-                try { entry.callback(...entry.args); } catch (error) { /* ignorieren */ }
-            });
-            const now = performance.now();
-            frames.forEach(entry => {
-                try { entry.callback(now); } catch (error) { /* ignorieren */ }
-            });
-        }
-
-        function isDevToolsExemptDevice() {
-            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
-                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-            return window.innerWidth < 768 || isTouchDevice;
-        }
-
-        // Getter-Trick: Ist die Konsole offen, liest sie die Eigenschaft "id" des geloggten Objekts aus.
-        function probeDevToolsGetter() {
-            try {
-                const probe = new Image();
-                Object.defineProperty(probe, 'id', {
-                    get() {
-                        devToolsGetterHitAt = Date.now();
-                        return '';
-                    }
-                });
-                nativeConsole.clear();
-                nativeConsole.log(probe);
-            } catch (error) { /* ignorieren */ }
-        }
-
-        function setDevToolsOpen(open, overlay) {
-            overlay.setAttribute('aria-hidden', String(!open));
-            if (open === devToolsActive) return;
-            devToolsActive = open;
-            overlay.classList.toggle('devtools-open', open);
-            if (open) pauseGameForDevTools();
-            else resumeGameAfterDevTools();
-        }
-
-        function updateDevToolsLock() {
-            const overlay = document.getElementById('devtoolsOverlay');
-            if (!overlay) return;
-            if (isDevToolsExemptDevice()) {
-                devToolsTimingHit = false;
-                setDevToolsOpen(false, overlay);
-                return;
-            }
-            const widthDiff = window.outerWidth > 0 ? Math.abs(window.outerWidth - window.innerWidth) : 0;
-            const heightDiff = window.outerHeight > 0 ? Math.abs(window.outerHeight - window.innerHeight) : 0;
-            const sizeOpen = widthDiff > 160 || heightDiff > 160;
-            const getterOpen = Date.now() - devToolsGetterHitAt < 1500;
-            setDevToolsOpen(sizeOpen || devToolsTimingHit || getterOpen, overlay);
-        }
-
         function installClientGuards() {
-            installTimerGate();
-
-            document.addEventListener('contextmenu', event => {
-                const target = event.target;
-                if (!(target instanceof Element) || !target.closest('input, textarea')) {
-                    event.preventDefault();
-                }
-            }, true);
-
-            const isEditableTarget = event => {
-                const target = event.target && event.target.nodeType === 3 ? event.target.parentElement : event.target;
-                return target instanceof Element && !!target.closest('input, textarea');
-            };
-            document.addEventListener('dragstart', event => {
-                if (!isEditableTarget(event)) event.preventDefault();
-            }, true);
-            document.addEventListener('selectstart', event => {
-                if (!isEditableTarget(event)) event.preventDefault();
-            }, true);
-
             document.addEventListener('keydown', event => {
                 const key = String(event.key || '').toLowerCase();
                 const zoomShortcut = (event.ctrlKey || event.metaKey) &&
                     ['+', '-', '=', '0', 'add', 'subtract'].includes(key);
                 if (zoomShortcut) return;
-                // Buchstaben über event.code lesen, damit Alt-Kombinationen auf dem Mac ebenfalls erkannt werden.
-                const code = String(event.code || '');
-                const letter = /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : key;
-                const devToolsShortcut = event.key === 'F12' || code === 'F12' ||
-                    (event.ctrlKey && letter === 'u') ||
-                    ((event.ctrlKey || event.metaKey) && letter === 's') ||
-                    (event.metaKey && event.altKey && ['i', 'j', 'c', 'u'].includes(letter)) ||
-                    (event.metaKey && event.shiftKey && letter === 'c') ||
-                    (event.ctrlKey && event.shiftKey && ['i', 'j', 'c', 'k', 'e', 'm', 'p'].includes(letter));
-                if (devToolsShortcut) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return;
-                }
-                if (devToolsActive) return;
                 const targetTag = event.target && event.target.tagName;
                 if (hangmanState && hangmanState.status === 'playing' &&
                     !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) &&
@@ -3518,34 +3321,6 @@
                     playChipClick();
                 }
             }, true);
-
-            window.addEventListener('resize', updateDevToolsLock);
-            updateDevToolsLock();
-
-            // Zusätzliche Erkennung: Timing-Check (debugger) + Getter-Trick, jede Sekunde.
-            // Läuft über die ungefilterten Original-Timer, damit die Pause sie nicht blockiert.
-            rawTimers.setInterval(() => {
-                if (isDevToolsExemptDevice()) {
-                    devToolsTimingHit = false;
-                    updateDevToolsLock();
-                    return;
-                }
-                const startedAt = performance.now();
-                debugger;
-                devToolsTimingHit = performance.now() - startedAt > 100;
-                probeDevToolsGetter();
-                updateDevToolsLock();
-            }, 1000);
-
-            // Konsole nach dem Laden stummschalten.
-            const silenceConsole = () => {
-                const noop = function () {};
-                ['log', 'info', 'warn', 'error', 'debug', 'table'].forEach(method => {
-                    try { console[method] = noop; } catch (error) { /* ignorieren */ }
-                });
-            };
-            if (document.readyState === 'complete') silenceConsole();
-            else window.addEventListener('load', silenceConsole, { once: true });
         }
 
         window.addEventListener('DOMContentLoaded', () => {
