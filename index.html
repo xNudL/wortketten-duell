@@ -60,8 +60,6 @@
         @keyframes toastIn { from { opacity: 0; transform: translateY(-24px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes toastOut { to { opacity: 0; transform: translateY(-12px) scale(.98); } }
         @keyframes toastProgress { to { transform: scaleX(0); } }
-        #devtoolsOverlay { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 20%, rgba(99,102,241,.18), transparent 55%), rgba(5,8,18,.98); backdrop-filter: blur(18px); text-align: center; }
-        #devtoolsOverlay.devtools-open { display: flex; }
         @media (prefers-reduced-motion: reduce) {
             .toast-in, .toast-out { animation-duration: .01ms; }
             .toast::after { animation: none; }
@@ -1130,15 +1128,6 @@
     <canvas id="ambientParticles" aria-hidden="true"></canvas>
     <div id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
     <div id="customCursor" aria-hidden="true"></div>
-    <div id="devtoolsOverlay" aria-hidden="true">
-        <div class="max-w-md rounded-3xl border border-indigo-400/30 bg-gray-900/90 p-8 shadow-2xl shadow-indigo-950">
-            <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">
-                <i class="fa-solid fa-shield-halved text-2xl"></i>
-            </div>
-            <h2 class="text-2xl font-black text-white">Ansicht gesperrt</h2>
-            <p class="mt-3 text-sm leading-6 text-gray-300">Bitte schließe die Entwicklertools, um weiterzuspielen.</p>
-        </div>
-    </div>
 
     <!-- Header -->
     <header class="w-full glass border-b border-border/50 px-4 py-3 sticky top-0 z-50 shrink-0 flex justify-between items-center shadow-lg">
@@ -1499,7 +1488,7 @@
                             <form id="hangmanSetWordForm" class="hidden w-full max-w-md space-y-2" onsubmit="event.preventDefault(); submitHangmanWord();">
                                 <label class="block text-xs font-bold text-indigo-300">Dein geheimes Wort (3–16 Buchstaben)</label>
                                 <input id="hangmanSecretWord" type="password" maxlength="16" autocomplete="off" placeholder="Wort eingeben" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-3 text-sm uppercase tracking-widest text-white focus:outline-none focus:border-indigo-500">
-                                <input id="hangmanHintInput" type="text" maxlength="40" autocomplete="off" placeholder="Hinweis / Kategorie (optional)" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                                <input id="hangmanHintInput" type="text" maxlength="200" autocomplete="off" placeholder="Hinweis / Kategorie (optional)" class="w-full bg-darker/90 border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
                                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">Wort festlegen</button>
                                 <p id="hangmanSetterFeedback" class="text-xs text-red-300 min-h-4"></p>
                             </form>
@@ -2037,10 +2026,10 @@
         function sanitizeHangmanHint(value) {
             return String(value == null ? '' : value)
                 .normalize('NFC')
-                .replace(/[^A-Za-zÄÖÜäöüß0-9 ,.'-]/g, '')
+                .replace(/[\u0000-\u001F\u007F]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim()
-                .slice(0, 40);
+                .slice(0, 200);
         }
 
         // ===== Strengeres Online-Wörterbuch + dauerhaft gelernte Wörter =====
@@ -3287,48 +3276,7 @@
             showToast(msg, 'error');
         };
 
-        const devToolsBypass = new URLSearchParams(window.location.search).get('dev') === '1';
-
-        function updateDevToolsLock() {
-            const overlay = document.getElementById('devtoolsOverlay');
-            if (!overlay) return;
-            const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
-                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-            if (devToolsBypass || window.innerWidth < 768 || isTouchDevice) {
-                overlay.classList.remove('devtools-open');
-                overlay.setAttribute('aria-hidden', 'true');
-                return;
-            }
-            const widthDiff = window.outerWidth > 0 ? Math.abs(window.outerWidth - window.innerWidth) : 0;
-            const heightDiff = window.outerHeight > 0 ? Math.abs(window.outerHeight - window.innerHeight) : 0;
-            const devToolsOpen = widthDiff > 160 || heightDiff > 160;
-            overlay.classList.toggle('devtools-open', devToolsOpen);
-            overlay.setAttribute('aria-hidden', String(!devToolsOpen));
-        }
-
-        function installClientGuards() {
-            document.addEventListener('contextmenu', event => {
-                const target = event.target;
-                if (!(target instanceof Element) || !target.closest('input, textarea')) event.preventDefault();
-            }, true);
-
-            document.addEventListener('keydown', event => {
-                const key = event.key.toLowerCase();
-                const devToolsShortcut = event.key === 'F12' ||
-                    (event.ctrlKey && key === 'u') ||
-                    (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key));
-                if (devToolsShortcut && !devToolsBypass) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-            }, true);
-
-            window.addEventListener('resize', updateDevToolsLock);
-            updateDevToolsLock();
-        }
-
         window.addEventListener('DOMContentLoaded', () => {
-            installClientGuards();
             initAmbientParticles();
             initCustomCursor();
             const playerColorInput = document.getElementById('onboardingPlayerColor');
@@ -6079,7 +6027,9 @@
                     : '<p class="text-xs text-gray-400 italic">Warte auf die Spielleitung für die nächste Runde...</p>';
                 return;
             }
-            document.getElementById('hangmanHint').textContent = state.hint ? `Hinweis: ${state.hint}` : '';
+            const hangmanHintElement = document.getElementById('hangmanHint');
+            hangmanHintElement.textContent = state.hint ? `Hinweis: ${state.hint}` : '';
+            hangmanHintElement.className = 'w-full max-w-xl whitespace-normal break-words text-sm leading-5 text-cyan-300 min-h-5 mb-3';
             const setterSolution = document.getElementById('hangmanSetterSolution');
             if (isSetter) {
                 const solution = state.secretWord || hangmanWord;
@@ -6091,17 +6041,28 @@
             }
             const wordDisplay = document.getElementById('hangmanWordDisplay');
             wordDisplay.replaceChildren();
-            Array.from({ length: Math.min(16, state.wordLength) }, (_, index) => {
-                const letter = (state.revealedWord || [])[index] || '';
-                wordDisplay.appendChild(createTextElement('span', 'min-w-7 border-b-2 border-indigo-400 pb-1', letter || '_'));
+            const wordLength = Math.max(3, Math.min(16, Number(state.wordLength) || 0));
+            const receivedReveal = Array.isArray(state.revealedWord) ? state.revealedWord : [];
+            const privateSolution = isSetter ? (state.secretWord || hangmanWord || '') : '';
+            const revealByIndex = Array.from({ length: wordLength }, (_, index) => {
+                const revealLetter = sanitizeWord(receivedReveal[index] || '', 1, 1);
+                if (revealLetter) return revealLetter;
+                if (privateSolution[index] && state.guessedLetters.includes(privateSolution[index])) return privateSolution[index];
+                return '';
             });
-            const revealedLetters = (state.revealedWord || []).filter(Boolean);
-            const correctLetters = state.guessedLetters.filter(letter => revealedLetters.includes(letter));
+            wordDisplay.className = 'flex flex-wrap justify-center gap-2 min-h-12 mb-4 px-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-wider';
+            for (let index = 0; index < wordLength; index++) {
+                wordDisplay.appendChild(createTextElement(
+                    'span',
+                    'inline-flex h-10 w-7 sm:w-9 items-end justify-center border-b-2 border-indigo-400 pb-1',
+                    revealByIndex[index] || '\u00A0'
+                ));
+            }
+            const revealedLetters = revealByIndex.filter(Boolean);
             const wrongLetters = state.guessedLetters.filter(letter => !revealedLetters.includes(letter));
             const guessedSummary = document.getElementById('hangmanGuessedSummary');
             guessedSummary.innerHTML = `
-                <div><span class="font-bold text-emerald-300">Richtig:</span> ${correctLetters.length ? correctLetters.join(' · ') : '—'}</div>
-                <div class="mt-1"><span class="font-bold text-red-300">Falsch:</span> ${wrongLetters.length ? wrongLetters.join(' · ') : '—'}</div>
+                <div><span class="font-bold text-red-300">Falsch:</span> ${wrongLetters.length ? wrongLetters.join(' · ') : '—'}</div>
             `;
             const rows = ['QWERTZUIOP', 'ASDFGHJKL', 'YXCVBNMÄÖÜ'];
             document.getElementById('hangmanKeyboard').innerHTML = rows.map(row =>
