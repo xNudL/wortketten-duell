@@ -39,7 +39,11 @@
         #mainContent { flex: 1 1 0%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
         .room-header-layout { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
         .room-header-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+        .room-lobby-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+        .room-lobby-label { flex: 0 0 auto; margin: 0; letter-spacing: .08em; text-transform: uppercase; }
         .room-id-card { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; min-width: 0; padding: .85rem 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(7,9,20,.48); }
+        .room-id-centered-row { display: flex; width: 100%; justify-content: center; }
+        .room-id-card-compact { width: max-content; max-width: 100%; justify-content: center; }
         .room-id-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
         .room-action-button { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; gap: .5rem; border: 1px solid rgba(129,140,248,.35); border-radius: .75rem; padding: .55rem .85rem; background: rgba(79,70,229,.24); color: #e0e7ff; font-size: .75rem; font-weight: 700; transition: background-color .18s ease, border-color .18s ease; cursor: pointer; }
         .room-action-button:hover { border-color: rgba(129,140,248,.65); background: rgba(79,70,229,.4); }
@@ -48,6 +52,8 @@
         .room-header-meta { flex: 1 1 12rem; min-width: 0; color: #d1d5db; font-size: .75rem; font-weight: 700; text-align: center; }
         .room-header-layout > .room-header-meta { flex: 0 0 auto; width: 100%; }
         .room-header-topline > .room-header-meta { flex: 1 1 12rem; width: auto; }
+        .room-lobby-topline > .room-header-meta { flex: 0 0 auto; width: auto; text-align: left; }
+        .room-header-settings-row { justify-content: center; }
         .room-friend-invite-section { margin: 1rem 0; padding: 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(12,16,32,.5); text-align: center; }
         .room-friend-invite-title { margin-bottom: .75rem; color: #c7d2fe; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
         .room-friend-invite-list { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
@@ -593,6 +599,11 @@
             flex-direction: column;
         }
         #screenBlackjack.blackjack-round-active #blackjackTable > .room-header-layout {
+            flex: 0 0 auto;
+            gap: .5rem;
+            margin-bottom: .3rem;
+        }
+        #screenBlackjack.blackjack-round-active #blackjackTable > .room-lobby-topline {
             flex: 0 0 auto;
             gap: .5rem;
             margin-bottom: .3rem;
@@ -1545,9 +1556,13 @@
                 </div>
 
                 <div id="hangmanRoom" class="hidden">
+                    <div class="room-lobby-topline">
+                        <span class="room-lobby-label px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Warteraum</span>
+                        <button onclick="leaveHangmanLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
+                    </div>
                     <div class="room-header-layout">
-                        <div class="room-header-topline">
-                            <div class="room-id-card">
+                        <div class="room-id-centered-row">
+                            <div class="room-id-card room-id-card-compact">
                                 <div>
                                     <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Hangman</p>
                                     <p id="hangmanRoomCode" class="text-2xl font-mono font-black text-indigo-300 tracking-wider">#----</p>
@@ -1556,7 +1571,6 @@
                                     <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
                                 </div>
                             </div>
-                            <button onclick="leaveHangmanLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
                         </div>
                         <p id="hangmanLobbyInfo" class="room-header-meta"></p>
                     </div>
@@ -1690,9 +1704,13 @@
                 </div>
 
                 <div id="blackjackTable" class="hidden">
+                    <div class="room-lobby-topline">
+                        <p id="blackjackRoundLabel" class="room-lobby-label room-header-meta text-left">Warteraum</p>
+                        <button onclick="leaveBlackjackLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
+                    </div>
                     <div class="room-header-layout">
-                        <div class="room-header-topline">
-                            <div class="room-id-card">
+                        <div class="room-id-centered-row">
+                            <div class="room-id-card room-id-card-compact">
                                 <div>
                                     <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Raum-ID · Blackjack</p>
                                     <p id="blackjackRoomCode" class="text-2xl font-mono font-black text-emerald-300 tracking-wider">#----</p>
@@ -1701,10 +1719,8 @@
                                     <button onclick="copyInviteLink()" class="room-action-button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>ID kopieren</span></button>
                                 </div>
                             </div>
-                            <button onclick="leaveBlackjackLobby()" class="room-leave-button"><i class="fa-solid fa-arrow-right-from-bracket mr-1" aria-hidden="true"></i> Lobby verlassen</button>
                         </div>
-                        <div class="room-header-topline">
-                            <p id="blackjackRoundLabel" class="room-header-meta text-left">Warteraum</p>
+                        <div class="room-header-topline room-header-settings-row">
                             <label id="blackjackLobbyBankrollControl" class="hidden text-[10px] font-bold uppercase tracking-wider text-emerald-100/70">
                                 Startguthaben
                                 <select id="blackjackLobbyBankrollSelect" onchange="setBlackjackStartingBankroll(this.value)" class="mt-1 rounded-xl border border-emerald-300/20 bg-slate-950 px-3 py-2 text-sm normal-case text-white">
@@ -1752,8 +1768,8 @@
         <!-- LOBBY WAITING SCREEN -->
         <div id="screenLobby" class="hidden space-y-5 animate-fade-in">
             <div class="glass rounded-3xl p-6 sm:p-8 shadow-2xl border border-border/80 text-center">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Warteraum</span>
+                <div class="room-lobby-topline mb-4">
+                    <span class="room-lobby-label px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">Warteraum</span>
                     <button onclick="leaveLobby()" class="room-leave-button">
                         <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Lobby verlassen
                     </button>
@@ -1763,7 +1779,7 @@
                 <p id="lobbyModeBadgeText" class="text-xs text-indigo-400 font-semibold mt-1">Modus: Alle Wörter</p>
                 
                 <div class="room-header-layout mx-auto w-full max-w-3xl">
-                    <div class="room-id-card mx-auto w-full justify-between">
+                    <div class="room-id-card room-id-card-compact mx-auto">
                         <div>
                             <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold text-left">Raum-ID</p>
                             <p id="displayRoomCode" class="text-2xl font-mono font-black text-indigo-400 tracking-wider">---</p>
